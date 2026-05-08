@@ -113,6 +113,11 @@ const CATEGORY_LABEL: Record<string, { fr: string; ht: string }> = {
   arrete: { fr: 'Arrêté', ht: 'Arète' },
   circulaire: { fr: 'Circulaire', ht: 'Sirkilè' },
   convention: { fr: 'Convention', ht: 'Konvansyon' },
+  ordonnance: { fr: 'Ordonnance', ht: 'Òdonans' },
+  communique: { fr: 'Communiqué', ht: 'Kominike' },
+  promulgation: { fr: 'Promulgation', ht: 'Pwomilgasyon' },
+  errata: { fr: 'Errata', ht: 'Erata' },
+  autre: { fr: 'Autre', ht: 'Lòt' },
 }
 
 /** Keys used by the review pill — restricted to string-valued COPY entries. */
@@ -344,7 +349,7 @@ export default function MoniteurReviewPage() {
           {issue?.candidates.map((c) => {
             const pill = REVIEW_PILL[c.review_status]
             const cat = c.detected_category
-              ? CATEGORY_LABEL[c.detected_category][lang]
+              ? (CATEGORY_LABEL[c.detected_category]?.[lang] ?? c.detected_category)
               : '—'
             const isBusy = busyId === c.id
             const isFinal = c.review_status === 'accepted' || c.review_status === 'rejected'

@@ -100,6 +100,9 @@ def text_to_read(
         headings=headings,
         articles=articles,
         signers=signers,
+        moniteur_issue_id=getattr(mi, "id", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
+        moniteur_issue_number=getattr(mi, "number", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
+        moniteur_issue_publication_date=getattr(mi, "publication_date", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
     )
 
 QuickAccessKey = Union[LegalCategory, CodeSubcategory]
