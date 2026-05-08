@@ -1,0 +1,511 @@
+/**
+ * Typed wrappers around the LexHaïti API.
+ *
+ * Base URL is configured via `NEXT_PUBLIC_API_URL` (see .env.local), default
+ * `http://localhost:8000/api/v1`. All paths here are relative to that base.
+ */
+import type { components } from '@/lib/api-types'
+import { apiGet, apiPatch, apiPost, apiPostForm } from '@/lib/api/client'
+
+// Re-exported types — what consumers reach for.
+export type LegalTextRead = components['schemas']['LegalTextRead']
+export type LegalTextListItem = components['schemas']['LegalTextListItem']
+export type ArticleListItem = components['schemas']['ArticleListItem']
+export type ArticleWithHistoryRead =
+  components['schemas']['ArticleWithHistoryRead']
+export type TocNode = components['schemas']['TocNode']
+export type PaginatedListResponse =
+  components['schemas']['PaginatedResponse_LegalTextListItem_']
+export type PaginatedArticlesResponse =
+  components['schemas']['PaginatedResponse_ArticleListItem_']
+export type PaginatedSearchResponse =
+  components['schemas']['PaginatedSearchResponse']
+export type SearchHit = components['schemas']['SearchHit']
+export type LegalCategory = components['schemas']['LegalCategory']
+export type CodeSubcategory = components['schemas']['CodeSubcategory']
+export type LegalStatus = components['schemas']['LegalStatus']
+export type DecisionListItem = components['schemas']['DecisionListItem']
+export type DecisionRead = components['schemas']['DecisionRead']
+export type PaginatedDecisionsResponse =
+  components['schemas']['PaginatedResponse_DecisionListItem_']
+export type CitationRead = components['schemas']['CitationRead']
+export type CitationNodeType = components['schemas']['CitationNodeType']
+export type CitationRelation = components['schemas']['CitationRelation']
+export type PaginatedCitationsResponse =
+  components['schemas']['PaginatedResponse_CitationRead_']
+export type CourtType = components['schemas']['CourtType']
+
+// -----------------------------------------------------------------------
+// Legal texts
+// -----------------------------------------------------------------------
+
+/** Quick-access cards on the homepage. */
+export async function getQuickAccess() {
+  return apiGet<LegalTextListItem[]>('/legal-texts/quick-access')
+}
+
+/**
+ * Batch-resolve article IDs → parent-text label + permalink. Used by the
+ * citation panel for cross-text references (where the local sibling list
+ * doesn't have a hit). Returns a partial list — IDs that don't exist are
+ * silently dropped, never throw.
+ */
+export type ArticleResolved = {
+  id: number
+  number: string
+  slug: string
+  text_id: number
+  text_slug: string
+  text_title_fr: string
+}
+
+export async function resolveArticles(ids: number[]) {
+  if (ids.length === 0) return [] as ArticleResolved[]
+  return apiGet<ArticleResolved[]>('/articles/resolve', {
+    params: { ids: ids.join(',') },
+  })
+}
+
+/** Paginated list of legal texts with optional filters and free-text query. */
+export async function listTexts(params?: {
+  q?: string
+  category?: LegalCategory
+  code_subcategory?: CodeSubcategory
+  status?: LegalStatus
+  /** One or more theme tags. ANY-match — repeat for multi-theme. */
+  theme?: string[]
+  limit?: number
+  offset?: number
+}) {
+  return apiGet<PaginatedListResponse>('/legal-texts', { params })
+}
+
+/**
+ * Hybrid lexical search across legal-text titles and article content.
+ * Returns ranked texts with up to 3 highlighted article snippets each.
+ */
+export async function searchTexts(params: {
+  q: string
+  category?: LegalCategory
+  code_subcategory?: CodeSubcategory
+  status?: LegalStatus
+  limit?: number
+  offset?: number
+}): Promise<PaginatedSearchResponse> {
+  return apiGet<PaginatedSearchResponse>('/legal-texts/search', { params })
+}
+
+/** Detail by slug. `include` controls how much of the related graph loads. */
+export async function getTextBySlug(slug: string, include?: 'toc' | 'all') {
+  return apiGet<LegalTextRead>(
+    `/legal-texts/${encodeURIComponent(slug)}`,
+    { params: { include } },
+  )
+}
+
+/** Headings tree (sidebar TOC). */
+export async function getTextToc(slug: string) {
+  return apiGet<TocNode[]>(
+    `/legal-texts/${encodeURIComponent(slug)}/toc`,
+  )
+}
+
+/** Paginated articles within a text — light shape, no content. */
+export async function listArticlesInText(
+  slug: string,
+  params?: {
+    heading_id?: number
+    heading_key?: string
+    limit?: number
+    offset?: number
+  },
+) {
+  return apiGet<PaginatedArticlesResponse>(
+    `/legal-texts/${encodeURIComponent(slug)}/articles`,
+    { params },
+  )
+}
+
+// -----------------------------------------------------------------------
+// Articles
+// -----------------------------------------------------------------------
+
+export async function getArticle(articleId: number) {
+  return apiGet<ArticleWithHistoryRead>(`/articles/${articleId}`)
+}
+
+/**
+ * All articles in a legal text that have more than one version.
+ * Returns each article's full version history embedded — used by the
+ * `/loi/[slug]/amendements` page.
+ */
+export async function getAmendmentsForText(slug: string) {
+  return apiGet<ArticleWithHistoryRead[]>(
+    `/legal-texts/${encodeURIComponent(slug)}/amendments`,
+  )
+}
+
+// -----------------------------------------------------------------------
+// Moniteur ingestion pipeline
+// -----------------------------------------------------------------------
+
+export type MoniteurIssueRead = {
+  id: number
+  number: string
+  year: number
+  publication_date: string | null
+  edition_label: string | null
+  file_url: string | null
+  page_count: number | null
+  processing_status:
+    | 'uploaded'
+    | 'ocr_pending'
+    | 'parsed'
+    | 'reviewed'
+    | 'published'
+    | 'failed'
+  processing_error: string | null
+  uploaded_at: string
+  parsed_at: string | null
+  published_at: string | null
+  created_at: string
+  updated_at: string
+  candidates_count: number
+  accepted_count: number
+}
+
+export type MoniteurLawCandidateRead = {
+  id: number
+  issue_id: number
+  position: number
+  detected_category:
+    | 'constitution'
+    | 'code'
+    | 'loi'
+    | 'decret'
+    | 'arrete'
+    | 'circulaire'
+    | 'convention'
+    | null
+  detected_title: string | null
+  detected_number: string | null
+  detected_date: string | null
+  raw_text: string
+  confidence: string | null
+  page_from: number | null
+  page_to: number | null
+  review_status: 'pending' | 'accepted' | 'rejected' | 'deferred'
+  promoted_legal_text_id: number | null
+  review_notes: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MoniteurIssueWithCandidates = MoniteurIssueRead & {
+  candidates: MoniteurLawCandidateRead[]
+}
+
+export async function listMoniteurIssues(params?: {
+  limit?: number
+  offset?: number
+  only_published?: boolean
+}) {
+  return apiGet<{
+    items: MoniteurIssueRead[]
+    total: number
+    page: number
+    size: number
+  }>(`/moniteur/issues`, { params })
+}
+
+export async function getMoniteurIssue(id: number) {
+  return apiGet<MoniteurIssueWithCandidates>(`/moniteur/issues/${id}`)
+}
+
+export async function createMoniteurIssue(payload: {
+  number: string
+  year: number
+  publication_date?: string | null
+  edition_label?: string | null
+}) {
+  return apiPost<MoniteurIssueRead>(`/moniteur/issues`, payload)
+}
+
+export async function uploadMoniteurPdf(id: number, file: File) {
+  // Routed through a local Next.js API route, not /api/v1/*, for the same
+  // reason as extractMoniteurMetadata — large multipart uploads choke the
+  // dev rewrite. See web/src/app/api/moniteur/issues/[id]/upload/route.ts.
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch(`/api/moniteur/issues/${id}/upload`, {
+    method: 'POST',
+    body: fd,
+  })
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      detail = (await r.json())?.detail
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `HTTP ${r.status}`)
+  }
+  return (await r.json()) as MoniteurIssueRead
+}
+
+export type ExtractedMoniteurMetadata = {
+  number: string | null
+  year: number | null
+  publication_date: string | null
+  edition_label: string | null
+  confidence: Record<string, number>
+}
+
+/** Run OCR + cover-page regex on an uploaded PDF and return proposed
+ *  metadata, without persisting anything. The editor reviews + corrects
+ *  the result before triggering the actual create-issue flow.
+ *
+ *  Routes through a local Next.js API route (rather than the /api/v1/*
+ *  rewrite) because Next's dev rewrite drops large multipart uploads —
+ *  Moniteur PDFs are routinely 30-80 MB. The local route streams the body
+ *  to FastAPI server-side. */
+export async function extractMoniteurMetadata(file: File) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch('/api/moniteur/extract-metadata', {
+    method: 'POST',
+    body: fd,
+  })
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      detail = (await r.json())?.detail
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `HTTP ${r.status}`)
+  }
+  return (await r.json()) as ExtractedMoniteurMetadata
+}
+
+export async function parseMoniteurIssue(id: number) {
+  return apiPost<MoniteurIssueWithCandidates>(
+    `/moniteur/issues/${id}/parse`,
+    {},
+  )
+}
+
+/** Hard-delete a Moniteur issue (and its candidates + uploaded PDF). */
+export async function deleteMoniteurIssue(id: number) {
+  const r = await fetch(`/api/v1/moniteur/issues/${id}`, { method: 'DELETE' })
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      detail = (await r.json())?.detail
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `HTTP ${r.status}`)
+  }
+}
+
+export async function reviewMoniteurCandidate(
+  id: number,
+  payload: {
+    /** Optional — leave unset to do a pure field-edit without changing the
+     *  review state (lets the inline editor patch detected_* in place). */
+    review_status?: 'pending' | 'accepted' | 'rejected' | 'deferred'
+    detected_category?: string | null
+    detected_title?: string | null
+    detected_number?: string | null
+    detected_date?: string | null
+    review_notes?: string | null
+  },
+) {
+  return apiPatch<MoniteurLawCandidateRead>(
+    `/moniteur/candidates/${id}`,
+    payload,
+  )
+}
+
+export async function promoteMoniteurCandidate(id: number) {
+  return apiPost<MoniteurLawCandidateRead>(
+    `/moniteur/candidates/${id}/promote`,
+    {},
+  )
+}
+
+// -----------------------------------------------------------------------
+// Decisions (jurisprudence)
+// -----------------------------------------------------------------------
+
+export async function listDecisions(params?: {
+  q?: string
+  court?: CourtType
+  /** Inclusive, ISO date YYYY-MM-DD. Maps to backend `from`. */
+  from?: string
+  /** Inclusive, ISO date YYYY-MM-DD. Maps to backend `to`. */
+  to?: string
+  limit?: number
+  offset?: number
+}) {
+  return apiGet<PaginatedDecisionsResponse>('/decisions', { params })
+}
+
+export async function getDecisionBySlug(slug: string) {
+  return apiGet<DecisionRead>(`/decisions/${encodeURIComponent(slug)}`)
+}
+
+// -----------------------------------------------------------------------
+// Citations (the legal graph)
+// -----------------------------------------------------------------------
+
+export async function listCitations(params?: {
+  source_type?: CitationNodeType
+  source_id?: number
+  target_type?: CitationNodeType
+  target_id?: number
+  relation?: CitationRelation
+  limit?: number
+  offset?: number
+}) {
+  return apiGet<PaginatedCitationsResponse>('/citations', { params })
+}
+
+/** Outgoing edges from an article: what does it cite? */
+export async function citationsFromArticle(articleId: number) {
+  return listCitations({ source_type: 'article', source_id: articleId })
+}
+
+/** Incoming edges to an article: what cites it? */
+export async function citationsToArticle(articleId: number) {
+  return listCitations({ target_type: 'article', target_id: articleId })
+}
+
+/** Outgoing edges from a decision: what does it cite? */
+export async function citationsFromDecision(decisionId: number) {
+  return listCitations({ source_type: 'decision', source_id: decisionId })
+}
+
+// -----------------------------------------------------------------------
+// Editorial — auth-required endpoints (carry the Auth.js cookie)
+// -----------------------------------------------------------------------
+
+export type EditorIdentity = {
+  id: number
+  email: string | null
+  name: string | null
+  role: 'admin' | 'reviewer' | 'editor'
+}
+
+/** Caller identity (for showing "logged in as ..." in the UI). */
+export async function whoami() {
+  return apiGet<EditorIdentity>('/editorial/me')
+}
+
+/**
+ * Editor list — sees ALL editorial statuses (drafts + published + ...).
+ * Default `editorial_status` is undefined → no filter, returns everything.
+ * Pass 'draft' / 'published' to narrow.
+ */
+export async function listEditorialTexts(params?: {
+  q?: string
+  category?: LegalCategory
+  code_subcategory?: CodeSubcategory
+  status?: LegalStatus
+  editorial_status?: 'draft' | 'pending_review' | 'published' | 'rejected'
+  limit?: number
+  offset?: number
+}) {
+  return apiGet<PaginatedListResponse>('/editorial/legal-texts', { params })
+}
+
+/**
+ * Editorial detail — sees drafts. Used in editor mode instead of the public
+ * `/legal-texts/{slug}` endpoint.
+ */
+export async function getEditorialTextBySlug(
+  slug: string,
+  include: 'toc' | 'all' = 'all',
+) {
+  return apiGet<LegalTextRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}`,
+    { params: { include } },
+  )
+}
+
+export async function publishLegalText(slug: string) {
+  return apiPost<LegalTextRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/publish`,
+  )
+}
+
+export async function unpublishLegalText(slug: string, comment: string) {
+  return apiPost<{ ok: boolean }>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/unpublish`,
+    { comment },
+  )
+}
+
+export async function requestChanges(slug: string, comment: string) {
+  return apiPost<{ ok: boolean }>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/request-changes`,
+    { comment },
+  )
+}
+
+/**
+ * Editor metadata update. Send only the fields you want to change; unset
+ * keys are left untouched. Pass `null` to clear nullable fields.
+ */
+export type LegalTextMetadataPatch = {
+  title_fr?: string
+  title_ht?: string | null
+  description_fr?: string | null
+  description_ht?: string | null
+  promulgation_date?: string | null // ISO date "YYYY-MM-DD"
+  publication_date?: string | null
+  moniteur_ref?: string | null
+  category?: LegalCategory
+  code_subcategory?: CodeSubcategory | null
+  status?: LegalStatus
+  comment?: string | null
+}
+
+export async function updateLegalTextMetadata(
+  slug: string,
+  patch: LegalTextMetadataPatch,
+) {
+  return apiPatch<LegalTextRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/metadata`,
+    patch,
+  )
+}
+
+/**
+ * Editor article-content update — bilingual title + body. Send only the
+ * fields you want to change; unset keys leave the version untouched.
+ *
+ * Versioning policy is server-side: a draft version is mutated in place;
+ * a published version is superseded by a new draft (next version_number).
+ */
+export type ArticleContentPatch = {
+  title_fr?: string | null
+  title_ht?: string | null
+  text_fr?: string
+  text_ht?: string | null
+  comment?: string | null
+}
+
+export type ArticleEmbed = components['schemas']['ArticleEmbed']
+
+export async function updateArticleContent(
+  articleId: number,
+  patch: ArticleContentPatch,
+) {
+  return apiPatch<ArticleEmbed>(
+    `/editorial/articles/${articleId}/content`,
+    patch,
+  )
+}

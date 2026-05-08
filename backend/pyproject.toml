@@ -1,0 +1,137 @@
+[project]
+name = "lex-haiti"
+version = "0.1.0"
+description = "LexHaïti — open digital infrastructure for Haitian law"
+requires-python = ">=3.12"
+authors = [{ name = "LexHaïti founding team" }]
+license = { text = "Apache-2.0" }
+
+dependencies = [
+    # Core framework
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.20",
+
+    # Database
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "psycopg2-binary>=2.9",
+    "pgvector>=0.3.6",
+
+    # Validation & settings
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+
+    # Background jobs
+    "redis>=5.2",
+    "rq>=2.0",
+
+    # Object storage
+    "boto3>=1.35",
+
+    # Observability
+    "loguru>=0.7",
+
+    # Document export (PDF + DOCX with matching site identity)
+    "weasyprint>=63",
+    "python-docx>=1.1",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+    "mypy>=1.13",
+    "ruff>=0.8",
+    # Bounded-context boundary enforcement for the modular monolith.
+    # Contracts live in [tool.importlinter] below; run with `lint-imports`.
+    "import-linter>=2.1",
+]
+
+ingestion = [
+    "pypdf>=5.1",
+    "beautifulsoup4>=4.12",
+    # OCR baseline — Tesseract via Python wrapper, with PDF→image conversion
+    # via pdf2image (system dep: poppler-utils). Premium OCR fallback for
+    # low-confidence pages will be added when budget allows.
+    "pytesseract>=0.3.13",
+    "pdf2image>=1.17",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "services*", "packages*", "workers*"]
+exclude = ["tests*", "migrations*", "scripts*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*", "rq.*", "pypdf.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+
+# -----------------------------------------------------------------------
+# Bounded-context boundaries — enforced by `lint-imports`.
+# These contracts encode ADR-001's modular-monolith rules so that a future
+# change crossing a context line breaks the build instead of slipping in.
+# -----------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["api", "services", "packages", "workers"]
+# Required because some `forbidden` contracts target external packages (fastapi, starlette).
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Services don't know about the HTTP layer"
+type = "forbidden"
+source_modules = ["services"]
+forbidden_modules = ["fastapi", "starlette", "api"]
+
+[[tool.importlinter.contracts]]
+name = "Domain corpus doesn't depend on workflow or retrieval"
+type = "forbidden"
+source_modules = ["services.corpus"]
+forbidden_modules = [
+    "services.editorial",
+    "services.search",
+    "services.enrichment",
+    "services.ingestion",
+]
+
+[[tool.importlinter.contracts]]
+name = "Independent bounded contexts (peer services)"
+type = "independence"
+modules = [
+    "services.ingestion",
+    "services.enrichment",
+    "services.search",
+]
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture: api → services → packages"
+type = "layers"
+layers = [
+    "api",
+    "services",
+    "packages",
+]

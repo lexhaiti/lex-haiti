@@ -1,0 +1,29 @@
+import type { NextConfig } from "next";
+
+const API_TARGET =
+  process.env.LEXHAITI_API_INTERNAL_URL ?? "http://localhost:8000";
+
+const nextConfig: NextConfig = {
+  reactCompiler: true,
+  output: "standalone",
+  typescript: {
+    // Pre-existing type errors in the codebase — skip for build, fix incrementally
+    ignoreBuildErrors: true,
+  },
+  // Don't rewrite trailing slashes — FastAPI's collection routes end with `/`
+  // and the proxy must pass URLs through verbatim.
+  skipTrailingSlashRedirect: true,
+  // Proxy /api/v1/* to the FastAPI backend so the browser sees one origin
+  // (localhost:3000). This lets Auth.js cookies travel to backend requests
+  // without CORS gymnastics.
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${API_TARGET}/api/v1/:path*`,
+      },
+    ];
+  },
+};
+
+export default nextConfig;

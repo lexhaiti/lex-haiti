@@ -1,0 +1,151 @@
+{# LexHaïti — legal-text PDF template (Jinja2 → WeasyPrint).
+   Variables:
+     text:           LegalTextRead Pydantic object
+     tree:           ExportTree (roots + orphan_articles)
+     labels:         ExportLabels (locale-bound copy)
+     pick:           callable(fr, ht) -> str (language picker)
+     fmt_date:       callable(date) -> str (long French/Kreyòl)
+     split_alineas:  callable(text) -> list[str]
+     article_label:  callable(article) -> "Article 1" / "Atik 1"
+     base_url:       canonical site URL (e.g. https://lexhaiti.ht)
+     permalink:      base_url + /lois/{slug}
+     generated_at:   datetime now
+     css_inline:     contents of legal_text.css (injected so WeasyPrint can find it)
+#}
+{% macro render_article(art) -%}
+  <article class="article">
+    <div class="article-number">{{ article_label(art) }}</div>
+    {% set atitle = pick(art.title_fr, art.title_ht) -%}
+    {% if atitle %}<div class="article-title">{{ atitle }}</div>{% endif %}
+    {% set body = pick(art.content_fr, art.content_ht) -%}
+    {% if body -%}
+      <div class="article-body">
+        {% for para in split_alineas(body) -%}
+        <p{% if is_list_item(para) %} class="list-item"{% endif %}>{{ para }}</p>
+        {% endfor %}
+      </div>
+    {%- endif %}
+    {% if labels.lang == 'ht' and not art.content_ht and art.content_fr %}
+      <div class="article-translation-notice">{{ labels.no_haitian_translation }}</div>
+    {% endif %}
+  </article>
+{%- endmacro %}
+
+{% macro render_node(node) -%}
+  {% set h = node.heading -%}
+  <section class="heading heading-level-{{ h.level }}">
+    <div class="kicker">{{ labels.heading(h.level) }}{% if h.number %} {{ h.number }}{% endif %}</div>
+    {% set hname = pick(h.title_fr, h.title_ht) -%}
+    {% if hname %}<h2 class="name">{{ hname }}</h2>{% endif %}
+  </section>
+  {% for art in node.articles -%}
+    {{ render_article(art) }}
+  {%- endfor %}
+  {% for child in node.children -%}
+    {{ render_node(child) }}
+  {%- endfor %}
+{%- endmacro %}
+
+<!doctype html>
+<html lang="{{ labels.lang }}">
+<head>
+  <meta charset="utf-8">
+  <title>{{ pick(text.title_fr, text.title_ht) }}</title>
+  <style>{{ css_inline | safe }}</style>
+</head>
+<body>
+
+  {# Running headers/footers — these elements are invisible but their content
+     is captured by CSS string-set and surfaced in @page margin boxes. #}
+  <div class="brand-running"></div>
+  <div class="text-title-running">{{ pick(text.title_fr, text.title_ht) }}</div>
+  <div class="footer-running">{{ labels.footer_source }} : {{ permalink }}</div>
+
+  {# ----- Cover page ----- #}
+  <section class="cover">
+    <div class="cover-bar"></div>
+
+    <div class="cover-brand">
+      <div class="mark">Lex<span class="accent">Haïti</span></div>
+      <div class="tagline">{{ labels.cover_brand_tagline }}</div>
+    </div>
+
+    {% if text.category %}
+    <div class="cover-kicker">{{ labels.category(text.category) }}{% if text.code_subcategory %} — {{ text.code_subcategory.replace('_', ' ').capitalize() }}{% endif %}</div>
+    {% endif %}
+
+    <h1 class="cover-title">{{ pick(text.title_fr, text.title_ht) }}</h1>
+
+    {% set subtitle = pick(text.description_fr, text.description_ht) %}
+    {% if subtitle %}
+    <p class="cover-subtitle">{{ subtitle }}</p>
+    {% endif %}
+
+    <div class="cover-spacer"></div>
+
+    <div class="cover-meta">
+      {% if text.promulgation_date %}
+      <div class="row">
+        <div class="label">{{ labels.cover_promulgation }}</div>
+        <div class="value">{{ fmt_date(text.promulgation_date) }}</div>
+      </div>
+      {% endif %}
+      {% if text.publication_date %}
+      <div class="row">
+        <div class="label">{{ labels.cover_publication }}</div>
+        <div class="value">{{ fmt_date(text.publication_date) }}</div>
+      </div>
+      {% endif %}
+      {% if text.moniteur_ref %}
+      <div class="row">
+        <div class="label">{{ labels.cover_moniteur }}</div>
+        <div class="value"><em>{{ text.moniteur_ref }}</em></div>
+      </div>
+      {% endif %}
+      <div class="row">
+        <div class="label">{{ labels.cover_articles }}</div>
+        <div class="value">{{ text.articles | length }}</div>
+      </div>
+      <div class="row">
+        <div class="label">{{ labels.cover_status }}</div>
+        <div class="value">
+          <span class="cover-status {{ text.status }}">{{ labels.status(text.status) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <div>{{ labels.footer_source }} : <span class="url">{{ permalink }}</span></div>
+      <div>{{ labels.footer_version }} : {{ fmt_date(text.updated_at) }} &middot; {{ labels.cover_generated }} {{ fmt_date(generated_at) }}</div>
+      {% if labels.lang == 'ht' and not text.title_ht %}
+      <div style="margin-top: 3mm; font-style: italic;">{{ labels.no_haitian_translation }}</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ----- Body ----- #}
+
+  {% set preamble = pick(text.preamble_fr, text.preamble_ht) %}
+  {% if preamble %}
+  <div class="preamble">
+    <span class="label">{{ labels.preamble }}</span>
+    {% for para in split_alineas(preamble) %}
+    <p>{{ para }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Render the heading tree recursively. Orphan articles (no heading) come first
+     so they aren't lost between the preamble and the first heading. #}
+  {% if tree.orphan_articles %}
+  {% for art in tree.orphan_articles %}
+    {{ render_article(art) }}
+  {% endfor %}
+  {% endif %}
+
+  {% for node in tree.roots %}
+    {{ render_node(node) }}
+  {% endfor %}
+
+</body>
+</html>

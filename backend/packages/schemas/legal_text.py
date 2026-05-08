@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict
+
+from packages.schemas.article import ArticleCreate, ArticleEmbed
+from packages.schemas.enums import (
+    CodeSubcategory,
+    EditorialStatus,
+    LegalCategory,
+    LegalStatus,
+)
+from packages.schemas.heading import LegalHeadingCreate, LegalHeadingRead
+from packages.schemas.signer import LegalSignerCreate, LegalSignerRead
+
+
+class LegalTextBase(BaseModel):
+    slug: str
+    category: LegalCategory
+    code_subcategory: Optional[CodeSubcategory] = None
+    jurisdiction: str = "HT"
+
+    title_fr: str
+    title_ht: Optional[str] = None
+    description_fr: Optional[str] = None
+    description_ht: Optional[str] = None
+    preamble_fr: Optional[str] = None
+    preamble_ht: Optional[str] = None
+
+    promulgation_date: Optional[date] = None
+    publication_date: Optional[date] = None
+    moniteur_ref: Optional[str] = None
+
+    status: LegalStatus = LegalStatus.in_force
+    editorial_status: EditorialStatus = EditorialStatus.draft
+
+
+class LegalTextCreate(LegalTextBase):
+    """Used by seed scripts and editorial UI."""
+
+    headings: Optional[List[LegalHeadingCreate]] = None
+    articles: Optional[List[ArticleCreate]] = None
+    signers: Optional[List[LegalSignerCreate]] = None
+
+
+class MatchSnippet(BaseModel):
+    """A highlighted excerpt showing where the search query matched in an
+    article's body. `snippet_fr` / `snippet_ht` come from `ts_headline()` and
+    contain `<mark>...</mark>` wrappers around the matched terms.
+    """
+
+    article_number: str
+    article_slug: Optional[str] = None
+    snippet_fr: Optional[str] = None
+    snippet_ht: Optional[str] = None
+
+
+class LegalTextListItem(BaseModel):
+    """Lightweight shape for list endpoints — no children."""
+
+    id: int
+    slug: str
+    title_fr: str
+    title_ht: Optional[str] = None
+
+    category: LegalCategory
+    code_subcategory: Optional[CodeSubcategory] = None
+    status: LegalStatus
+    editorial_status: EditorialStatus
+    moniteur_ref: Optional[str] = None
+    publication_date: Optional[date] = None
+
+    description_fr: Optional[str] = None
+    description_ht: Optional[str] = None
+
+    # Editorial timestamps — exposed on list items so the homepage / activity
+    # feeds can sort and label by "recently added" vs "recently updated"
+    # without fetching the full LegalTextRead shape.
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+
+    # Populated only when the route is called with `with_snippets=true` and a
+    # search query was applied. Up to 2 article snippets per text where the
+    # match was found in the body (not in the title/description).
+    match_snippets: Optional[List["MatchSnippet"]] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LegalTextRead(LegalTextBase):
+    """Full shape with timestamps. Children loaded on demand via includes."""
+
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    published_at: Optional[datetime] = None
+
+    headings: List[LegalHeadingRead] = []
+    articles: List[ArticleEmbed] = []
+    signers: List[LegalSignerRead] = []
+
+    model_config = ConfigDict(from_attributes=True)

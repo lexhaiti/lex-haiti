@@ -1,0 +1,342 @@
+/* LexHaïti — print stylesheet for WeasyPrint
+ *
+ * Visual identity:
+ *   - Primary navy: #0D1B4C (titles, accents)
+ *   - Brand red:    #DC2626 (logo accent, article-number bullet, top bar)
+ *   - Sans body:    DM Sans → fallback to system sans
+ *   - Serif title:  Source Serif 4 → fallback to Georgia
+ *
+ * Page composition:
+ *   - Cover page: red top bar, centered hero, metadata grid, no header/footer
+ *   - Body pages: small header (brand · text title), provenance footer
+ */
+
+@page {
+  size: A4;
+  margin: 22mm 18mm 22mm 18mm;
+
+  /* Top hairline + brand identifier on body pages */
+  @top-left {
+    content: string(brand);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 8pt;
+    font-weight: 700;
+    color: #0D1B4C;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-top: 6mm;
+  }
+  @top-right {
+    content: string(textTitle);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 8pt;
+    color: #475569;
+    padding-top: 6mm;
+    text-align: right;
+    max-width: 110mm;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Provenance footer — every body page. */
+  @bottom-left {
+    content: string(footerSource);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 7.5pt;
+    color: #475569;
+    padding-bottom: 8mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 7.5pt;
+    color: #475569;
+    padding-bottom: 8mm;
+  }
+}
+
+@page :first {
+  margin: 0;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+@page cover {
+  size: A4;
+  margin: 0;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "DM Sans", "Helvetica Neue", "Arial", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: #1e293b;
+  -weasy-hyphens: auto;
+}
+
+a { color: #0D1B4C; text-decoration: none; }
+
+/* --- Cover page ----------------------------------------------------------- */
+
+.cover {
+  page: cover;
+  page-break-after: always;
+  width: 210mm;
+  height: 297mm;
+  position: relative;
+  padding: 28mm 22mm 22mm 22mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.cover-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 6mm;
+  background: linear-gradient(to right, #ef4444 0%, #dc2626 50%, #ef4444 100%);
+}
+
+.cover-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 4mm;
+  margin-bottom: 28mm;
+}
+.cover-brand .mark {
+  font-family: "DM Sans", "Helvetica Neue", sans-serif;
+  font-weight: 800;
+  font-size: 18pt;
+  letter-spacing: -0.02em;
+  color: #0D1B4C;
+}
+.cover-brand .mark .accent { color: #DC2626; }
+.cover-brand .tagline {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.cover-kicker {
+  display: block;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #DC2626;
+  margin-bottom: 8mm;
+}
+
+.cover-title {
+  font-family: "Source Serif 4", "Georgia", serif;
+  font-weight: 700;
+  font-size: 36pt;
+  line-height: 1.1;
+  color: #0D1B4C;
+  margin: 0 0 10mm 0;
+  letter-spacing: -0.01em;
+}
+
+.cover-subtitle {
+  font-family: "Source Serif 4", "Georgia", serif;
+  font-style: italic;
+  font-size: 13pt;
+  line-height: 1.45;
+  color: #475569;
+  margin: 0 0 20mm 0;
+  max-width: 150mm;
+}
+
+.cover-spacer { flex: 1; }
+
+.cover-meta {
+  border-top: 0.6pt solid #cbd5e1;
+  padding-top: 8mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm 12mm;
+  margin-bottom: 12mm;
+}
+.cover-meta .row { break-inside: avoid; }
+.cover-meta .label {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 2pt;
+}
+.cover-meta .value {
+  font-size: 11pt;
+  font-weight: 600;
+  color: #0D1B4C;
+}
+
+.cover-status {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #047857;
+}
+.cover-status.abrogated { color: #b91c1c; }
+.cover-status.suspended { color: #b45309; }
+
+.cover-footer {
+  border-top: 0.6pt solid #e2e8f0;
+  padding-top: 5mm;
+  font-size: 8pt;
+  color: #64748b;
+  line-height: 1.5;
+}
+.cover-footer .url {
+  color: #0D1B4C;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* --- Body content --------------------------------------------------------- */
+
+.text-title-running {
+  string-set: textTitle content();
+  position: absolute;
+  visibility: hidden;
+  width: 0; height: 0;
+}
+
+.brand-running {
+  string-set: brand "LexHaïti";
+  position: absolute;
+  visibility: hidden;
+  width: 0; height: 0;
+}
+
+.footer-running {
+  string-set: footerSource content();
+  position: absolute;
+  visibility: hidden;
+  width: 0; height: 0;
+}
+
+.preamble {
+  margin: 4mm 0 10mm 0;
+  padding: 6mm 8mm;
+  background: #f8fafc;
+  border-left: 2pt solid #DC2626;
+  font-style: italic;
+  color: #334155;
+  page-break-inside: avoid;
+}
+.preamble .label {
+  font-style: normal;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #DC2626;
+  display: block;
+  margin-bottom: 3mm;
+}
+.preamble p { margin: 0 0 3mm 0; }
+.preamble p:last-child { margin-bottom: 0; }
+
+/* Heading hierarchy: Livre > Titre > Chapitre > Section */
+.heading {
+  page-break-inside: avoid;
+}
+.heading-level-book,
+.heading-level-part {
+  margin: 12mm 0 6mm 0;
+  padding-bottom: 3mm;
+  border-bottom: 1pt solid #0D1B4C;
+  page-break-before: always;
+}
+.heading-level-book:first-of-type,
+.heading-level-part:first-of-type {
+  page-break-before: auto;
+}
+.heading-level-title {
+  margin: 10mm 0 5mm 0;
+  padding-bottom: 2mm;
+  border-bottom: 0.6pt solid #cbd5e1;
+}
+.heading-level-chapter {
+  margin: 8mm 0 4mm 0;
+}
+.heading-level-section,
+.heading-level-subsection {
+  margin: 6mm 0 3mm 0;
+}
+
+.heading .kicker {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #DC2626;
+  margin-bottom: 1mm;
+}
+.heading .name {
+  font-family: "Source Serif 4", "Georgia", serif;
+  font-weight: 700;
+  color: #0D1B4C;
+  margin: 0;
+  line-height: 1.2;
+}
+.heading-level-book .name,
+.heading-level-part .name { font-size: 18pt; }
+.heading-level-title .name { font-size: 15pt; }
+.heading-level-chapter .name { font-size: 13pt; }
+.heading-level-section .name,
+.heading-level-subsection .name { font-size: 11.5pt; }
+
+/* Article */
+.article {
+  margin: 5mm 0 5mm 0;
+  page-break-inside: avoid;
+}
+.article-number {
+  font-family: "DM Sans", "Helvetica Neue", sans-serif;
+  font-size: 9.5pt;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #DC2626;
+  margin: 0 0 1.5mm 0;
+}
+.article-title {
+  font-family: "Source Serif 4", "Georgia", serif;
+  font-weight: 700;
+  font-size: 11pt;
+  color: #0D1B4C;
+  margin: 0 0 2mm 0;
+}
+.article-body p {
+  margin: 0 0 2.5mm 0;
+  text-align: left;
+}
+.article-body p.list-item {
+  /* Hanging-indent style: marker (a)/b)/1°) sits flush, continuation lines
+     align to the marker text. Keeps lists scannable without extra bullets. */
+  margin-left: 6mm;
+  text-indent: -6mm;
+}
+.article-body p:last-child { margin-bottom: 0; }
+
+.preamble p { text-align: left; }
+
+.article-translation-notice {
+  font-size: 8pt;
+  font-style: italic;
+  color: #94a3b8;
+  margin-top: 1mm;
+}

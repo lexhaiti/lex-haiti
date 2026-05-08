@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.eggs/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Local data
+*.db
+*.sqlite
+*.sqlite3
+local-data/
+
+# Logs
+*.log
+
+# Secrets / env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Claude Code
+.claude/
+
+# OS
+Thumbs.db

@@ -1,0 +1,127 @@
+'use client'
+
+import React, { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useT } from '@/i18n/useT'
+import { AllLawsUI } from '@/components/all-laws/ALlLawUI'
+import { EditorialFilter } from '@/components/all-laws/EditorialFilter'
+import {
+  useAllTexts,
+  type EditorialStatusFilter,
+} from '@/lib/hooks/useAllTexts'
+import { useEditorMode } from '@/lib/hooks/useEditorMode'
+import { CardStyle } from '@/components/shared/LawCard'
+
+type Filters = {
+  category: string
+  codeSubcategory: string
+  year: string
+  status: string
+  sort: string
+}
+
+const toSupportedLang = (l?: string): 'fr' | 'ht' => (l === 'ht' ? 'ht' : 'fr')
+
+export default function AllLaws() {
+  const { t, language } = useT()
+  const lang = toSupportedLang(language)
+  const searchParams = useSearchParams()
+
+  const [viewMode, setViewMode] = useState<CardStyle>('grid')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeSearchTerm, setActiveSearchTerm] = useState('')
+  // Theme tags from the URL (?theme=...). Driven by the header Thématiques
+  // menu — not a UI control on this page.
+  const [themes, setThemes] = useState<string[]>([])
+  const [filters, setFilters] = useState<Filters>({
+    category: 'all',
+    codeSubcategory: 'all',
+    year: 'all',
+    status: 'all',
+    sort: 'newest',
+  })
+  // Editor-only: switch between published / drafts / all.
+  const { isEditor } = useEditorMode()
+  const [editorialStatus, setEditorialStatus] =
+    useState<EditorialStatusFilter>('all')
+
+  // Parse URL params once/when they change
+  useEffect(() => {
+    if (!searchParams) return
+
+    const q = searchParams.get('q')
+    const category = searchParams.get('category')
+    const codeSubcategory = searchParams.get('code_subcategory')
+    const sort = searchParams.get('sort')
+    const status = searchParams.get('status')
+    const themeParams = searchParams.getAll('theme')
+
+    if (q !== null) {
+      setSearchQuery(q)
+      setActiveSearchTerm(q)
+    } else {
+      setSearchQuery('')
+      setActiveSearchTerm('')
+    }
+
+    setThemes(themeParams)
+
+    setFilters((prev) => ({
+      ...prev,
+      ...(category ? { category } : {}),
+      ...(codeSubcategory ? { codeSubcategory } : {}),
+      ...(sort ? { sort } : {}),
+      ...(status ? { status } : {}),
+    }))
+  }, [searchParams])
+
+  const { items, total, isLoading, loadMore, canLoadMore, refresh } =
+    useAllTexts({
+      q: searchQuery,
+      filters,
+      themes,
+      lang,
+      limit: 24,
+      editorialStatus: isEditor ? editorialStatus : undefined,
+    })
+
+  const handleSearch = () => {
+    setActiveSearchTerm(searchQuery)
+    refresh()
+  }
+
+  // Effect to update title if search query is cleared
+  useEffect(() => {
+    if (searchQuery === '') {
+      setActiveSearchTerm('')
+    }
+  }, [searchQuery])
+
+  return (
+    <AllLawsUI
+      t={t}
+      lang={lang}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      onSearch={handleSearch}
+      cardStyle={viewMode}
+      onViewModeChange={setViewMode}
+      filters={filters}
+      onFiltersChange={setFilters}
+      isLoading={isLoading}
+      laws={items}
+      total={total}
+      onLoadMore={loadMore}
+      canLoadMore={canLoadMore}
+      activeSearchTerm={activeSearchTerm}
+      editorialSlot={
+        isEditor ? (
+          <EditorialFilter
+            value={editorialStatus}
+            onChange={setEditorialStatus}
+          />
+        ) : null
+      }
+    />
+  )
+}

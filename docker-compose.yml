@@ -1,0 +1,93 @@
+# Dev stack for LexHaïti (Phase 0).
+#
+# Services:
+#   - db        Postgres 16 with pgvector
+#   - redis     Job queue + cache
+#   - minio     S3-compatible object storage
+#   - minio-init  One-shot bucket creation
+#
+# Run from project root: docker compose up -d
+# Or via Makefile: make up
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: lexhaiti-db
+    environment:
+      POSTGRES_DB: lexhaiti
+      POSTGRES_USER: lexhaiti
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lexhaiti}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lexhaiti -d lexhaiti"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: lexhaiti-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: lexhaiti-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: lexhaiti-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set lex http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb --ignore-existing lex/lexhaiti-dev;
+      mc mb --ignore-existing lex/lexhaiti-archive;
+      mc anonymous set download lex/lexhaiti-archive;
+      echo 'MinIO buckets ready.';
+      "
+
+  # Dev-only SMTP catcher. Auth.js sends magic-link emails here; you read
+  # them in the web UI at http://localhost:8025. No mail leaves your machine.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: lexhaiti-mailpit
+    ports:
+      - "1025:1025"   # SMTP (Auth.js connects here)
+      - "8025:8025"   # Web UI (you read magic-link emails here)
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8025/livez"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

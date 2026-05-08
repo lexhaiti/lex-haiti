@@ -1,0 +1,1 @@
+"""FastAPI public read API."""

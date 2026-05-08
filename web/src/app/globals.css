@@ -1,0 +1,336 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=swap');
+@import "tailwindcss";
+
+@config "../../tailwind.config.ts";
+
+/* Accessibility: smooth scrolling with header offset.
+   `scrollbar-gutter: stable` always reserves space for the scrollbar so opening
+   any modal/dropdown that locks body scroll doesn't shift the page horizontally. */
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    scrollbar-gutter: stable;
+}
+
+/* Accessibility: visible focus indicators for keyboard navigation */
+:focus-visible {
+    outline: 2px solid hsl(229 70% 18% / 0.5);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Override focus for form elements — let Tailwind/Radix handle their own rings */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[data-slot="select-trigger"]:focus-visible,
+[data-slot="input"]:focus-visible,
+button:focus-visible {
+    outline: none !important;
+}
+
+/* Screen reader only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+
+@layer base {
+
+    :root {
+        /* Deep Legal Navy - Primary */
+        --background: 210 20% 98%;
+        --foreground: 222 47% 11%;
+
+        /* Card surfaces */
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+
+        /* Popover */
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+
+        /* Primary — Deep navy. Exact match for the brand's #0D1B4C
+           (was "229 70% 18%" — visually identical but ~1% off; pinning
+           to the canonical hex so `bg-primary` matches `bg-[#0D1B4C]`
+           pixel-for-pixel during the migration). */
+        --primary: 229 71% 17%;
+        --primary-foreground: 45 100% 96%;
+
+        /* Secondary - Soft Blue Gray */
+        --secondary: 214 32% 91%;
+        --secondary-foreground: 222 47% 11%;
+
+        /* Muted */
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+
+        /* Accent - Soft Slate (dropdown hovers, interactive highlights) */
+        --accent: 214 20% 94%;
+        --accent-foreground: 222 47% 11%;
+
+        /* Teal for interactive elements */
+        --teal: 174 72% 40%;
+        --teal-foreground: 0 0% 100%;
+
+        /* Destructive */
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+
+        /* Border & Input */
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 229 70% 18%;
+
+        /* Chart colors */
+        --chart-1: 229 70% 18%;
+        --chart-2: 214 32% 60%;
+        --chart-3: 174 72% 40%;
+        --chart-4: 215 16% 47%;
+        --chart-5: 0 84% 60%;
+
+        /* Sidebar */
+        --sidebar-background: 0 0% 100%;
+        --sidebar-foreground: 222 47% 11%;
+        --sidebar-primary: 229 70% 18%;
+        --sidebar-primary-foreground: 45 100% 96%;
+        --sidebar-accent: 214 20% 94%;
+        --sidebar-accent-foreground: 222 47% 11%;
+        --sidebar-border: 214 32% 91%;
+        --sidebar-ring: 229 70% 18%;
+
+        /* Custom tokens */
+        --radius: 0.625rem;
+        --navy-dark: 229 70% 12%;
+        --gold-light: 45 100% 96%;
+        --gradient-hero: linear-gradient(135deg, hsl(229 70% 18%) 0%, hsl(229 60% 25%) 50%, hsl(174 72% 35%) 100%);
+        --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+        --gradient-accent: linear-gradient(90deg, hsl(229 70% 18%) 0%, hsl(229 60% 30%) 100%);
+        --shadow-soft: 0 4px 20px -4px hsla(229, 70%, 18%, 0.1);
+        --shadow-card: 0 2px 8px -2px hsla(229, 70%, 18%, 0.08);
+        --shadow-elevated: 0 12px 40px -8px hsla(229, 70%, 18%, 0.15);
+    }
+
+    .dark {
+        --background: 222 47% 8%;
+        --foreground: 210 40% 98%;
+
+        --card: 222 47% 11%;
+        --card-foreground: 210 40% 98%;
+
+        --popover: 222 47% 11%;
+        --popover-foreground: 210 40% 98%;
+
+        --primary: 229 70% 50%;
+        --primary-foreground: 0 0% 100%;
+
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
+
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
+
+        --accent: 217 33% 20%;
+        --accent-foreground: 210 40% 98%;
+
+        --teal: 174 72% 50%;
+        --teal-foreground: 222 47% 11%;
+
+        --destructive: 0 62% 50%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --ring: 229 70% 50%;
+
+        --sidebar-background: 222 47% 11%;
+        --sidebar-foreground: 210 40% 98%;
+        --sidebar-primary: 229 70% 50%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 217 33% 20%;
+        --sidebar-accent-foreground: 210 40% 98%;
+        --sidebar-border: 217 33% 17%;
+        --sidebar-ring: 229 70% 50%;
+
+        --navy-dark: 222 47% 6%;
+        --gold-light: 45 100% 96%;
+        --gradient-hero: linear-gradient(135deg, hsl(222 47% 8%) 0%, hsl(229 60% 15%) 50%, hsl(174 50% 25%) 100%);
+        --gradient-card: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 9%) 100%);
+        --shadow-soft: 0 4px 20px -4px hsla(0, 0%, 0%, 0.3);
+        --shadow-card: 0 2px 8px -2px hsla(0, 0%, 0%, 0.2);
+        --shadow-elevated: 0 12px 40px -8px hsla(0, 0%, 0%, 0.4);
+    }
+
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-family: 'DM Sans', system-ui, sans-serif;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        @apply font-bold tracking-tight;
+    }
+
+    /* Legal text typography */
+    .legal-text {
+        font-family: 'Source Serif 4', Georgia, serif;
+        @apply text-foreground/90 leading-relaxed;
+    }
+
+    .legal-article {
+        font-family: 'Source Serif 4', Georgia, serif;
+        @apply text-lg leading-[1.8] text-foreground/85;
+    }
+
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Selection style */
+    ::selection {
+        @apply bg-accent/30 text-foreground;
+    }
+
+    a, button {
+        cursor: pointer;
+    };
+}
+
+@layer components {
+    /* Hero gradient background */
+    .hero-gradient {
+        background: var(--gradient-hero);
+    }
+
+    /* Card gradient */
+    .card-gradient {
+        background: var(--gradient-card);
+    }
+
+    /* Accent gradient */
+    .accent-gradient {
+        background: var(--gradient-accent);
+    }
+
+    /* Glass effect */
+    .glass {
+        @apply bg-background/80 backdrop-blur-md border border-border/50;
+    }
+
+    /* Soft shadow */
+    .shadow-soft {
+        box-shadow: var(--shadow-soft);
+    }
+
+    .shadow-card {
+        box-shadow: var(--shadow-card);
+    }
+
+    .shadow-elevated {
+        box-shadow: var(--shadow-elevated);
+    }
+
+    /* Status badges */
+    .badge-vigueur {
+        @apply bg-teal/10 text-teal border border-teal/20;
+    }
+
+    .badge-abroge {
+        @apply bg-destructive/10 text-destructive border border-destructive/20;
+    }
+
+    /* Search highlight */
+    .search-highlight {
+        @apply bg-accent/30 text-foreground px-0.5 rounded-sm;
+    }
+
+    /* TOC active state */
+    .toc-active {
+        @apply bg-primary/5 text-primary border-l-2 border-primary;
+    }
+
+    /* Animated underline */
+    .underline-animated {
+        @apply relative;
+    }
+
+    .underline-animated::after {
+        content: '';
+        @apply absolute bottom-0 left-0 w-0 h-0.5 bg-accent transition-all duration-300;
+    }
+
+    .underline-animated:hover::after {
+        @apply w-full;
+    }
+
+    .container {
+        @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+    }
+}
+
+@layer utilities {
+    /* Text gradient */
+    .text-gradient {
+        @apply bg-clip-text text-transparent;
+        background-image: var(--gradient-accent);
+    }
+
+    /* Fade in animation */
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Slide up animation */
+    .animate-slide-up {
+        animation: slideUp 0.6s ease-out forwards;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Pulse subtle */
+    .animate-pulse-subtle {
+        animation: pulseSoft 2s ease-in-out infinite;
+    }
+
+    @keyframes pulseSoft {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+    }
+}
