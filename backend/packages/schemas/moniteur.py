@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from packages.schemas.enums import (
     LegalCategory,
     MoniteurCandidateStatus,
+    MoniteurDocumentType,
     MoniteurIssueStatus,
 )
 
@@ -77,10 +78,12 @@ class MoniteurLawCandidateRead(BaseModel):
     issue_id: int
     position: int
 
-    detected_category: Optional[LegalCategory] = None
+    detected_category: Optional[MoniteurDocumentType] = None
     detected_title: Optional[str] = None
+    display_title: Optional[str] = None
     detected_number: Optional[str] = None
     detected_date: Optional[date] = None
+    parent_candidate_id: Optional[int] = None
 
     raw_text: str
     confidence: Optional[Decimal] = None
@@ -138,8 +141,10 @@ class CandidateReviewInput(BaseModel):
     """
 
     review_status: Optional[MoniteurCandidateStatus] = None
-    detected_category: Optional[LegalCategory] = None
+    detected_category: Optional[MoniteurDocumentType] = None
     detected_title: Optional[str] = None
+    display_title: Optional[str] = None
     detected_number: Optional[str] = None
     detected_date: Optional[date] = None
+    parent_candidate_id: Optional[int] = None
     review_notes: Optional[str] = None

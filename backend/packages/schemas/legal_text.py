@@ -102,4 +102,22 @@ class LegalTextRead(LegalTextBase):
     articles: List[ArticleEmbed] = []
     signers: List[LegalSignerRead] = []
 
+    # Reverse link to the Moniteur issue this text was published in.
+    # Populated from the `moniteur_issue` relationship at validation time.
+    moniteur_issue_id: Optional[int] = None
+    moniteur_issue_number: Optional[str] = None
+    moniteur_issue_publication_date: Optional[date] = None
+
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):  # type: ignore[override]
+        result = super().model_validate(obj, *args, **kwargs)
+        issue = getattr(obj, "moniteur_issue", None)
+        if issue is not None:
+            result.moniteur_issue_id = getattr(issue, "id", None)
+            result.moniteur_issue_number = getattr(issue, "number", None)
+            result.moniteur_issue_publication_date = getattr(
+                issue, "publication_date", None
+            )
+        return result

@@ -86,6 +86,30 @@ class LegalTheme(str, Enum):
     foncier = "foncier"
 
 
+class MoniteurDocumentType(str, Enum):
+    """Document type detected inside a Moniteur issue.
+
+    Superset of LegalCategory — includes non-legal document types that
+    appear in the official gazette (promulgation letters, communiqués,
+    errata, etc.) but should not pollute the corpus-level category enum.
+    """
+
+    # Legal text types (mirrors LegalCategory)
+    constitution = "constitution"
+    code = "code"
+    loi = "loi"
+    decret = "decret"
+    arrete = "arrete"
+    circulaire = "circulaire"
+    convention = "convention"
+    ordonnance = "ordonnance"
+    # Moniteur-only document types
+    communique = "communique"
+    promulgation = "promulgation"
+    errata = "errata"
+    autre = "autre"
+
+
 class MoniteurIssueStatus(str, Enum):
     """Lifecycle of a Moniteur issue in the ingestion pipeline.
 

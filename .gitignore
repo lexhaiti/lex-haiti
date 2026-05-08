@@ -35,6 +35,7 @@ build/
 *.sqlite
 *.sqlite3
 local-data/
+backend/var/
 
 # Logs
 *.log

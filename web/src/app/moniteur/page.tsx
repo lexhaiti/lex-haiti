@@ -296,7 +296,11 @@ export default function Page() {
                   : 'border-b-primary',
               )
 
-              return isEditor ? (
+              const href = isEditor
+                ? `/editorial/moniteur/${issue.id}/review`
+                : `/moniteur/${issue.id}`
+
+              return (
                 <motion.div
                   key={issue.id}
                   variants={{
@@ -304,21 +308,11 @@ export default function Page() {
                     visible: { opacity: 1, y: 0 },
                   }}
                 >
-                  <Link href={editorHref} className={cardCls}>
+                  <Link href={href} className={cardCls}>
                     {card}
+                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
                   </Link>
                 </motion.div>
-              ) : (
-                <motion.article
-                  key={issue.id}
-                  variants={{
-                    hidden: { opacity: 0, y: 8 },
-                    visible: { opacity: 1, y: 0 },
-                  }}
-                  className={cardCls}
-                >
-                  {card}
-                </motion.article>
               )
             })}
           </motion.div>

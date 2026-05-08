@@ -160,6 +160,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/articles/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve Articles
+         * @description Batch-resolve article IDs to their parent-text label + permalink.
+         *
+         *     Drives the citation panel's cross-text label resolution — when an
+         *     article cites another article from a different LegalText, the panel
+         *     needs the parent text title to show "Code Civil — Article 1382"
+         *     instead of the bare "Article #1234". Same-text resolution stays in
+         *     the client (it already has the sibling list).
+         */
+        get: operations["resolve_articles_api_v1_articles_resolve_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/articles/{article_id}": {
         parameters: {
             query?: never;
@@ -249,7 +275,41 @@ export interface paths {
         /** List All Legal Texts */
         get: operations["list_all_legal_texts_api_v1_editorial_legal_texts_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create a new draft legal text with headings and articles
+         * @description Create a draft LegalText with optional headings, articles, and signers.
+         *
+         *     This is the commit step of the editorial import flow: the editor has
+         *     already parsed the document, reviewed the structure, and is now saving
+         *     the result as a draft.
+         */
+        post: operations["create_legal_text_api_v1_editorial_legal_texts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/parse-document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse a legal document (PDF/DOCX/TXT) into headings + articles
+         * @description Upload a legal document and parse it into a structured preview.
+         *
+         *     The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION),
+         *     splits articles, and assigns each article to its nearest heading.
+         *     The editor reviews the result and then commits via POST /legal-texts.
+         *
+         *     No data is persisted — this is a stateless analysis endpoint.
+         */
+        post: operations["parse_document_api_v1_editorial_parse_document_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -506,9 +566,13 @@ export interface paths {
         put?: never;
         /**
          * Parse Issue
-         * @description Run OCR + heuristic parser. Synchronous in v1 — small enough to
-         *     run in-request for typical Moniteur issues. Move to an RQ worker if
-         *     issue PDFs grow large.
+         * @description Enqueue OCR + heuristic parsing for the issue.
+         *
+         *     Returns the issue immediately with `processing_status='ocr_pending'`.
+         *     The actual work runs in the RQ worker; the editor polls the issue's
+         *     status to see candidates land. For the rare degenerate case where
+         *     Redis is down, we fall through to a synchronous in-request parse
+         *     (1-page text-layered PDFs work fine; large scans will time out).
          */
         post: operations["parse_issue_api_v1_moniteur_issues__issue_id__parse_post"];
         delete?: never;
@@ -626,6 +690,29 @@ export interface components {
             comment?: string | null;
         };
         /**
+         * ArticleCreate
+         * @description Used by seed scripts and editorial UI. The first version is created together.
+         */
+        ArticleCreate: {
+            /** Number */
+            number: string;
+            /** Slug */
+            slug: string;
+            /** Heading Key */
+            heading_key?: string | null;
+            /**
+             * Domain Tags
+             * @default []
+             */
+            domain_tags: string[];
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            version: components["schemas"]["ArticleVersionCreate"];
+        };
+        /**
          * ArticleEmbed
          * @description Flattened article shape used when embedded in LegalTextRead.
          *
@@ -693,6 +780,27 @@ export interface components {
             domain_tags: string[];
         };
         /**
+         * ArticleResolved
+         * @description Lightweight article identity for cross-text citation label resolution.
+         *
+         *     Returns enough to render "Code Civil — Article 1382" without the full
+         *     article body.
+         */
+        ArticleResolved: {
+            /** Id */
+            id: number;
+            /** Number */
+            number: string;
+            /** Slug */
+            slug: string;
+            /** Text Id */
+            text_id: number;
+            /** Text Slug */
+            text_slug: string;
+            /** Text Title Fr */
+            text_title_fr: string;
+        };
+        /**
          * ArticleStatus
          * @description Per-version legal status of a single article.
          *
@@ -703,6 +811,36 @@ export interface components {
          * @enum {string}
          */
         ArticleStatus: "in_force" | "abrogated" | "suspended" | "transferred" | "obsolete";
+        /** ArticleVersionCreate */
+        ArticleVersionCreate: {
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Text Fr */
+            text_fr: string;
+            /** Text Ht */
+            text_ht?: string | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Effective To */
+            effective_to?: string | null;
+            /** @default in_force */
+            status: components["schemas"]["ArticleStatus"];
+            /** Transferred To Article Id */
+            transferred_to_article_id?: number | null;
+            /** Source Amendment Id */
+            source_amendment_id?: number | null;
+            /** Confidence */
+            confidence?: number | string | null;
+            /**
+             * Version Number
+             * @default 1
+             */
+            version_number: number;
+            /** @default draft */
+            editorial_status: components["schemas"]["EditorialStatus"];
+        };
         /** ArticleVersionRead */
         ArticleVersionRead: {
             /** Title Fr */
@@ -787,6 +925,14 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_parse_document_api_v1_editorial_parse_document_post */
+        Body_parse_document_api_v1_editorial_parse_document_post: {
+            /**
+             * File
+             * @description Legal document to parse (PDF, DOCX, or TXT)
+             */
+            file: string;
+        };
         /** Body_upload_pdf_api_v1_moniteur_issues__issue_id__upload_post */
         Body_upload_pdf_api_v1_moniteur_issues__issue_id__upload_post: {
             /** File */
@@ -794,21 +940,29 @@ export interface components {
         };
         /**
          * CandidateReviewInput
-         * @description Editor's verdict on a single candidate.
+         * @description Editor input for a candidate.
          *
-         *     When `review_status == accepted`, the editor can override the parser's
-         *     detected fields. The promotion endpoint uses these final values to
-         *     create the `LegalText` row.
+         *     Two use cases share this shape:
+         *       1. **Status change** (accept / reject / defer) — set `review_status`,
+         *          optionally override the detected fields at the same time.
+         *       2. **Field correction only** — leave `review_status` unset, supply
+         *          only the `detected_*` fields the editor wants to fix. Used by the
+         *          "Edit fields" inline editor on the review page so the editor can
+         *          clean up parser noise (typos, wrong category) before promoting.
          */
         CandidateReviewInput: {
-            review_status: components["schemas"]["MoniteurCandidateStatus"];
-            detected_category?: components["schemas"]["LegalCategory"] | null;
+            review_status?: components["schemas"]["MoniteurCandidateStatus"] | null;
+            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
             /** Detected Title */
             detected_title?: string | null;
+            /** Display Title */
+            display_title?: string | null;
             /** Detected Number */
             detected_number?: string | null;
             /** Detected Date */
             detected_date?: string | null;
+            /** Parent Candidate Id */
+            parent_candidate_id?: number | null;
             /** Review Notes */
             review_notes?: string | null;
         };
@@ -939,6 +1093,19 @@ export interface components {
             /** Published At */
             published_at?: string | null;
         };
+        /** DocumentParseResponse */
+        DocumentParseResponse: {
+            /** Headings */
+            headings: components["schemas"]["ParsedHeadingResponse"][];
+            /** Articles */
+            articles: components["schemas"]["ParsedArticleResponse"][];
+            /** Preamble */
+            preamble: string;
+            /** Parser Confidence */
+            parser_confidence: number;
+            /** Warnings */
+            warnings: string[];
+        };
         /**
          * EditorialStatus
          * @description Editorial workflow status. Public site shows only `published`.
@@ -965,6 +1132,29 @@ export interface components {
          * @enum {string}
          */
         LegalCategory: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention";
+        /** LegalHeadingCreate */
+        LegalHeadingCreate: {
+            /** Key */
+            key: string;
+            /** Parent Key */
+            parent_key?: string | null;
+            level: components["schemas"]["HeadingLevel"];
+            /** Number */
+            number?: string | null;
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Content Fr */
+            content_fr?: string | null;
+            /** Content Ht */
+            content_ht?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+        };
         /** LegalHeadingRead */
         LegalHeadingRead: {
             /** Id */
@@ -987,6 +1177,20 @@ export interface components {
             /** Content Ht */
             content_ht?: string | null;
             /** Position */
+            position: number;
+        };
+        /** LegalSignerCreate */
+        LegalSignerCreate: {
+            /** Name */
+            name: string;
+            /** Function Fr */
+            function_fr: string;
+            /** Function Ht */
+            function_ht?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
             position: number;
         };
         /** LegalSignerRead */
@@ -1013,6 +1217,49 @@ export interface components {
          * @enum {string}
          */
         LegalStatus: "in_force" | "abrogated" | "partially_abrogated";
+        /**
+         * LegalTextCreate
+         * @description Used by seed scripts and editorial UI.
+         */
+        LegalTextCreate: {
+            /** Slug */
+            slug: string;
+            category: components["schemas"]["LegalCategory"];
+            code_subcategory?: components["schemas"]["CodeSubcategory"] | null;
+            /**
+             * Jurisdiction
+             * @default HT
+             */
+            jurisdiction: string;
+            /** Title Fr */
+            title_fr: string;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Description Fr */
+            description_fr?: string | null;
+            /** Description Ht */
+            description_ht?: string | null;
+            /** Preamble Fr */
+            preamble_fr?: string | null;
+            /** Preamble Ht */
+            preamble_ht?: string | null;
+            /** Promulgation Date */
+            promulgation_date?: string | null;
+            /** Publication Date */
+            publication_date?: string | null;
+            /** Moniteur Ref */
+            moniteur_ref?: string | null;
+            /** @default in_force */
+            status: components["schemas"]["LegalStatus"];
+            /** @default draft */
+            editorial_status: components["schemas"]["EditorialStatus"];
+            /** Headings */
+            headings?: components["schemas"]["LegalHeadingCreate"][] | null;
+            /** Articles */
+            articles?: components["schemas"]["ArticleCreate"][] | null;
+            /** Signers */
+            signers?: components["schemas"]["LegalSignerCreate"][] | null;
+        };
         /**
          * LegalTextListItem
          * @description Lightweight shape for list endpoints — no children.
@@ -1138,6 +1385,12 @@ export interface components {
              * @default []
              */
             signers: components["schemas"]["LegalSignerRead"][];
+            /** Moniteur Issue Id */
+            moniteur_issue_id?: number | null;
+            /** Moniteur Issue Number */
+            moniteur_issue_number?: string | null;
+            /** Moniteur Issue Publication Date */
+            moniteur_issue_publication_date?: string | null;
         };
         /**
          * LegalTheme
@@ -1175,6 +1428,16 @@ export interface components {
          * @enum {string}
          */
         MoniteurCandidateStatus: "pending" | "accepted" | "rejected" | "deferred";
+        /**
+         * MoniteurDocumentType
+         * @description Document type detected inside a Moniteur issue.
+         *
+         *     Superset of LegalCategory — includes non-legal document types that
+         *     appear in the official gazette (promulgation letters, communiqués,
+         *     errata, etc.) but should not pollute the corpus-level category enum.
+         * @enum {string}
+         */
+        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "promulgation" | "errata" | "autre";
         /**
          * MoniteurIssueCreate
          * @description POST /moniteur/issues body. PDF arrives separately via multipart upload.
@@ -1347,13 +1610,17 @@ export interface components {
             issue_id: number;
             /** Position */
             position: number;
-            detected_category?: components["schemas"]["LegalCategory"] | null;
+            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
             /** Detected Title */
             detected_title?: string | null;
+            /** Display Title */
+            display_title?: string | null;
             /** Detected Number */
             detected_number?: string | null;
             /** Detected Date */
             detected_date?: string | null;
+            /** Parent Candidate Id */
+            parent_candidate_id?: number | null;
             /** Raw Text */
             raw_text: string;
             /** Confidence */
@@ -1451,6 +1718,40 @@ export interface components {
             size: number;
             /** Query */
             query: string;
+        };
+        /** ParsedArticleResponse */
+        ParsedArticleResponse: {
+            /** Number */
+            number: string;
+            /** Content Fr */
+            content_fr: string;
+            /**
+             * Heading Path
+             * @default []
+             */
+            heading_path: string[];
+            /** Heading Key */
+            heading_key?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** ParsedHeadingResponse */
+        ParsedHeadingResponse: {
+            /** Key */
+            key: string;
+            /** Level */
+            level: string;
+            /** Number */
+            number: string;
+            /** Title Fr */
+            title_fr: string;
+            /** Parent Key */
+            parent_key?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
         };
         /**
          * SearchHit
@@ -1831,6 +2132,38 @@ export interface operations {
             };
         };
     };
+    resolve_articles_api_v1_articles_resolve_get: {
+        parameters: {
+            query: {
+                /** @description Comma-separated article IDs to look up. Max 100. */
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleResolved"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_article_api_v1_articles__article_id__get: {
         parameters: {
             query?: never;
@@ -1997,6 +2330,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse_LegalTextListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_legal_text_api_v1_editorial_legal_texts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalTextCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalTextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parse_document_api_v1_editorial_parse_document_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_parse_document_api_v1_editorial_parse_document_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentParseResponse"];
                 };
             };
             /** @description Validation Error */

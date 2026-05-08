@@ -186,9 +186,16 @@ export type MoniteurLawCandidateRead = {
     | 'arrete'
     | 'circulaire'
     | 'convention'
+    | 'ordonnance'
+    | 'communique'
+    | 'promulgation'
+    | 'errata'
+    | 'autre'
     | null
   detected_title: string | null
+  display_title: string | null
   detected_number: string | null
+  parent_candidate_id: number | null
   detected_date: string | null
   raw_text: string
   confidence: string | null

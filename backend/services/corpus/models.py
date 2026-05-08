@@ -48,6 +48,7 @@ from packages.schemas.enums import (
     ExtractionMethod,
     HeadingLevel,
     LegalCategory,
+    MoniteurDocumentType,
     LegalTheme,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
@@ -243,6 +244,10 @@ class LegalText(Base):
     theme_tags: Mapped[list["LegalThemeTag"]] = relationship(
         back_populates="legal_text",
         cascade="all, delete-orphan",
+    )
+    moniteur_issue: Mapped[Optional["MoniteurIssue"]] = relationship(
+        foreign_keys=[moniteur_issue_id],
+        lazy="joined",
     )
 
 
@@ -720,12 +725,22 @@ class MoniteurLawCandidate(Base):
 
     # What the parser thinks this candidate is. All optional — review can
     # correct any of them.
-    detected_category: Mapped[Optional[LegalCategory]] = mapped_column(
-        _enum(LegalCategory, "legal_category")
+    detected_category: Mapped[Optional[MoniteurDocumentType]] = mapped_column(
+        _enum(MoniteurDocumentType, "moniteur_document_type")
     )
     detected_title: Mapped[Optional[str]] = mapped_column(Text)
+    display_title: Mapped[Optional[str]] = mapped_column(Text)
     detected_number: Mapped[Optional[str]] = mapped_column(Text)
     detected_date: Mapped[Optional[date]] = mapped_column(Date)
+
+    # Self-FK: promulgation letters / cover pages belong to their parent law
+    parent_candidate_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_law_candidates.id",
+            ondelete="SET NULL",
+        ),
+        index=True,
+    )
 
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2))
@@ -758,6 +773,15 @@ class MoniteurLawCandidate(Base):
     )
 
     issue: Mapped[MoniteurIssue] = relationship(back_populates="candidates")
+    # Self-referential: promulgation → parent law
+    parent_candidate: Mapped[Optional["MoniteurLawCandidate"]] = relationship(
+        remote_side="MoniteurLawCandidate.id",
+        foreign_keys=[parent_candidate_id],
+    )
+    children: Mapped[list["MoniteurLawCandidate"]] = relationship(
+        back_populates="parent_candidate",
+        foreign_keys="MoniteurLawCandidate.parent_candidate_id",
+    )
     # ↗ to the LegalText that was created when an editor accepted this
     # candidate. Nullable — pending / rejected candidates have no draft yet.
     # Lets the review page link straight to /loi/{slug} for inspection.

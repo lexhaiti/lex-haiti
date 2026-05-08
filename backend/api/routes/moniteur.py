@@ -397,8 +397,10 @@ def review_candidate(
     for k in (
         "detected_category",
         "detected_title",
+        "display_title",
         "detected_number",
         "detected_date",
+        "parent_candidate_id",
     ):
         v = getattr(payload, k)
         if v is not None:

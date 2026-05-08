@@ -463,15 +463,47 @@ export default function LawDetail() {
                 </div>
 
                 {(() => {
-                  // Display rules: this tile is *Le Moniteur* citation only.
-                  // Hide it when the field carries a URL or generic "Source:"
-                  // placeholder — those are bad data, not a real reference.
+                  // Structured Moniteur link (from the ingestion pipeline)
+                  // takes precedence over the legacy free-text field.
+                  if (law.moniteur_issue_id) {
+                    const pubDate = law.moniteur_issue_publication_date
+                    const dateStr = pubDate
+                      ? (() => {
+                          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(pubDate)
+                          if (!m) return pubDate
+                          const MONTHS_FR = ['','janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+                          const day = Number.parseInt(m[3], 10)
+                          const month = Number.parseInt(m[2], 10)
+                          return `du ${day} ${MONTHS_FR[month] ?? ''} ${m[1]}`
+                        })()
+                      : ''
+                    return (
+                      <Link
+                        href={`/moniteur/${law.moniteur_issue_id}`}
+                        className="flex items-center gap-4 group/moniteur"
+                      >
+                        <div className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/moniteur:bg-white/10 transition-colors">
+                          <Newspaper className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
+                            {currentLang === 'fr' ? 'Publié dans' : 'Pibliye nan'}
+                          </p>
+                          <p className="text-white font-medium truncate max-w-[24rem] group-hover/moniteur:underline">
+                            <em className="italic font-semibold">Le Moniteur</em>{' '}
+                            <span className="font-normal text-slate-200">
+                              N° {law.moniteur_issue_number} {dateStr}
+                            </span>
+                          </p>
+                        </div>
+                      </Link>
+                    )
+                  }
+                  // Fallback: legacy free-text moniteur_ref field.
                   const raw = (law.moniteur_ref ?? '').trim()
                   if (!raw) return null
                   if (/^https?:\/\//i.test(raw)) return null
                   if (/^source\s*:/i.test(raw)) return null
-                  // If the editor typed "Le Moniteur ..." or just "Moniteur ..."
-                  // strip the prefix — display layer already adds it in italics.
                   const alreadyPrefixed = /^(?:le\s+)?moniteur\b/i.test(raw)
                   const body = alreadyPrefixed
                     ? raw.replace(/^(?:le\s+)?moniteur\b\s*/i, '')
