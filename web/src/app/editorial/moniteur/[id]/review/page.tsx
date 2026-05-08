@@ -63,7 +63,6 @@ const COPY = {
     deferred: 'Reporté',
     pending: 'En attente',
     loading: 'Chargement…',
-    saving: 'Enregistrement…',
     parseRunning: 'Analyse en cours…',
   },
   ht: {
@@ -102,7 +101,6 @@ const COPY = {
     deferred: 'Repòte',
     pending: 'Ap tann',
     loading: 'Ap chaje…',
-    saving: 'Ap anrejistre…',
     parseRunning: 'Analiz ap mache…',
   },
 }
@@ -117,9 +115,12 @@ const CATEGORY_LABEL: Record<string, { fr: string; ht: string }> = {
   convention: { fr: 'Convention', ht: 'Konvansyon' },
 }
 
+/** Keys used by the review pill — restricted to string-valued COPY entries. */
+type PillCopyKey = 'pending' | 'promoted' | 'rejected' | 'deferred'
+
 const REVIEW_PILL: Record<
   MoniteurLawCandidateRead['review_status'],
-  { cls: string; key: keyof (typeof COPY)['fr'] }
+  { cls: string; key: PillCopyKey }
 > = {
   pending: { cls: 'bg-slate-100 text-slate-700 border-slate-200', key: 'pending' },
   accepted: {

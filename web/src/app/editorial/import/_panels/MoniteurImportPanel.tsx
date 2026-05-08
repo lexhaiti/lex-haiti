@@ -181,21 +181,20 @@ export default function MoniteurImportPanel() {
       // (status: ocr_pending → parsed) and reviews candidates from there.
       // TODO(worker): replace fire-and-forget with an RQ job + polling.
       setPhase('parsing')
-      void parseMoniteurIssue(issue.id)
+      // Parsing can be slow for large scanned PDFs (10+ min), but we
+      // want the spinner visible while it runs. The .then/.catch
+      // transition to 'done' when the server responds (or times out).
+      // TODO(worker): replace with an RQ job + polling via getMoniteurIssue.
+      parseMoniteurIssue(issue.id)
         .then((result) => {
           setCandidatesCount(result.candidates_count ?? 0)
           setPhase('done')
         })
         .catch(() => {
-          // Parse failure is non-fatal here — issue + PDF are saved; the
-          // editor can re-run from the dashboard. Surface the issue is
-          // ready for review either way.
+          // Parse failure is non-fatal — issue + PDF are saved; the
+          // editor can re-run from the review page.
           setPhase('done')
         })
-      // Don't block the UI on parsing — it can take many minutes for
-      // large scanned documents. Move to "done" optimistically so the
-      // editor can review the dashboard or import another file.
-      setPhase('done')
     } catch (e: any) {
       setErr(e?.body?.detail ?? String(e))
       // Stay on review so the editor can correct (e.g., duplicate number).
@@ -477,7 +476,7 @@ function Dropzone({
   prompt: string
   hint: string
   onFile: (f: File) => void
-  inputRef: React.RefObject<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
 }) {
   const [isDragging, setIsDragging] = useState(false)
 

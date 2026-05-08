@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -8,10 +8,13 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   FileText,
   Loader2,
   Newspaper,
+  Pencil,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -151,6 +154,15 @@ const COPY = {
     discard: 'Annuler',
     successDraft: 'Texte importé en brouillon, en attente de validation.',
     requiredField: 'Champ requis',
+    editArticle: 'Modifier',
+    deleteArticle: 'Supprimer',
+    confirmDelete: 'Confirmer la suppression',
+    cancelEdit: 'Annuler',
+    saveEdit: 'Enregistrer',
+    reassignHeading: 'Rattacher à…',
+    noHeading: '(aucun rattachement)',
+    articlesRemoved: (n: number) =>
+      `${n} article${n > 1 ? 's' : ''} supprimé${n > 1 ? 's' : ''}.`,
   },
   ht: {
     pageTitle: 'Enpòte yon nouvo tèks',
@@ -222,6 +234,15 @@ const COPY = {
     discard: 'Anile',
     successDraft: "Tèks enpòte kòm bouyon, ap tann validasyon.",
     requiredField: 'Chan obligatwa',
+    editArticle: 'Modifye',
+    deleteArticle: 'Efase',
+    confirmDelete: 'Konfime efasman',
+    cancelEdit: 'Anile',
+    saveEdit: 'Anrejistre',
+    reassignHeading: 'Ratache a…',
+    noHeading: '(pa gen ratachman)',
+    articlesRemoved: (n: number) =>
+      `${n} atik efase.`,
   },
 }
 
@@ -623,6 +644,7 @@ export default function LegalTextImportPanel() {
         {view === 'preview' && parseResult && (
           <PreviewState
             result={parseResult}
+            onUpdateResult={setParseResult}
             copy={copy}
             onSaveDraft={saveDraft}
             onDiscard={reset}
@@ -851,6 +873,7 @@ function ParsingState({ title, help }: ParsingStateProps) {
 
 interface PreviewStateProps {
   result: ParseResult
+  onUpdateResult: (r: ParseResult) => void
   copy: (typeof COPY)['fr']
   onSaveDraft: () => void
   onDiscard: () => void
@@ -858,7 +881,76 @@ interface PreviewStateProps {
   error: string | null
 }
 
-function PreviewState({ result, copy, onSaveDraft, onDiscard, saving, error }: PreviewStateProps) {
+const LEVEL_LABELS: Record<string, string> = {
+  book: 'Livre',
+  title: 'Titre',
+  chapter: 'Chap.',
+  section: 'Sect.',
+  subsection: 'Sous-s.',
+}
+
+function PreviewState({
+  result,
+  onUpdateResult,
+  copy,
+  onSaveDraft,
+  onDiscard,
+  saving,
+  error,
+}: PreviewStateProps) {
+  // Track which article is being edited (by index), or null for none.
+  const [editIdx, setEditIdx] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editHeadingKey, setEditHeadingKey] = useState<string | null>(null)
+
+  const startEdit = useCallback(
+    (idx: number) => {
+      const a = result.articles[idx]
+      setEditIdx(idx)
+      setEditContent(a.content_fr)
+      setEditHeadingKey(a.heading_key)
+    },
+    [result.articles],
+  )
+
+  const cancelEdit = useCallback(() => {
+    setEditIdx(null)
+    setEditContent('')
+    setEditHeadingKey(null)
+  }, [])
+
+  const saveEdit = useCallback(() => {
+    if (editIdx === null) return
+    const updated = [...result.articles]
+    const heading = result.headings.find((h) => h.key === editHeadingKey)
+    // Rebuild heading_path for the new assignment
+    const buildPath = (key: string | null): string[] => {
+      if (!key) return []
+      const h = result.headings.find((x) => x.key === key)
+      if (!h) return []
+      const parentPath = buildPath(h.parent_key)
+      const label = `${LEVEL_LABELS[h.level] ?? h.level} ${h.number} — ${h.title_fr}`
+      return [...parentPath, label]
+    }
+    updated[editIdx] = {
+      ...updated[editIdx],
+      content_fr: editContent,
+      heading_key: editHeadingKey,
+      heading_path: buildPath(editHeadingKey),
+    }
+    onUpdateResult({ ...result, articles: updated })
+    cancelEdit()
+  }, [editIdx, editContent, editHeadingKey, result, onUpdateResult, cancelEdit])
+
+  const removeArticle = useCallback(
+    (idx: number) => {
+      const updated = result.articles.filter((_, i) => i !== idx)
+      onUpdateResult({ ...result, articles: updated })
+      if (editIdx === idx) cancelEdit()
+    },
+    [result, onUpdateResult, editIdx, cancelEdit],
+  )
+
   return (
     <AnimatePresence>
       <motion.div
@@ -902,42 +994,35 @@ function PreviewState({ result, copy, onSaveDraft, onDiscard, saving, error }: P
         </div>
 
         {/* Headings */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
-            {copy.headingsLabel}
-          </h3>
-          <ol className="space-y-1">
-            {result.headings.map((h) => (
-              <li
-                key={h.key}
-                className={cn(
-                  'flex items-baseline gap-2 text-sm',
-                  h.level === 'book' && 'font-bold text-slate-900',
-                  h.level === 'title' && 'pl-0 font-semibold text-slate-900',
-                  h.level === 'chapter' && 'pl-6 text-slate-700',
-                  h.level === 'section' && 'pl-12 text-slate-600',
-                  h.level === 'subsection' && 'pl-16 text-slate-500',
-                )}
-              >
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
-                  {
-                    ({
-                      book: 'Livre',
-                      title: 'Titre',
-                      chapter: 'Chap.',
-                      section: 'Sect.',
-                      subsection: 'Sous-s.',
-                    } as Record<string, string>)[h.level] ?? h.level
-                  }{' '}
-                  {h.number}
-                </span>
-                <span>· {h.title_fr}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+        {result.headings.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
+              {copy.headingsLabel}
+            </h3>
+            <ol className="space-y-1">
+              {result.headings.map((h) => (
+                <li
+                  key={h.key}
+                  className={cn(
+                    'flex items-baseline gap-2 text-sm',
+                    h.level === 'book' && 'font-bold text-slate-900',
+                    h.level === 'title' && 'pl-0 font-semibold text-slate-900',
+                    h.level === 'chapter' && 'pl-6 text-slate-700',
+                    h.level === 'section' && 'pl-12 text-slate-600',
+                    h.level === 'subsection' && 'pl-16 text-slate-500',
+                  )}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
+                    {LEVEL_LABELS[h.level] ?? h.level} {h.number}
+                  </span>
+                  <span>· {h.title_fr}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
-        {/* Articles */}
+        {/* Articles — editable */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
             {copy.articlesLabel}
@@ -945,18 +1030,100 @@ function PreviewState({ result, copy, onSaveDraft, onDiscard, saving, error }: P
           </h3>
           <ul className="divide-y divide-slate-100">
             {result.articles.map((a, i) => (
-              <li key={i} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-baseline gap-3 mb-1">
-                  <span className="text-sm font-bold text-primary tabular-nums">
-                    Art. {a.number}
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {a.heading_path.join(' › ')}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-700 leading-relaxed line-clamp-2">
-                  {a.content_fr}
-                </p>
+              <li key={`${a.number}-${i}`} className="py-4 first:pt-0 last:pb-0">
+                {editIdx === i ? (
+                  /* ---- Inline edit form ---- */
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-sm font-bold text-primary tabular-nums">
+                        Art. {a.number}
+                      </span>
+                    </div>
+                    {/* Heading reassignment */}
+                    {result.headings.length > 0 && (
+                      <label className="block">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">
+                          {copy.reassignHeading}
+                        </span>
+                        <div className="relative">
+                          <select
+                            value={editHeadingKey ?? ''}
+                            onChange={(e) =>
+                              setEditHeadingKey(e.target.value || null)
+                            }
+                            className="w-full h-9 pl-3 pr-8 rounded-md border border-slate-300 bg-white text-sm text-slate-700 appearance-none focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none"
+                          >
+                            <option value="">{copy.noHeading}</option>
+                            {result.headings.map((h) => (
+                              <option key={h.key} value={h.key}>
+                                {LEVEL_LABELS[h.level] ?? h.level} {h.number} — {h.title_fr}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                        </div>
+                      </label>
+                    )}
+                    {/* Content editing */}
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={6}
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={saveEdit}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary/90"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        {copy.saveEdit}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-400"
+                      >
+                        {copy.cancelEdit}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ---- Read-only article row ---- */
+                  <div className="group">
+                    <div className="flex items-baseline gap-3 mb-1">
+                      <span className="text-sm font-bold text-primary tabular-nums">
+                        Art. {a.number}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {a.heading_path.join(' › ')}
+                      </span>
+                      {/* Edit/delete controls — visible on hover */}
+                      <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(i)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-primary hover:bg-primary/5"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {copy.editArticle}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeArticle(i)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          {copy.deleteArticle}
+                        </button>
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed line-clamp-2">
+                      {a.content_fr}
+                    </p>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

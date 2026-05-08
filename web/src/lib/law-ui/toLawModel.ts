@@ -93,7 +93,7 @@ export function toLawCardModel(args: {
   // long French/Kreyòl form ("28 avril 1987") instead of the raw ISO string
   // — the audit caught raw "1987-04-28" landing in the card grid.
   const subtitle =
-    formatLongDate(item.publication_date, language) ??
+    formatLongDate(item.publication_date ?? undefined, language) ??
     item.moniteur_ref ??
     undefined
 

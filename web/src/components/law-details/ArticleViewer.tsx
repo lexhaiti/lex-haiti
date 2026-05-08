@@ -68,6 +68,7 @@ type ArticleStatus =
   | 'obsolete'
 
 interface Article {
+  id: number
   number: string
   chapter?: string | null
   title_fr?: string | null

@@ -146,6 +146,7 @@ export async function apiPostForm<T>(
     credentials: 'include',
     headers: {
       Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
       ...(opts?.headers ?? {}),
     },
     body: formData,
@@ -181,6 +182,7 @@ async function apiSend<T>(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
       ...(opts?.headers ?? {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,

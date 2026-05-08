@@ -32,6 +32,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (ct) headers.set('content-type', ct)
   const cookie = req.headers.get('cookie')
   if (cookie) headers.set('cookie', cookie)
+  // Backend requires this header for CSRF protection on cookie-auth mutations
+  headers.set('x-requested-with', 'XMLHttpRequest')
 
   // Buffer the body — fetch() with a stream body needs HTTP/2 or the
   // duplex hint, which next-server doesn't always honor. Buffering is

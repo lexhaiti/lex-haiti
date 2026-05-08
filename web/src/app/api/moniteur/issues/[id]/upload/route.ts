@@ -26,6 +26,8 @@ export async function POST(
   if (ct) headers.set('content-type', ct)
   const cookie = req.headers.get('cookie')
   if (cookie) headers.set('cookie', cookie)
+  // Backend requires this header for CSRF protection on cookie-auth mutations
+  headers.set('x-requested-with', 'XMLHttpRequest')
 
   const buf = await req.arrayBuffer()
   const resp = await fetch(upstream, { method: 'POST', headers, body: buf })

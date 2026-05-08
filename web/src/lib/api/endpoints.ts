@@ -196,6 +196,8 @@ export type MoniteurLawCandidateRead = {
   page_to: number | null
   review_status: 'pending' | 'accepted' | 'rejected' | 'deferred'
   promoted_legal_text_id: number | null
+  promoted_legal_text_slug: string | null
+  promoted_legal_text_title_fr: string | null
   review_notes: string | null
   reviewed_at: string | null
   created_at: string
@@ -240,6 +242,7 @@ export async function uploadMoniteurPdf(id: number, file: File) {
   fd.append('file', file)
   const r = await fetch(`/api/moniteur/issues/${id}/upload`, {
     method: 'POST',
+    credentials: 'include',
     body: fd,
   })
   if (!r.ok) {
@@ -275,6 +278,7 @@ export async function extractMoniteurMetadata(file: File) {
   fd.append('file', file)
   const r = await fetch('/api/moniteur/extract-metadata', {
     method: 'POST',
+    credentials: 'include',
     body: fd,
   })
   if (!r.ok) {
@@ -298,7 +302,11 @@ export async function parseMoniteurIssue(id: number) {
 
 /** Hard-delete a Moniteur issue (and its candidates + uploaded PDF). */
 export async function deleteMoniteurIssue(id: number) {
-  const r = await fetch(`/api/v1/moniteur/issues/${id}`, { method: 'DELETE' })
+  const r = await fetch(`/api/v1/moniteur/issues/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  })
   if (!r.ok) {
     let detail: string | undefined
     try {
