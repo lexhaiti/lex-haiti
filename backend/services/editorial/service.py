@@ -5,8 +5,9 @@ append-only audit log. Reviews and rollbacks read from there.
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -16,14 +17,18 @@ from packages.schemas.enums import (
     LegalCategory,
     LegalStatus,
 )
-from packages.schemas.article import ArticleEmbed
-from packages.schemas.legal_text import LegalTextRead
+from packages.schemas.article import ArticleCreate, ArticleEmbed
+from packages.schemas.heading import LegalHeadingCreate
+from packages.schemas.legal_text import LegalTextCreate, LegalTextRead
+from packages.schemas.signer import LegalSignerCreate
 from services.auth.models import User
-from services.corpus.exceptions import InvalidInput, NotFound
+from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
 from services.corpus.models import (
     Article,
     ArticleVersion,
     EditorialAction,
+    LegalHeading,
+    LegalSigner,
     LegalText,
 )
 from services.corpus.repository import CorpusRepository
@@ -74,6 +79,147 @@ class EditorialService:
         self.session = session
         self.repo = CorpusRepository(session)
         self.corpus = CorpusService(session)
+
+    # -------------------------------------------------------------------
+    # Create a new LegalText with headings + articles
+    # -------------------------------------------------------------------
+
+    def create_legal_text(
+        self,
+        data: LegalTextCreate,
+        *,
+        actor: User,
+    ) -> LegalTextRead:
+        """Create a draft LegalText with optional headings, articles, and signers.
+
+        This is the backend for the editorial import panel. The flow:
+          1. Validate inputs (slug uniqueness, required fields)
+          2. Create LegalText row (always draft)
+          3. Create LegalHeading rows (resolve parent_key → parent_id)
+          4. Create Article + ArticleVersion rows (resolve heading_key → heading_id)
+          5. Create LegalSigner rows
+          6. Audit the action
+          7. Return the full LegalTextRead shape
+
+        Callers: POST /api/v1/editorial/legal-texts
+        """
+        # --- Validation ---
+        if not data.slug or not data.slug.strip():
+            raise InvalidInput("slug is required")
+        if not data.title_fr or not data.title_fr.strip():
+            raise InvalidInput("title_fr is required")
+
+        slug = _slugify(data.slug)
+        existing = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if existing is not None:
+            raise AlreadyExists(f"A legal text with slug '{slug}' already exists")
+
+        # --- Create the legal text ---
+        legal_text = LegalText(
+            slug=slug,
+            category=data.category,
+            code_subcategory=data.code_subcategory,
+            jurisdiction=data.jurisdiction or "HT",
+            title_fr=data.title_fr.strip(),
+            title_ht=data.title_ht,
+            description_fr=data.description_fr,
+            description_ht=data.description_ht,
+            preamble_fr=data.preamble_fr,
+            preamble_ht=data.preamble_ht,
+            promulgation_date=data.promulgation_date,
+            publication_date=data.publication_date,
+            moniteur_ref=data.moniteur_ref,
+            status=data.status,
+            editorial_status=EditorialStatus.draft,  # always draft on create
+        )
+        self.session.add(legal_text)
+        self.session.flush()
+
+        # --- Create headings (resolve parent_key → parent_id) ---
+        key_to_id: dict[str, int] = {}
+        if data.headings:
+            for h in data.headings:
+                parent_id = key_to_id.get(h.parent_key) if h.parent_key else None
+                heading = LegalHeading(
+                    legal_text_id=legal_text.id,
+                    parent_id=parent_id,
+                    level=h.level,
+                    key=h.key,
+                    number=h.number,
+                    title_fr=h.title_fr,
+                    title_ht=h.title_ht,
+                    content_fr=h.content_fr,
+                    content_ht=h.content_ht,
+                    position=h.position,
+                )
+                self.session.add(heading)
+                self.session.flush()
+                key_to_id[h.key] = heading.id
+
+        # --- Create articles (resolve heading_key → heading_id) ---
+        if data.articles:
+            for position, art in enumerate(data.articles):
+                heading_id = key_to_id.get(art.heading_key) if art.heading_key else None
+                article = Article(
+                    legal_text_id=legal_text.id,
+                    heading_id=heading_id,
+                    number=art.number,
+                    slug=art.slug,
+                    domain_tags=art.domain_tags or [],
+                    position=art.position if art.position else position,
+                )
+                self.session.add(article)
+                self.session.flush()
+
+                version = ArticleVersion(
+                    article_id=article.id,
+                    version_number=art.version.version_number,
+                    title_fr=art.version.title_fr,
+                    title_ht=art.version.title_ht,
+                    text_fr=art.version.text_fr,
+                    text_ht=art.version.text_ht,
+                    editorial_status=EditorialStatus.draft,
+                    effective_from=art.version.effective_from,
+                    effective_to=art.version.effective_to,
+                    status=art.version.status,
+                    confidence=art.version.confidence,
+                )
+                self.session.add(version)
+                self.session.flush()
+                article.current_version_id = version.id
+
+            self.session.flush()
+
+        # --- Create signers ---
+        if data.signers:
+            for s in data.signers:
+                signer = LegalSigner(
+                    legal_text_id=legal_text.id,
+                    name=s.name,
+                    function_fr=s.function_fr,
+                    function_ht=s.function_ht,
+                    position=s.position,
+                )
+                self.session.add(signer)
+            self.session.flush()
+
+        # --- Audit ---
+        _audit(
+            self.session,
+            actor=actor,
+            action="create",
+            target_type="legal_text",
+            target_id=legal_text.id,
+            diff={
+                "slug": slug,
+                "title_fr": data.title_fr,
+                "headings_count": len(data.headings or []),
+                "articles_count": len(data.articles or []),
+            },
+        )
+        self.session.flush()
+
+        return self.get_text(slug, include="all")
 
     # -------------------------------------------------------------------
     # State transitions on LegalText
@@ -389,3 +535,20 @@ class EditorialService:
                 signers=[],
             )
         return text_to_read(text, headings=[], articles=[], signers=[])
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+
+def _slugify(raw: str) -> str:
+    """Normalise a user-provided slug to URL-safe ASCII."""
+    import unicodedata
+
+    s = unicodedata.normalize("NFD", raw)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = s.lower().strip()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = s.strip("-")
+    return s[:120]

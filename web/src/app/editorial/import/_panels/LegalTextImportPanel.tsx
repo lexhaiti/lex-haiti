@@ -26,6 +26,11 @@ import {
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
+import {
+  parseDocument,
+  createLegalText,
+  type DocumentParseResponse,
+} from '@/lib/api/endpoints'
 
 // ===========================================================================
 // Types
@@ -37,7 +42,7 @@ interface FormState {
   title_ht: string
   description_fr: string
   description_ht: string
-  category: 'constitution' | 'code' | 'loi' | 'decret' | 'arrete'
+  category: 'constitution' | 'code' | 'loi' | 'decret' | 'arrete' | 'circulaire' | 'convention'
   promulgation_date: string
   publication_date: string
   moniteur_ref: string
@@ -47,20 +52,26 @@ interface FormState {
 }
 
 interface ParsedHeading {
-  level: 'book' | 'title' | 'chapter' | 'section'
+  key: string
+  level: string
   number: string
   title_fr: string
+  parent_key: string | null
+  position: number
 }
 
 interface ParsedArticle {
   number: string
   heading_path: string[]
+  heading_key: string | null
   content_fr: string
+  title: string | null
 }
 
 interface ParseResult {
   headings: ParsedHeading[]
   articles: ParsedArticle[]
+  preamble: string
   parser_confidence: number
   warnings: string[]
 }
@@ -114,6 +125,8 @@ const COPY = {
       loi: 'Loi',
       decret: 'Décret',
       arrete: 'Arrêté',
+      circulaire: 'Circulaire',
+      convention: 'Convention',
     },
     dropzoneDocument: 'Glissez-déposez le fichier ici, ou ',
     dropzoneSource: 'Glissez-déposez le scan ici, ou ',
@@ -138,8 +151,6 @@ const COPY = {
     discard: 'Annuler',
     successDraft: 'Texte importé en brouillon, en attente de validation.',
     requiredField: 'Champ requis',
-    mockNote:
-      'Données fictives — l’endpoint d’analyse n’est pas encore branché. Les résultats ci-dessous illustrent la sortie attendue.',
   },
   ht: {
     pageTitle: 'Enpòte yon nouvo tèks',
@@ -185,6 +196,8 @@ const COPY = {
       loi: 'Lwa',
       decret: 'Dekrè',
       arrete: 'Arète',
+      circulaire: 'Sikilè',
+      convention: 'Konvansyon',
     },
     dropzoneDocument: 'Glise epi depoze fichye a la, oswa ',
     dropzoneSource: 'Glise epi depoze skanèyon an la, oswa ',
@@ -209,8 +222,6 @@ const COPY = {
     discard: 'Anile',
     successDraft: "Tèks enpòte kòm bouyon, ap tann validasyon.",
     requiredField: 'Chan obligatwa',
-    mockNote:
-      "Done fiktif — endpoint analiz la poko branche. Rezilta anba a montre sa pou ki dwe vini.",
   },
 }
 
@@ -288,34 +299,37 @@ export default function LegalTextImportPanel() {
     setSubmitError(null)
     setView('parsing')
 
-    // TODO(api): replace with real POST /api/v1/editorial/imports
-    // multipart/form-data containing the metadata + both files.
-    // The endpoint should run an async parse job and return:
-    //   { headings, articles, parser_confidence, warnings }
-    // For the prototype, mock a 2.5s parse and return canned data.
-    await new Promise((r) => setTimeout(r, 2500))
+    try {
+      const response: DocumentParseResponse = await parseDocument(form.document_file!)
 
-    const mock: ParseResult = {
-      parser_confidence: 0.78,
-      headings: [
-        { level: 'title', number: 'I', title_fr: 'Des Haïtiens et de leurs droits' },
-        { level: 'chapter', number: 'I', title_fr: 'De la nationalité haïtienne' },
-        { level: 'chapter', number: 'II', title_fr: 'Des droits civils et politiques' },
-        { level: 'title', number: 'II', title_fr: 'De la souveraineté nationale' },
-      ],
-      articles: [
-        { number: '1', heading_path: ['Titre I', 'Chapitre I'], content_fr: 'Sont Haïtiens…' },
-        { number: '2', heading_path: ['Titre I', 'Chapitre I'], content_fr: 'La qualité de Haïtien…' },
-        { number: '3', heading_path: ['Titre I', 'Chapitre II'], content_fr: 'Tout Haïtien jouit…' },
-        { number: '4', heading_path: ['Titre II'], content_fr: 'La souveraineté réside…' },
-      ],
-      warnings: [
-        'Page 12 : confiance OCR faible (0.62) — relire avant publication.',
-        'Article 7 : numérotation non-standard détectée (« 7 bis »).',
-      ],
+      const result: ParseResult = {
+        headings: response.headings.map((h) => ({
+          key: h.key,
+          level: h.level,
+          number: h.number,
+          title_fr: h.title_fr,
+          parent_key: h.parent_key,
+          position: h.position,
+        })),
+        articles: response.articles.map((a) => ({
+          number: a.number,
+          content_fr: a.content_fr,
+          heading_path: a.heading_path,
+          heading_key: a.heading_key,
+          title: a.title,
+        })),
+        preamble: response.preamble,
+        parser_confidence: response.parser_confidence,
+        warnings: response.warnings,
+      }
+      setParseResult(result)
+      setView('preview')
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      setSubmitError(message)
+      setView('form')
     }
-    setParseResult(mock)
-    setView('preview')
   }
 
   const reset = () => {
@@ -327,13 +341,59 @@ export default function LegalTextImportPanel() {
     setSubmitError(null)
   }
 
+  const [saving, setSaving] = useState(false)
+
   const saveDraft = async () => {
-    // TODO(api): POST the validated parse result + metadata to
-    // /api/v1/editorial/imports/{id}/commit, which creates the legal_text +
-    // headings + article_versions rows with editorial_status='draft'.
-    // For the prototype, just toast and route to the editorial dashboard.
-    alert(copy.successDraft)
-    router.push('/lois')
+    if (!parseResult) return
+    setSaving(true)
+    setSubmitError(null)
+
+    try {
+      // Build the article slug from the article number
+      const slugifyArticle = (num: string) => {
+        const s = num.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        return `art-${s || 'n'}`
+      }
+
+      await createLegalText({
+        slug: form.slug,
+        category: form.category,
+        title_fr: form.title_fr.trim(),
+        title_ht: form.title_ht.trim() || null,
+        description_fr: form.description_fr.trim() || null,
+        description_ht: form.description_ht.trim() || null,
+        preamble_fr: parseResult.preamble || null,
+        promulgation_date: form.promulgation_date || null,
+        publication_date: form.publication_date || null,
+        moniteur_ref: form.moniteur_ref.trim() || null,
+        status: form.status,
+        headings: parseResult.headings.map((h) => ({
+          key: h.key,
+          parent_key: h.parent_key,
+          level: h.level,
+          number: h.number,
+          title_fr: h.title_fr,
+          position: h.position,
+        })),
+        articles: parseResult.articles.map((a, i) => ({
+          number: a.number,
+          slug: slugifyArticle(a.number),
+          heading_key: a.heading_key,
+          position: i,
+          version: {
+            text_fr: a.content_fr,
+            title_fr: a.title,
+          },
+        })),
+      })
+
+      router.push('/lois')
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Échec de la sauvegarde.'
+      setSubmitError(message)
+      setSaving(false)
+    }
   }
 
   // ----- Auth gate -----
@@ -566,6 +626,8 @@ export default function LegalTextImportPanel() {
             copy={copy}
             onSaveDraft={saveDraft}
             onDiscard={reset}
+            saving={saving}
+            error={submitError}
           />
         )}
       </div>
@@ -792,9 +854,11 @@ interface PreviewStateProps {
   copy: (typeof COPY)['fr']
   onSaveDraft: () => void
   onDiscard: () => void
+  saving: boolean
+  error: string | null
 }
 
-function PreviewState({ result, copy, onSaveDraft, onDiscard }: PreviewStateProps) {
+function PreviewState({ result, copy, onSaveDraft, onDiscard, saving, error }: PreviewStateProps) {
   return (
     <AnimatePresence>
       <motion.div
@@ -832,9 +896,9 @@ function PreviewState({ result, copy, onSaveDraft, onDiscard }: PreviewStateProp
               </div>
             </div>
           </div>
-          <p className="mt-4 text-[11px] italic text-slate-400">
-            {copy.mockNote}
-          </p>
+          {error && (
+            <p className="mt-4 text-sm text-red-600">{error}</p>
+          )}
         </div>
 
         {/* Headings */}
@@ -843,19 +907,28 @@ function PreviewState({ result, copy, onSaveDraft, onDiscard }: PreviewStateProp
             {copy.headingsLabel}
           </h3>
           <ol className="space-y-1">
-            {result.headings.map((h, i) => (
+            {result.headings.map((h) => (
               <li
-                key={i}
+                key={h.key}
                 className={cn(
                   'flex items-baseline gap-2 text-sm',
+                  h.level === 'book' && 'font-bold text-slate-900',
                   h.level === 'title' && 'pl-0 font-semibold text-slate-900',
                   h.level === 'chapter' && 'pl-6 text-slate-700',
                   h.level === 'section' && 'pl-12 text-slate-600',
-                  h.level === 'book' && 'font-bold text-slate-900',
+                  h.level === 'subsection' && 'pl-16 text-slate-500',
                 )}
               >
                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
-                  {h.level === 'title' ? 'Titre' : h.level === 'chapter' ? 'Chap.' : h.level === 'section' ? 'Sect.' : 'Livre'}{' '}
+                  {
+                    ({
+                      book: 'Livre',
+                      title: 'Titre',
+                      chapter: 'Chap.',
+                      section: 'Sect.',
+                      subsection: 'Sous-s.',
+                    } as Record<string, string>)[h.level] ?? h.level
+                  }{' '}
                   {h.number}
                 </span>
                 <span>· {h.title_fr}</span>
@@ -920,10 +993,15 @@ function PreviewState({ result, copy, onSaveDraft, onDiscard }: PreviewStateProp
           <Button
             type="button"
             onClick={onSaveDraft}
+            disabled={saving}
             size="lg"
             className="h-11 rounded-md bg-primary text-white hover:bg-primary/90 px-7 font-semibold gap-2"
           >
-            <CheckCircle2 className="w-4 h-4" />
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
             {copy.saveDraft}
           </Button>
         </div>

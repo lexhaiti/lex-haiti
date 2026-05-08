@@ -23,8 +23,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from packages.schemas.enums import ArticleStatus, EditorialStatus, LegalStatus
-from services.corpus.exceptions import InvalidInput, NotFound
+from packages.schemas.article import ArticleCreate, ArticleVersionCreate
+from packages.schemas.enums import ArticleStatus, EditorialStatus, LegalCategory, LegalStatus
+from packages.schemas.heading import LegalHeadingCreate
+from packages.schemas.legal_text import LegalTextCreate
+from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
 
 
 # ---------------------------------------------------------------------------
@@ -448,3 +451,115 @@ class TestMetadataUpdate:
             service.update_legal_text_metadata(
                 "test", actor=_make_user(), updates={"slug": "hacked"}
             )
+
+
+# ---------------------------------------------------------------------------
+# Create legal text (editorial import)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateLegalText:
+
+    def _make_create_data(self, **overrides) -> LegalTextCreate:
+        defaults = dict(
+            slug="test-law",
+            category=LegalCategory.loi,
+            title_fr="Loi test",
+            headings=[
+                LegalHeadingCreate(
+                    key="chapter-1",
+                    level="chapter",
+                    number="I",
+                    title_fr="Premier chapitre",
+                    position=0,
+                ),
+            ],
+            articles=[
+                ArticleCreate(
+                    number="1",
+                    slug="art-1",
+                    heading_key="chapter-1",
+                    position=0,
+                    version=ArticleVersionCreate(
+                        text_fr="Corps de l'article premier.",
+                    ),
+                ),
+            ],
+        )
+        defaults.update(overrides)
+        return LegalTextCreate(**defaults)
+
+    def _service(self):
+        from services.editorial.service import EditorialService
+
+        session = MagicMock()
+        # flush() is called many times; always succeed
+        session.flush.return_value = None
+        service = EditorialService(session)
+        service.repo = MagicMock()
+        # No existing text with this slug
+        service.repo.get_text_by_slug.return_value = None
+        # get_text needs to work for the return value
+        service.get_text = MagicMock(return_value=SimpleNamespace(
+            id=1, slug="test-law", title_fr="Loi test",
+        ))
+        return service, session
+
+    def test_rejects_empty_slug(self):
+        service, _ = self._service()
+        data = self._make_create_data(slug="")
+        with pytest.raises(InvalidInput, match="slug is required"):
+            service.create_legal_text(data, actor=_make_user())
+
+    def test_rejects_empty_title(self):
+        service, _ = self._service()
+        data = self._make_create_data(title_fr="")
+        with pytest.raises(InvalidInput, match="title_fr is required"):
+            service.create_legal_text(data, actor=_make_user())
+
+    def test_rejects_duplicate_slug(self):
+        service, _ = self._service()
+        service.repo.get_text_by_slug.return_value = SimpleNamespace(
+            id=99, slug="test-law"
+        )
+        data = self._make_create_data()
+        with pytest.raises(AlreadyExists, match="already exists"):
+            service.create_legal_text(data, actor=_make_user())
+
+    def test_creates_text_headings_articles(self):
+        service, session = self._service()
+        data = self._make_create_data()
+
+        service.create_legal_text(data, actor=_make_user())
+
+        # LegalText + LegalHeading + Article + ArticleVersion + EditorialAction = 5 adds
+        added = [c[0][0] for c in session.add.call_args_list]
+        assert len(added) >= 4  # at least text + heading + article + version
+
+        # Check that flush was called (needed for FK resolution)
+        assert session.flush.call_count >= 4
+
+    def test_creates_without_headings_or_articles(self):
+        service, session = self._service()
+        data = self._make_create_data(headings=None, articles=None)
+
+        service.create_legal_text(data, actor=_make_user())
+
+        # Only LegalText + EditorialAction
+        added = [c[0][0] for c in session.add.call_args_list]
+        assert len(added) >= 1
+
+    def test_editorial_status_always_draft(self):
+        """Even if the caller passes published, the text is created as draft."""
+        service, session = self._service()
+        data = self._make_create_data(editorial_status=EditorialStatus.published)
+
+        service.create_legal_text(data, actor=_make_user())
+
+        # Find the LegalText that was added
+        legal_texts = [
+            c[0][0] for c in session.add.call_args_list
+            if hasattr(c[0][0], 'editorial_status') and hasattr(c[0][0], 'slug')
+        ]
+        assert len(legal_texts) >= 1
+        assert legal_texts[0].editorial_status == EditorialStatus.draft

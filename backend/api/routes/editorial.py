@@ -6,10 +6,13 @@ mutation.
 """
 from __future__ import annotations
 
+import logging
+import tempfile
 from datetime import date
-from typing import Annotated, Optional
+from pathlib import Path
+from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File as FastAPIFile
 from pydantic import BaseModel, Field
 
 from api.deps import (
@@ -24,8 +27,10 @@ from packages.schemas.enums import (
     LegalCategory,
     LegalStatus,
 )
-from packages.schemas.legal_text import LegalTextListItem, LegalTextRead
+from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
 from services.editorial.service import EditorialService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/editorial", tags=["editorial"])
 
@@ -42,6 +47,132 @@ EditorialServiceDep = Annotated[EditorialService, Depends(get_editorial_service)
 
 class CommentRequest(BaseModel):
     comment: str = Field(..., min_length=1, max_length=2000)
+
+
+# -----------------------------------------------------------------------
+# Response schemas for document parsing
+# -----------------------------------------------------------------------
+
+
+class ParsedHeadingResponse(BaseModel):
+    key: str
+    level: str
+    number: str
+    title_fr: str
+    parent_key: Optional[str] = None
+    position: int = 0
+
+
+class ParsedArticleResponse(BaseModel):
+    number: str
+    content_fr: str
+    heading_path: List[str] = []
+    heading_key: Optional[str] = None
+    title: Optional[str] = None
+
+
+class DocumentParseResponse(BaseModel):
+    headings: List[ParsedHeadingResponse]
+    articles: List[ParsedArticleResponse]
+    preamble: str
+    parser_confidence: float
+    warnings: List[str]
+
+
+# -----------------------------------------------------------------------
+# Create a new legal text (editorial import)
+# -----------------------------------------------------------------------
+
+
+@router.post(
+    "/legal-texts",
+    response_model=LegalTextRead,
+    status_code=201,
+    summary="Create a new draft legal text with headings and articles",
+)
+def create_legal_text(
+    body: LegalTextCreate,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Create a draft LegalText with optional headings, articles, and signers.
+
+    This is the commit step of the editorial import flow: the editor has
+    already parsed the document, reviewed the structure, and is now saving
+    the result as a draft.
+    """
+    result = service.create_legal_text(body, actor=user)
+    db.commit()
+    return result
+
+
+# -----------------------------------------------------------------------
+# Parse a document file into structured headings + articles
+# -----------------------------------------------------------------------
+
+
+@router.post(
+    "/parse-document",
+    response_model=DocumentParseResponse,
+    summary="Parse a legal document (PDF/DOCX/TXT) into headings + articles",
+)
+async def parse_document(
+    user: EditorialUser,
+    file: UploadFile = FastAPIFile(
+        ..., description="Legal document to parse (PDF, DOCX, or TXT)"
+    ),
+):
+    """Upload a legal document and parse it into a structured preview.
+
+    The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION),
+    splits articles, and assigns each article to its nearest heading.
+    The editor reviews the result and then commits via POST /legal-texts.
+
+    No data is persisted — this is a stateless analysis endpoint.
+    """
+    from services.ingestion.document_parser import parse_file  # noqa: PLC0415
+
+    # Determine the suffix from the upload's content-type or filename
+    suffix = Path(file.filename or "").suffix.lower() or ".txt"
+    content_type = file.content_type
+
+    # Write to a temp file so the parser can use the existing OCR pipeline
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        result = parse_file(tmp_path, content_type=content_type)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return DocumentParseResponse(
+        headings=[
+            ParsedHeadingResponse(
+                key=h.key,
+                level=h.level,
+                number=h.number,
+                title_fr=h.title_fr,
+                parent_key=h.parent_key,
+                position=h.position,
+            )
+            for h in result.headings
+        ],
+        articles=[
+            ParsedArticleResponse(
+                number=a.number,
+                content_fr=a.content_fr,
+                heading_path=a.heading_path,
+                heading_key=a.heading_key,
+                title=a.title,
+            )
+            for a in result.articles
+        ],
+        preamble=result.preamble,
+        parser_confidence=result.parser_confidence,
+        warnings=result.warnings,
+    )
 
 
 class LegalTextMetadataUpdate(BaseModel):

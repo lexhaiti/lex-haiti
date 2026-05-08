@@ -389,6 +389,107 @@ export async function citationsFromDecision(decisionId: number) {
 }
 
 // -----------------------------------------------------------------------
+// Editorial — import pipeline
+// -----------------------------------------------------------------------
+
+/** Parse result from the document analysis endpoint. */
+export type ParsedHeadingResponse = {
+  key: string
+  level: string
+  number: string
+  title_fr: string
+  parent_key: string | null
+  position: number
+}
+
+export type ParsedArticleResponse = {
+  number: string
+  content_fr: string
+  heading_path: string[]
+  heading_key: string | null
+  title: string | null
+}
+
+export type DocumentParseResponse = {
+  headings: ParsedHeadingResponse[]
+  articles: ParsedArticleResponse[]
+  preamble: string
+  parser_confidence: number
+  warnings: string[]
+}
+
+/**
+ * Parse a legal document (PDF/DOCX/TXT) into structured headings + articles.
+ *
+ * Routes through a local Next.js API route for the same reason as
+ * Moniteur uploads — large multipart uploads choke the dev rewrite.
+ */
+export async function parseDocument(file: File): Promise<DocumentParseResponse> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch('/api/editorial/parse-document', {
+    method: 'POST',
+    body: fd,
+  })
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      const body = await r.json()
+      detail = body?.detail ?? body?.error?.message
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `Parse failed (HTTP ${r.status})`)
+  }
+  return (await r.json()) as DocumentParseResponse
+}
+
+/** Payload shape for creating a new legal text with structure. */
+export type LegalTextCreatePayload = {
+  slug: string
+  category: string
+  title_fr: string
+  title_ht?: string | null
+  description_fr?: string | null
+  description_ht?: string | null
+  preamble_fr?: string | null
+  preamble_ht?: string | null
+  promulgation_date?: string | null
+  publication_date?: string | null
+  moniteur_ref?: string | null
+  status?: string
+  headings?: Array<{
+    key: string
+    parent_key?: string | null
+    level: string
+    number?: string | null
+    title_fr?: string | null
+    title_ht?: string | null
+    position?: number
+  }>
+  articles?: Array<{
+    number: string
+    slug: string
+    heading_key?: string | null
+    position?: number
+    version: {
+      text_fr: string
+      text_ht?: string | null
+      title_fr?: string | null
+      title_ht?: string | null
+    }
+  }>
+}
+
+/**
+ * Create a new draft LegalText with headings + articles.
+ * This is the "commit" step after the editor reviews the parsed structure.
+ */
+export async function createLegalText(payload: LegalTextCreatePayload) {
+  return apiPost<LegalTextRead>('/editorial/legal-texts', payload)
+}
+
+// -----------------------------------------------------------------------
 // Editorial — auth-required endpoints (carry the Auth.js cookie)
 // -----------------------------------------------------------------------
 
