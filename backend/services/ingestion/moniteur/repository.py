@@ -85,6 +85,11 @@ class MoniteurRepository:
                 desc(MoniteurIssue.publication_date),
                 desc(MoniteurIssue.id),
             )
+            .options(
+                selectinload(MoniteurIssue.candidates).selectinload(
+                    MoniteurLawCandidate.promoted_legal_text
+                )
+            )
             .offset(offset)
             .limit(limit)
         )

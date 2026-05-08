@@ -277,6 +277,8 @@ export default function LawDetail() {
 
   // useRef must be called before any early returns (Rules of Hooks)
   const articleViewerRef = React.useRef<HTMLDivElement>(null)
+  const preambleRef = React.useRef<HTMLDivElement>(null)
+  const [preambleExpanded, setPreambleExpanded] = useState(false)
 
   if (isLoading) {
     return (
@@ -586,12 +588,23 @@ export default function LawDetail() {
                         currentLang={currentLang}
                         onArticleSelect={(article) => {
                           handleArticleSelect(article)
-                          setIsSidebarOpen(false) // Close on select on mobile
+                          setIsSidebarOpen(false)
                         }}
                         selectedArticle={selectedArticle?.number}
                         externalQuery={
                           pageSearchScope === 'sommaire' ? pageSearchQuery : ''
                         }
+                        hasPreamble={!!law.preamble_fr}
+                        onPreambleClick={() => {
+                          setPreambleExpanded(true)
+                          setIsSidebarOpen(false)
+                          setTimeout(() => {
+                            preambleRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            })
+                          }, 100)
+                        }}
                       />
                     </div>
                   </motion.div>
@@ -641,6 +654,16 @@ export default function LawDetail() {
                     externalQuery={
                       pageSearchScope === 'sommaire' ? pageSearchQuery : ''
                     }
+                    hasPreamble={!!law.preamble_fr}
+                    onPreambleClick={() => {
+                      setPreambleExpanded(true)
+                      setTimeout(() => {
+                        preambleRef.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                      }, 100)
+                    }}
                   />
                 </div>
               </motion.div>
@@ -724,6 +747,43 @@ export default function LawDetail() {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Preamble — "Vu la loi...", "Considérant que..." section */}
+            {law.preamble_fr && law.articles && law.articles.length > 0 && (
+              <div ref={preambleRef} className="mb-8 scroll-mt-24">
+                <button
+                  onClick={() => setPreambleExpanded(!preambleExpanded)}
+                  className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
+                >
+                  {preambleExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  )}
+                  <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
+                    {currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
+                  </span>
+                  <span className="text-xs text-slate-400 ml-auto">
+                    {currentLang === 'fr' ? 'Visas et considérants' : 'Visa ak konsideran'}
+                  </span>
+                </button>
+                <AnimatePresence>
+                  {preambleExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {law.preamble_fr}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 

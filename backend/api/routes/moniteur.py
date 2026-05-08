@@ -35,6 +35,7 @@ from packages.schemas.moniteur import (
     MoniteurIssueUpdate,
     MoniteurIssueWithCandidates,
     MoniteurLawCandidateRead,
+    SommaireEntry,
 )
 from services.ingestion.moniteur.repository import MoniteurRepository
 
@@ -84,12 +85,23 @@ def _save_uploaded_pdf(upload: UploadFile, year: int, number: str) -> str:
 
 def _to_read(issue) -> MoniteurIssueRead:
     payload = MoniteurIssueRead.model_validate(issue)
-    payload.candidates_count = len(getattr(issue, "candidates", []) or [])
+    candidates = getattr(issue, "candidates", []) or []
+    payload.candidates_count = len(candidates)
     payload.accepted_count = sum(
-        1
-        for c in (getattr(issue, "candidates", []) or [])
+        1 for c in candidates
         if c.review_status == MoniteurCandidateStatus.accepted
     )
+    payload.sommaire = [
+        SommaireEntry(
+            category=c.detected_category,
+            title=c.display_title or c.detected_title,
+            promoted_slug=getattr(
+                getattr(c, "promoted_legal_text", None), "slug", None
+            ),
+        )
+        for c in candidates
+        if not c.parent_candidate_id
+    ]
     return payload
 
 

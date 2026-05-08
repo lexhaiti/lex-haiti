@@ -51,6 +51,8 @@ interface TableOfContentsProps {
   selectedArticle?: string
   /** Search query driven by the page-level search panel above the article column. */
   externalQuery?: string
+  hasPreamble?: boolean
+  onPreambleClick?: () => void
 }
 
 /** Build a tree from flat headings + attach articles to their heading nodes */
@@ -197,6 +199,8 @@ export default function TableOfContents({
   onArticleSelect,
   selectedArticle,
   externalQuery,
+  hasPreamble,
+  onPreambleClick,
 }: TableOfContentsProps) {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -412,6 +416,15 @@ export default function TableOfContents({
       {/* Tree */}
       <ScrollArea className="flex-1">
         <div className="pt-3">
+          {hasPreamble && onPreambleClick && (
+            <button
+              onClick={onPreambleClick}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:text-red-600 transition-colors mb-1"
+            >
+              <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <span>{currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}</span>
+            </button>
+          )}
           {filteredTree.length > 0 ? (
             filteredTree.map((node) => renderNode(node, 0))
           ) : (

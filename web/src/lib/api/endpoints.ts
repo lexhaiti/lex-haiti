@@ -172,6 +172,11 @@ export type MoniteurIssueRead = {
   updated_at: string
   candidates_count: number
   accepted_count: number
+  sommaire: Array<{
+    category: string | null
+    title: string | null
+    promoted_slug: string | null
+  }>
 }
 
 export type MoniteurLawCandidateRead = {

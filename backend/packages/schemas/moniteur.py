@@ -50,6 +50,14 @@ class MoniteurIssueUpdate(BaseModel):
     edition_label: Optional[str] = None
 
 
+class SommaireEntry(BaseModel):
+    """Lightweight summary of a candidate for the list-page cards."""
+
+    category: Optional[MoniteurDocumentType] = None
+    title: Optional[str] = None
+    promoted_slug: Optional[str] = None
+
+
 class MoniteurIssueRead(MoniteurIssueBase):
     """Response shape for a Moniteur issue."""
 
@@ -67,6 +75,7 @@ class MoniteurIssueRead(MoniteurIssueBase):
 
     candidates_count: int = 0
     accepted_count: int = 0
+    sommaire: List[SommaireEntry] = []
 
     model_config = ConfigDict(from_attributes=True)
 
