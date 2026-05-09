@@ -230,9 +230,9 @@ export function AllLawsUI({
             )}
           />
 
-          {/* Title block — full width, with the search living below as its
-              own band (matching the home hero pattern). */}
-          <div className="max-w-4xl">
+          {/* Title block — fills the container width; the search bar
+              below has its own width cap for input UX. */}
+          <div>
             <motion.h1
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -255,7 +255,7 @@ export function AllLawsUI({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-2xl border-l-2 border-red-600 pl-6"
+              className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
             >
               {filterSubtitle(themes, lang) ??
                 t?.('allLaws.subtitle') ??
