@@ -108,6 +108,25 @@ export type LegalTextQMode = NonNullable<
   >['q_mode']
 >
 
+/**
+ * Multi-criterion advanced search. Each criterion has an operator
+ * (AND / OR / NOT, ignored on the first), a field selector, a mode,
+ * and the search text. Composed server-side with proper SQL — the
+ * previous /recherche/avancee implementation composed OR / NOT rows
+ * client-side which truncated past `limit=100`.
+ */
+export type AdvancedSearchCriterion =
+  components['schemas']['AdvancedSearchCriterion']
+export type AdvancedSearchInput =
+  components['schemas']['AdvancedSearchInput']
+
+export async function advancedSearchTexts(payload: AdvancedSearchInput) {
+  return apiPost<PaginatedListResponse>(
+    '/legal-texts/advanced-search',
+    payload,
+  )
+}
+
 /** Paginated list of legal texts with optional filters and free-text query. */
 export async function listTexts(params?: {
   q?: string

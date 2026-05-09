@@ -38,6 +38,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal-texts/advanced-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Advanced Search Legal Texts
+         * @description Multi-criterion search composed server-side.
+         *
+         *     The body's `criteria` list is bucketed into AND / OR / NOT groups
+         *     (the first row's operator is treated as AND) and combined into a
+         *     single SQL WHERE — so pagination, totals, and OR/NOT semantics all
+         *     survive across pages, which the previous client-side composition
+         *     in /recherche/avancee couldn't.
+         *
+         *     Empty `text` rows are silently dropped server-side. Snippets are
+         *     attached when `with_snippets=true` for any criterion whose
+         *     `field == "all"`.
+         */
+        post: operations["advanced_search_legal_texts_api_v1_legal_texts_advanced_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal-texts/search": {
         parameters: {
             query?: never;
@@ -816,6 +846,76 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AdvancedSearchCriterion
+         * @description One row of the advanced search form.
+         *
+         *     The first criterion's `operator` is ignored (the UI hides the
+         *     operator selector for the first row — there's nothing before it
+         *     to connect to). All other operators bucket the row into the
+         *     AND / OR / NOT group at composition time.
+         */
+        AdvancedSearchCriterion: {
+            /**
+             * Operator
+             * @default AND
+             */
+            operator: string;
+            /**
+             * Field
+             * @default all
+             */
+            field: string;
+            /**
+             * Mode
+             * @default all
+             */
+            mode: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * AdvancedSearchInput
+         * @description Body of POST /legal-texts/advanced-search.
+         *
+         *     Empty `text` rows are dropped server-side so the editor can keep a
+         *     blank row in the UI without it killing the result set. All filters
+         *     below are optional and mirror the simple `list_texts` GET endpoint.
+         */
+        AdvancedSearchInput: {
+            /**
+             * Criteria
+             * @default []
+             */
+            criteria: components["schemas"]["AdvancedSearchCriterion"][];
+            /** Category */
+            category?: string | null;
+            /** Code Subcategory */
+            code_subcategory?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Year From */
+            year_from?: number | null;
+            /** Year To */
+            year_to?: number | null;
+            /** Sort */
+            sort?: string | null;
+            /**
+             * With Snippets
+             * @default false
+             */
+            with_snippets: boolean;
+            /**
+             * Limit
+             * @default 24
+             */
+            limit: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+        };
         /**
          * ArticleContentUpdate
          * @description Partial update of the editable content fields of an article version.
@@ -2276,6 +2376,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalTextListItem"][];
+                };
+            };
+        };
+    };
+    advanced_search_legal_texts_api_v1_legal_texts_advanced_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvancedSearchInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse_LegalTextListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

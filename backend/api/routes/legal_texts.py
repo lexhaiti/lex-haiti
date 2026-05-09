@@ -18,7 +18,10 @@ from packages.schemas.enums import (
 )
 from packages.schemas.heading import TocNode
 from packages.schemas.legal_text import LegalTextListItem, LegalTextRead
-from packages.schemas.search import PaginatedSearchResponse
+from packages.schemas.search import (
+    AdvancedSearchInput,
+    PaginatedSearchResponse,
+)
 from services.corpus.export import render_docx, render_pdf
 
 router = APIRouter(prefix="/legal-texts", tags=["legal-texts"])
@@ -134,6 +137,52 @@ def list_legal_texts(
 @router.get("/quick-access", response_model=List[LegalTextListItem])
 def quick_access(service: CorpusServiceDep):
     return service.get_quick_access()
+
+
+@router.post(
+    "/advanced-search",
+    response_model=PaginatedResponse[LegalTextListItem],
+)
+def advanced_search_legal_texts(
+    payload: AdvancedSearchInput,
+    service: CorpusServiceDep,
+):
+    """Multi-criterion search composed server-side.
+
+    The body's `criteria` list is bucketed into AND / OR / NOT groups
+    (the first row's operator is treated as AND) and combined into a
+    single SQL WHERE — so pagination, totals, and OR/NOT semantics all
+    survive across pages, which the previous client-side composition
+    in /recherche/avancee couldn't.
+
+    Empty `text` rows are silently dropped server-side. Snippets are
+    attached when `with_snippets=true` for any criterion whose
+    `field == "all"`.
+    """
+    return service.advanced_search_texts(
+        criteria=[c.model_dump() for c in payload.criteria],
+        category=(
+            LegalCategory(payload.category)
+            if payload.category and payload.category != "all"
+            else None
+        ),
+        code_subcategory=(
+            CodeSubcategory(payload.code_subcategory)
+            if payload.code_subcategory and payload.code_subcategory != "all"
+            else None
+        ),
+        legal_status=(
+            LegalStatus(payload.status)
+            if payload.status and payload.status != "all"
+            else None
+        ),
+        year_from=payload.year_from,
+        year_to=payload.year_to,
+        sort=payload.sort or "publication_date",
+        with_snippets=payload.with_snippets,
+        limit=payload.limit,
+        offset=payload.offset,
+    )
 
 
 @router.get("/search", response_model=PaginatedSearchResponse)

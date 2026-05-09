@@ -45,6 +45,91 @@ from services.corpus.models import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Free-text q clause builder — shared between the simple list_texts() flow
+# (one q + q_field + q_mode) and the advanced search flow (N criteria
+# composed with AND/OR/NOT).
+# ---------------------------------------------------------------------------
+
+
+def _build_q_clause(q: str, q_field: str, q_mode: str):
+    """Return a SQLAlchemy boolean expression for a single text criterion,
+    or None if the query is empty.
+
+    `q_field` controls which columns we match against:
+      - "title"        : title_fr + title_ht
+      - "description"  : description_fr + description_ht
+      - "all" (default): titles + descriptions + moniteur_ref + an
+                         EXISTS on the legal_text's article bodies
+                         (ArticleVersion.text_fr/_ht) so a body match
+                         qualifies the parent text.
+
+    `q_mode` controls how the words combine:
+      - "all"     : every word must match somewhere
+      - "exact"   : the whole phrase as a single substring
+      - "any"     : at least one word matches
+      - "exclude" : none of the words match (each word is NOT'd)
+    """
+    if not q:
+        return None
+    q_clean = q.strip()
+    if not q_clean:
+        return None
+
+    title_cols = [LegalText.title_fr, LegalText.title_ht]
+    desc_cols = [LegalText.description_fr, LegalText.description_ht]
+    if q_field == "title":
+        target_cols = title_cols
+    elif q_field == "description":
+        target_cols = desc_cols
+    else:
+        target_cols = title_cols + desc_cols + [LegalText.moniteur_ref]
+    search_articles = q_field == "all"
+
+    # NULL-safe + accent-insensitive helpers. Coalesce nulls before
+    # ILIKE so the predicate never returns NULL (which would silently
+    # break the `exclude` / NOT branches).
+    def col(c):
+        return func.unaccent(func.coalesce(c, ""))
+
+    def pat(word: str):
+        return func.unaccent(f"%{word}%")
+
+    def word_predicate(word: str):
+        parts = [col(c).ilike(pat(word)) for c in target_cols]
+        if search_articles:
+            parts.append(
+                select(1)
+                .select_from(Article)
+                .join(
+                    ArticleVersion,
+                    ArticleVersion.article_id == Article.id,
+                )
+                .where(
+                    Article.legal_text_id == LegalText.id,
+                    or_(
+                        col(ArticleVersion.text_fr).ilike(pat(word)),
+                        col(ArticleVersion.text_ht).ilike(pat(word)),
+                    ),
+                )
+                .exists()
+            )
+        return or_(*parts)
+
+    if q_mode == "exact":
+        return word_predicate(q_clean)
+
+    words = [w for w in q_clean.split() if w]
+    if not words:
+        return None
+    if q_mode == "any":
+        return or_(*(word_predicate(w) for w in words))
+    if q_mode == "exclude":
+        return and_(*(not_(word_predicate(w)) for w in words))
+    # "all" (default) — every word must match somewhere
+    return and_(*(word_predicate(w) for w in words))
+
+
 class CorpusRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -199,77 +284,9 @@ class CorpusRepository:
             stmt = stmt.where(theme_filter.exists())
 
         if q:
-            q_clean = q.strip()
-            if q_clean:
-                # Resolve which columns to match against based on q_field.
-                title_cols = [LegalText.title_fr, LegalText.title_ht]
-                desc_cols = [LegalText.description_fr, LegalText.description_ht]
-                if q_field == "title":
-                    target_cols = title_cols
-                elif q_field == "description":
-                    target_cols = desc_cols
-                else:
-                    target_cols = title_cols + desc_cols + [LegalText.moniteur_ref]
-
-                # When q_field == "all", also search article bodies. For
-                # q_field=title/description we deliberately don't traverse the
-                # article graph — the editor wants a metadata search.
-                search_articles = q_field == "all"
-
-                # NULL-safe + accent-insensitive column wrapper. Wrap both the
-                # column and the search pattern with `unaccent()` so "président"
-                # matches "president" and vice versa. Coalesce nulls so the
-                # ILIKE never returns NULL (which would silently break the
-                # `exclude` mode's NOT).
-                def col(c):
-                    return func.unaccent(func.coalesce(c, ""))
-
-                def pat(word: str):
-                    return func.unaccent(f"%{word}%")
-
-                def word_predicate(word: str):
-                    """OR of (every target column ILIKE word) and, when the
-                    field selector is "all", an EXISTS on any article body
-                    in this legal_text containing the word."""
-                    parts = [col(c).ilike(pat(word)) for c in target_cols]
-                    if search_articles:
-                        parts.append(
-                            select(1)
-                            .select_from(Article)
-                            .join(
-                                ArticleVersion,
-                                ArticleVersion.article_id == Article.id,
-                            )
-                            .where(
-                                Article.legal_text_id == LegalText.id,
-                                or_(
-                                    col(ArticleVersion.text_fr).ilike(pat(word)),
-                                    col(ArticleVersion.text_ht).ilike(pat(word)),
-                                ),
-                            )
-                            .exists()
-                        )
-                    return or_(*parts)
-
-                if q_mode == "exact":
-                    # Treat the whole phrase as a single "word" so the same
-                    # OR-across-targets predicate applies.
-                    stmt = stmt.where(word_predicate(q_clean))
-                else:
-                    words = [w for w in q_clean.split() if w]
-                    if words:
-                        if q_mode == "any":
-                            stmt = stmt.where(
-                                or_(*(word_predicate(w) for w in words))
-                            )
-                        elif q_mode == "exclude":
-                            stmt = stmt.where(
-                                and_(*(not_(word_predicate(w)) for w in words))
-                            )
-                        else:  # "all" — every word must match somewhere
-                            stmt = stmt.where(
-                                and_(*(word_predicate(w) for w in words))
-                            )
+            clause = _build_q_clause(q, q_field, q_mode)
+            if clause is not None:
+                stmt = stmt.where(clause)
 
         total_stmt = select(func.count()).select_from(stmt.subquery())
         total = int(self.session.execute(total_stmt).scalar_one())
@@ -303,6 +320,135 @@ class CorpusRepository:
                 LegalText.id.asc(),
             ]
         else:  # "publication_date" — historical publication date, newest first
+            order_clauses = [
+                nullslast(desc(LegalText.publication_date)),
+                desc(LegalText.id),
+            ]
+
+        stmt = stmt.order_by(*order_clauses).offset(offset).limit(limit)
+
+        rows = list(self.session.execute(stmt).scalars().all())
+        return rows, total
+
+    def advanced_search_texts(
+        self,
+        *,
+        criteria: List[dict],
+        category: Optional[LegalCategory] = None,
+        code_subcategory: Optional[CodeSubcategory] = None,
+        legal_status: Optional[LegalStatus] = None,
+        editorial_status: Optional[EditorialStatus] = EditorialStatus.published,
+        year_from: Optional[int] = None,
+        year_to: Optional[int] = None,
+        sort: str = "publication_date",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[LegalText], int]:
+        """Multi-criterion search composed server-side with AND / OR / NOT.
+
+        Each `criteria` entry is a dict shaped like:
+            {
+                "operator": "AND" | "OR" | "NOT"   (default AND)
+                "field":    "all" | "title" | "description"  (default all)
+                "mode":     "all" | "exact" | "any" | "exclude"  (default all)
+                "text":     str  (required, non-empty)
+            }
+
+        Composition:
+          • All AND criteria → ANDed together (every one must match).
+          • All OR criteria → ORed together (at least one must match);
+            the OR group is then ANDed with the AND group.
+          • All NOT criteria → each is NOT'd and ANDed with the rest.
+
+        Empty criteria (text="" after strip) are silently dropped so the
+        editor can leave a blank row without it nuking the result set.
+
+        Same category / status / year / sort / pagination shape as
+        `list_texts()` so the route can reuse the LegalTextListItem
+        response model.
+        """
+        limit = max(1, min(limit, 100))
+        offset = max(0, offset)
+
+        stmt = select(LegalText)
+
+        if category:
+            stmt = stmt.where(LegalText.category == category)
+        if code_subcategory:
+            stmt = stmt.where(LegalText.code_subcategory == code_subcategory)
+        if legal_status:
+            stmt = stmt.where(LegalText.status == legal_status)
+        if editorial_status:
+            stmt = stmt.where(LegalText.editorial_status == editorial_status)
+        if year_from is not None:
+            stmt = stmt.where(
+                extract("year", LegalText.publication_date) >= year_from
+            )
+        if year_to is not None:
+            stmt = stmt.where(
+                extract("year", LegalText.publication_date) <= year_to
+            )
+
+        # Bucket non-empty criteria by operator. The first criterion's
+        # operator is treated as AND (the UI hides the operator selector
+        # for the first row — there's nothing before it to connect to).
+        and_clauses, or_clauses, not_clauses = [], [], []
+        for i, c in enumerate(criteria or []):
+            text = (c.get("text") or "").strip()
+            if not text:
+                continue
+            clause = _build_q_clause(
+                text,
+                c.get("field", "all"),
+                c.get("mode", "all"),
+            )
+            if clause is None:
+                continue
+            op = (c.get("operator") or "AND") if i > 0 else "AND"
+            if op == "OR":
+                or_clauses.append(clause)
+            elif op == "NOT":
+                not_clauses.append(clause)
+            else:
+                and_clauses.append(clause)
+
+        # Combine the three groups. Empty groups are dropped so we don't
+        # ship a no-op `True` predicate that confuses the query planner.
+        combined = []
+        if and_clauses:
+            combined.append(and_(*and_clauses))
+        if or_clauses:
+            combined.append(or_(*or_clauses))
+        if not_clauses:
+            combined.append(and_(*(not_(c) for c in not_clauses)))
+        if combined:
+            stmt = stmt.where(and_(*combined))
+
+        total_stmt = select(func.count()).select_from(stmt.subquery())
+        total = int(self.session.execute(total_stmt).scalar_one())
+
+        # Sort + paginate — identical to list_texts(). Worth a future
+        # refactor into a shared helper if a third caller appears.
+        if sort == "recently_updated":
+            order_clauses = [desc(LegalText.updated_at), desc(LegalText.id)]
+        elif sort == "recently_added":
+            order_clauses = [desc(LegalText.created_at), desc(LegalText.id)]
+        elif sort == "recently_published":
+            order_clauses = [
+                nullslast(desc(LegalText.published_at)),
+                desc(LegalText.id),
+            ]
+        elif sort == "oldest":
+            order_clauses = [
+                nullslast(LegalText.publication_date.asc()),
+                LegalText.id.asc(),
+            ]
+        elif sort == "alphabetical":
+            order_clauses = [
+                nullslast(LegalText.title_fr.asc()),
+                LegalText.id.asc(),
+            ]
+        else:
             order_clauses = [
                 nullslast(desc(LegalText.publication_date)),
                 desc(LegalText.id),

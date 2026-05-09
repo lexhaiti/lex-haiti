@@ -210,6 +210,90 @@ class CorpusService:
             size=limit,
         )
 
+    def advanced_search_texts(
+        self,
+        *,
+        criteria: List[dict],
+        category: Optional[LegalCategory] = None,
+        code_subcategory: Optional[CodeSubcategory] = None,
+        legal_status: Optional[LegalStatus] = None,
+        editorial_status: Optional[EditorialStatus] = EditorialStatus.published,
+        year_from: Optional[int] = None,
+        year_to: Optional[int] = None,
+        sort: str = "publication_date",
+        with_snippets: bool = False,
+        limit: int = 24,
+        offset: int = 0,
+    ) -> PaginatedResponse[LegalTextListItem]:
+        """Multi-criterion search composed server-side.
+
+        Same response shape as `list_texts()`. Snippets are attached for
+        any criterion whose `field == "all"` (the only mode that walks
+        article bodies) — concatenating the textual queries so the
+        ts_headline highlight surfaces matches from any of them.
+        """
+        rows, total = self.repo.advanced_search_texts(
+            criteria=criteria,
+            category=category,
+            code_subcategory=code_subcategory,
+            legal_status=legal_status,
+            editorial_status=editorial_status,
+            year_from=year_from,
+            year_to=year_to,
+            sort=sort,
+            limit=limit,
+            offset=offset,
+        )
+        items = [LegalTextListItem.model_validate(t) for t in rows]
+
+        if items:
+            tags_by_id = self.repo.get_theme_tags_for_texts(
+                [it.id for it in items]
+            )
+            for it in items:
+                it.theme_tags = [
+                    LegalThemeTagRead.model_validate(t)
+                    for t in tags_by_id.get(it.id, [])
+                ]
+
+        # Snippets — concatenate all "field=all" criteria text into a
+        # single highlight query, since ts_headline expects one tsquery.
+        # Editors who want NOT-mode highlighting are out of luck (we
+        # don't surface "what didn't match"), but that's the expected
+        # editorial behavior anyway.
+        if with_snippets and items:
+            snippet_terms = [
+                (c.get("text") or "").strip()
+                for c in criteria
+                if c.get("field", "all") == "all"
+                and c.get("operator", "AND") in ("AND", "OR")
+                and (c.get("text") or "").strip()
+            ]
+            if snippet_terms:
+                merged_q = " ".join(snippet_terms)
+                snippets_by_id = self.repo.fetch_match_snippets(
+                    [it.id for it in items], merged_q, per_text=2
+                )
+                for it in items:
+                    raw = snippets_by_id.get(it.id, [])
+                    if raw:
+                        it.match_snippets = [
+                            MatchSnippet(
+                                article_number=s["article_number"],
+                                article_slug=s.get("article_slug"),
+                                snippet_fr=s.get("snippet_fr"),
+                                snippet_ht=s.get("snippet_ht"),
+                            )
+                            for s in raw
+                        ]
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=(offset // max(limit, 1)) + 1,
+            size=limit,
+        )
+
     # -------------------------------------------------------------------
     # LegalText detail
     # -------------------------------------------------------------------

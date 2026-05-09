@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -30,11 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  listTexts,
-  type LegalCategory,
-  type LegalStatus,
-  type LegalTextQField,
-  type LegalTextQMode,
+  advancedSearchTexts,
+  type AdvancedSearchCriterion,
 } from '@/lib/api/endpoints'
 import {
   DropdownMenu,
@@ -271,77 +268,14 @@ const STATUS_PILL: Record<string, { fr: string; ht: string; cls: string }> = {
 }
 
 // =============================================================================
-// Search helpers
-// =============================================================================
-
-const normalize = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-
-function getHaystack(row: LegalTextRow, field: FieldKey): string {
-  const parts: string[] = []
-  if (field === 'all' || field === 'title') {
-    if (row.title_fr) parts.push(row.title_fr)
-    if (row.title_ht) parts.push(row.title_ht)
-  }
-  if (field === 'all' || field === 'description') {
-    if (row.description_fr) parts.push(row.description_fr)
-    if (row.description_ht) parts.push(row.description_ht)
-  }
-  return normalize(parts.join(' \n '))
-}
-
-/** Does this row match the given criterion? */
-function matchCriterion(row: LegalTextRow, c: CriteriaRow): boolean {
-  const query = c.text.trim()
-  if (!query) return true
-  const hay = getHaystack(row, c.field)
-  const tokens = normalize(query).split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return true
-  switch (c.mode) {
-    case 'exact':
-      return hay.includes(normalize(query))
-    case 'any':
-      return tokens.some((t) => hay.includes(t))
-    case 'exclude':
-      return tokens.every((t) => !hay.includes(t))
-    case 'all':
-    default:
-      return tokens.every((t) => hay.includes(t))
-  }
-}
-
-/**
- * Apply ET/OU/SAUF group semantics:
- *   row matches IFF
- *     ALL(ET rows match) AND
- *     ANY(OU rows match) [or no OU rows] AND
- *     NONE(SAUF rows match)
- *
- * The first row is treated as ET regardless of its `operator` field
- * (the first row's operator is hidden in the UI).
- */
-function combinedMatch(row: LegalTextRow, criteria: CriteriaRow[]): boolean {
-  if (criteria.length === 0) return true
-  const buckets: Record<OperatorKey, CriteriaRow[]> = { ET: [], OU: [], SAUF: [] }
-  criteria.forEach((c, i) => {
-    const op: OperatorKey = i === 0 ? 'ET' : c.operator
-    buckets[op].push(c)
-  })
-  // Skip empty rows (text empty) so users can leave a blank one.
-  const nonEmpty = (c: CriteriaRow) => c.text.trim().length > 0
-  const et = buckets.ET.filter(nonEmpty)
-  const ou = buckets.OU.filter(nonEmpty)
-  const sauf = buckets.SAUF.filter(nonEmpty)
-
-  if (et.length && !et.every((c) => matchCriterion(row, c))) return false
-  if (ou.length && !ou.some((c) => matchCriterion(row, c))) return false
-  if (sauf.length && sauf.some((c) => matchCriterion(row, c))) return false
-  return true
-}
-
-// =============================================================================
 // Defaults
 // =============================================================================
+//
+// Boolean composition (AND / OR / NOT across criteria) is now done
+// server-side via POST /legal-texts/advanced-search. The previous
+// client-side `combinedMatch` / `matchCriterion` helpers were deleted
+// when that moved — they only worked on the loaded batch and silently
+// truncated results past `limit=100`.
 
 const newRow = (operator: OperatorKey = 'ET'): CriteriaRow => ({
   id: `row-${Math.random().toString(36).slice(2, 9)}`,
@@ -368,9 +302,18 @@ export default function AdvancedSearchPage() {
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
   const copy = COPY[lang]
 
-  const [allTexts, setAllTexts] = useState<LegalTextRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const PAGE_SIZE = 24
+
+  // Results are now fetched in pages from the backend's
+  // /legal-texts/advanced-search endpoint. Composition (AND / OR / NOT)
+  // is server-side, so OR and SAUF criteria affect the **total**
+  // (and the SQL WHERE) instead of being a client-side post-filter on
+  // the loaded batch. The previous limit=100 truncation is gone.
+  const [results, setResults] = useState<LegalTextRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
   const [errored, setErrored] = useState(false)
+  const [offset, setOffset] = useState(0)
 
   const [form, setForm] = useState<FormState>(DEFAULT_FORM)
   const [applied, setApplied] = useState<FormState>(DEFAULT_FORM)
@@ -379,55 +322,56 @@ export default function AdvancedSearchPage() {
   // la recherche" at least once. Reset on "Réinitialiser la recherche".
   const [hasSearched, setHasSearched] = useState(false)
 
-  // Refetch from the backend whenever the applied filters change AFTER the
-  // user has clicked "Lancer la recherche" at least once. The backend
-  // handles category, status, year range, and the first criterion's text
-  // query (q + q_field + q_mode). Multi-criteria boolean composition
-  // (OR / SAUF rows) is then applied client-side — proper backend
-  // support for boolean groups is a separate ticket.
-  //
-  // Uses the typed `listTexts()` client so schema drift surfaces as a
-  // TS error and the server-side base URL handling kicks in if this
-  // page ever migrates to RSC.
-  useEffect(() => {
-    if (!hasSearched) return
+  // Map the UI's FR-locale operators (ET / OU / SAUF) to the backend's
+  // English operators (AND / OR / NOT). Defined once so the fetch and
+  // any future logic that needs the same mapping stay aligned.
+  const opForServer = (op: OperatorKey): 'AND' | 'OR' | 'NOT' =>
+    op === 'OU' ? 'OR' : op === 'SAUF' ? 'NOT' : 'AND'
+
+  // Build the criteria payload for the backend. Empty rows are dropped
+  // so the editor can keep a blank one without nuking results.
+  const criteriaForServer = (
+    rows: CriteriaRow[],
+  ): AdvancedSearchCriterion[] =>
+    rows
+      .filter((r) => r.text.trim().length > 0)
+      .map((r, i) => ({
+        // First row is always AND on the server (its UI operator is hidden).
+        operator: i === 0 ? 'AND' : opForServer(r.operator),
+        field: r.field,
+        mode: r.mode,
+        text: r.text.trim(),
+      }))
+
+  // Single fetcher used by both the initial submit and the Load more
+  // button. `nextOffset === 0` (re-)fills the result list; non-zero
+  // offsets append.
+  const fetchPage = (state: FormState, nextOffset: number) => {
     let cancelled = false
     setLoading(true)
-
-    // Use the first non-empty ET criterion as the backend's text filter.
-    const baseIdx = applied.rows.findIndex(
-      (r, i) => (i === 0 || r.operator === 'ET') && r.text.trim().length > 0,
-    )
-    const baseRow = baseIdx >= 0 ? applied.rows[baseIdx] : null
-
-    listTexts({
-      limit: 100,
-      offset: 0,
-      // Empty -> 'all' to filter narrows; rest of code expects them.
-      category:
-        applied.fonds !== 'all' ? (applied.fonds as LegalCategory) : undefined,
-      status:
-        applied.status !== 'all'
-          ? (applied.status as LegalStatus)
-          : undefined,
-      year_from: applied.yearFrom ? Number(applied.yearFrom) : undefined,
-      year_to: applied.yearTo ? Number(applied.yearTo) : undefined,
-      ...(baseRow && {
-        q: baseRow.text.trim(),
-        q_field: baseRow.field as LegalTextQField,
-        q_mode: baseRow.mode as LegalTextQMode,
-        // Backend computes snippets only when q_field=all (the only mode
-        // that walks article bodies); skip the param for narrower fields
-        // so the response stays smaller.
-        with_snippets: baseRow.field === 'all',
-      }),
+    advancedSearchTexts({
+      criteria: criteriaForServer(state.rows),
+      category: state.fonds !== 'all' ? state.fonds : null,
+      status: state.status !== 'all' ? state.status : null,
+      year_from: state.yearFrom ? Number(state.yearFrom) : null,
+      year_to: state.yearTo ? Number(state.yearTo) : null,
+      // Snippets only when at least one criterion targets all fields
+      // (article bodies). Backend uses ts_headline against the merged
+      // field=all text terms.
+      with_snippets: state.rows.some(
+        (r) => r.field === 'all' && r.text.trim().length > 0,
+      ),
+      limit: PAGE_SIZE,
+      offset: nextOffset,
     })
       .then((res) => {
         if (cancelled) return
-        // Cast through unknown — the typed listTexts() returns the
-        // shared LegalTextListItem schema, which is structurally a
-        // superset of LegalTextRow + match_snippets at runtime.
-        setAllTexts(res.items as unknown as LegalTextRow[])
+        const incoming = res.items as unknown as LegalTextRow[]
+        setResults((prev) =>
+          nextOffset === 0 ? incoming : [...prev, ...incoming],
+        )
+        setTotal(res.total)
+        setOffset(nextOffset)
         setErrored(false)
       })
       .catch(() => {
@@ -439,21 +383,17 @@ export default function AdvancedSearchPage() {
     return () => {
       cancelled = true
     }
+  }
+
+  // Refetch the first page whenever applied filters change (after the
+  // first explicit search).
+  useEffect(() => {
+    if (!hasSearched) return
+    return fetchPage(applied, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applied, hasSearched])
 
-  const results = useMemo(() => {
-    // The backend already handled the first non-empty ET criterion (with
-    // article-body search). Skip that exact row when composing on the client
-    // so we don't double-filter and lose results whose match was in the body.
-    const baseIdx = applied.rows.findIndex(
-      (r, i) => (i === 0 || r.operator === 'ET') && r.text.trim().length > 0,
-    )
-    const remaining =
-      baseIdx >= 0
-        ? applied.rows.filter((_, i) => i !== baseIdx)
-        : applied.rows
-    return allTexts.filter((t) => combinedMatch(t, remaining))
-  }, [allTexts, applied])
+  const canLoadMore = results.length < total
 
   const submit = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -466,7 +406,14 @@ export default function AdvancedSearchPage() {
     setForm(fresh)
     setApplied(fresh)
     setHasSearched(false)
-    setAllTexts([])
+    setResults([])
+    setTotal(0)
+    setOffset(0)
+  }
+
+  const loadMore = () => {
+    if (!canLoadMore || loading) return
+    fetchPage(applied, offset + PAGE_SIZE)
   }
 
   const updateRow = (id: string, patch: Partial<CriteriaRow>) =>
@@ -719,12 +666,16 @@ export default function AdvancedSearchPage() {
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 {copy.resultsTitle}
               </h2>
+              {/* Show "loaded / total" so the editor sees pagination
+                  state at a glance. Identical figures (e.g. "5 / 5")
+                  imply no Load more. */}
               <span className="text-sm font-medium text-slate-400 tabular-nums">
-                ({results.length})
+                ({results.length}
+                {total > results.length && ` / ${total}`})
               </span>
             </div>
 
-            {loading && (
+            {loading && results.length === 0 && (
               <p className="text-sm text-slate-400 italic">{copy.loading}</p>
             )}
             {!loading && errored && (
@@ -734,22 +685,45 @@ export default function AdvancedSearchPage() {
               <p className="text-sm text-slate-400 italic">{copy.noResults}</p>
             )}
 
-            {!loading && !errored && results.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
-            {results.map((t) => (
-              <ResultCard
-                key={t.slug}
-                text={t}
-                lang={lang}
-                query={
-                  applied.rows.find(
-                    (r, i) =>
-                      (i === 0 || r.operator === 'ET') && r.text.trim().length > 0,
-                  )?.text ?? ''
-                }
-              />
-            ))}
-          </div>
+            {results.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+                  {results.map((t) => (
+                    <ResultCard
+                      key={t.slug}
+                      text={t}
+                      lang={lang}
+                      query={
+                        applied.rows.find(
+                          (r, i) =>
+                            (i === 0 || r.operator === 'ET') &&
+                            r.text.trim().length > 0,
+                        )?.text ?? ''
+                      }
+                    />
+                  ))}
+                </div>
+
+                {canLoadMore && (
+                  <div className="mt-8 flex justify-center">
+                    <Button
+                      type="button"
+                      onClick={loadMore}
+                      variant="outline"
+                      disabled={loading}
+                      className="min-w-[200px] rounded-full h-11"
+                    >
+                      {loading
+                        ? lang === 'fr'
+                          ? 'Chargement…'
+                          : 'Ap chaje…'
+                        : lang === 'fr'
+                          ? `Charger plus (${total - results.length})`
+                          : `Chaje plis (${total - results.length})`}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
