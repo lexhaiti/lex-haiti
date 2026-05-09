@@ -1189,6 +1189,8 @@ export interface components {
             summary_ht?: string | null;
             /** Review Notes */
             review_notes?: string | null;
+            /** Raw Text */
+            raw_text?: string | null;
         };
         /**
          * ExtractionMethod

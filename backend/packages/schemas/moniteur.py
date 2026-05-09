@@ -184,3 +184,7 @@ class EntryReviewInput(BaseModel):
     summary_fr: Optional[str] = None
     summary_ht: Optional[str] = None
     review_notes: Optional[str] = None
+    # Editor's hand-corrected transcription. Sent when the editor saves
+    # changes to the OCR text in the review page's edit mode. None means
+    # "no change" — distinct from "" which would clear the field.
+    raw_text: Optional[str] = None

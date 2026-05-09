@@ -46,6 +46,12 @@ const COPY = {
     cardTitle: 'Titre détecté',
     cardConfidence: 'Confiance',
     cardExtract: 'Extrait OCR',
+    editText: 'Modifier le texte',
+    saveText: 'Enregistrer la transcription',
+    cancelText: 'Annuler',
+    textSaved: 'Transcription enregistrée.',
+    textHelp:
+      "Corrigez les fautes d'OCR, retirez les en-têtes / pieds de page parasites, ajoutez les sauts de ligne entre articles. Le texte mis à jour sera utilisé lors de la promotion.",
     accept: 'Accepter & promouvoir',
     reject: 'Rejeter',
     defer: 'Reporter',
@@ -84,6 +90,12 @@ const COPY = {
     cardTitle: 'Tit detekte',
     cardConfidence: 'Konfyans',
     cardExtract: 'Ekstrè OCR',
+    editText: 'Modifye tèks la',
+    saveText: 'Anrejistre transkripsyon an',
+    cancelText: 'Anile',
+    textSaved: 'Transkripsyon anrejistre.',
+    textHelp:
+      "Korije erè OCR, retire ankèt / pye paj ki pa nesesè, ajoute sou liy ant atik yo. Tèks ki mete ajou ap itilize pandan pwomosyon an.",
     accept: 'Aksepte & pwomouvwa',
     reject: 'Rejte',
     defer: 'Repòte',
@@ -190,6 +202,38 @@ export default function MoniteurReviewPage() {
       setError(e?.body?.detail ?? String(e))
     } finally {
       setSavingFields(false)
+    }
+  }
+
+  // Inline raw_text edit state — separate from `editingFields` so the
+  // editor can correct the OCR transcription without losing in-progress
+  // metadata edits, and vice versa. Keyed by candidate id.
+  const [editingText, setEditingText] = useState<{
+    candidateId: number
+    raw_text: string
+  } | null>(null)
+  const [savingText, setSavingText] = useState(false)
+
+  function startEditText(c: MoniteurEntryRead) {
+    setEditingText({ candidateId: c.id, raw_text: c.raw_text ?? '' })
+  }
+  function cancelEditText() {
+    setEditingText(null)
+  }
+  async function saveEditText() {
+    if (!editingText) return
+    setSavingText(true)
+    setError(null)
+    try {
+      await reviewMoniteurEntry(editingText.candidateId, {
+        raw_text: editingText.raw_text,
+      })
+      setEditingText(null)
+      await refresh()
+    } catch (e: any) {
+      setError(e?.body?.detail ?? String(e))
+    } finally {
+      setSavingText(false)
     }
   }
 
@@ -505,13 +549,67 @@ export default function MoniteurReviewPage() {
                   </>
                 )}
 
-                <details className="mt-4">
+                <details className="mt-4" open={editingText?.candidateId === c.id}>
                   <summary className="text-xs font-bold uppercase tracking-widest text-primary/65 cursor-pointer hover:text-primary">
                     {copy.cardExtract}
                   </summary>
-                  <pre className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-sans bg-slate-50 border border-slate-100 rounded-md p-4 max-h-64 overflow-y-auto">
-                    {c.raw_text}
-                  </pre>
+                  {editingText?.candidateId === c.id ? (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {copy.textHelp}
+                      </p>
+                      <textarea
+                        value={editingText.raw_text}
+                        onChange={(e) =>
+                          setEditingText((prev) =>
+                            prev ? { ...prev, raw_text: e.target.value } : prev,
+                          )
+                        }
+                        rows={14}
+                        className="w-full text-xs text-slate-700 leading-relaxed font-mono bg-white border border-slate-300 rounded-md p-3 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                        spellCheck={false}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={saveEditText}
+                          disabled={savingText || !isFinal && false}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-primary text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {savingText ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          {copy.saveText}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditText}
+                          disabled={savingText}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:opacity-50"
+                        >
+                          {copy.cancelText}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <pre className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-sans bg-slate-50 border border-slate-100 rounded-md p-4 max-h-64 overflow-y-auto">
+                        {c.raw_text}
+                      </pre>
+                      {!isFinal && (
+                        <button
+                          type="button"
+                          onClick={() => startEditText(c)}
+                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {copy.editText}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </details>
 
                 {!isFinal && editingFields?.candidateId !== c.id && (

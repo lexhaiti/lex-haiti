@@ -378,6 +378,7 @@ export async function reviewMoniteurEntry(
     detected_number?: string | null
     detected_date?: string | null
     review_notes?: string | null
+    raw_text?: string | null
   },
 ) {
   return apiPatch<MoniteurEntryRead>(

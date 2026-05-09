@@ -449,6 +449,7 @@ def review_entry(
         "parent_entry_id",
         "summary_fr",
         "summary_ht",
+        "raw_text",
     ):
         v = getattr(payload, k)
         if v is not None:
