@@ -397,36 +397,46 @@ export default function LawDetail() {
             ]}
           />
 
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
-            <div className="flex-1 min-w-0">
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 mb-6"
-              >
-                <Badge className="bg-red-600 text-white border-0 shadow-lg shadow-red-900/20 px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full">
-                  {category[currentLang]}
-                </Badge>
-                {(() => {
-                  const status = (law.status as TextStatus) ?? 'in_force'
-                  const meta = TEXT_STATUS_PILL[status] ?? TEXT_STATUS_PILL.in_force
-                  const StatusIcon = meta.icon
-                  return (
-                    <Badge
-                      className={`border ${meta.cls} px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full`}
-                    >
-                      <StatusIcon className="w-3 h-3 mr-1.5" />
-                      {meta.label[currentLang]}
-                    </Badge>
-                  )
-                })()}
-              </motion.div>
+          {/* Hero is a vertical stack of four self-contained sections, each
+              left-aligned and using the full container width:
+                1. Category + status badges
+                2. Title + description
+                3. Metadata row (year / articles / Moniteur ref) + download
+                4. Theme chips
+              The download is inline with the metadata row so the hero reads
+              top-to-bottom without a sidebar competing for horizontal space. */}
+          <div className="flex flex-col gap-8 lg:gap-10">
+            {/* ── 1. Badges ──────────────────────────────────────────── */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-wrap items-center gap-3"
+            >
+              <Badge className="bg-red-600 text-white border-0 shadow-lg shadow-red-900/20 px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full">
+                {category[currentLang]}
+              </Badge>
+              {(() => {
+                const status = (law.status as TextStatus) ?? 'in_force'
+                const meta = TEXT_STATUS_PILL[status] ?? TEXT_STATUS_PILL.in_force
+                const StatusIcon = meta.icon
+                return (
+                  <Badge
+                    className={`border ${meta.cls} px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full`}
+                  >
+                    <StatusIcon className="w-3 h-3 mr-1.5" />
+                    {meta.label[currentLang]}
+                  </Badge>
+                )
+              })()}
+            </motion.div>
 
+            {/* ── 2. Title + description ─────────────────────────────── */}
+            <div className="flex flex-col gap-6 lg:gap-8">
               <motion.h1
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-4xl lg:text-6xl font-black mb-8 leading-[1.1] tracking-tight text-white drop-shadow-sm"
+                className="text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm"
               >
                 {title}
               </motion.h1>
@@ -435,18 +445,20 @@ export default function LawDetail() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-slate-300 text-lg lg:text-xl leading-relaxed mb-10 border-l-2 border-red-600 pl-6"
+                className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
               >
                 {description}
               </motion.p>
+            </div>
 
-              {/* Metadata Grid */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="flex flex-wrap gap-8"
-              >
+            {/* ── 3. Metadata row + download button ──────────────────── */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap items-center justify-between gap-6"
+            >
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-white/5 rounded-full border border-white/10">
                     <Calendar className="w-5 h-5 text-slate-400" />
@@ -541,55 +553,43 @@ export default function LawDetail() {
                     </div>
                   )
                 })()}
-              </motion.div>
-
-              {/* Theme chips — cross-cutting LegalTheme tags, link into the
-                  filtered listing on the public site. Editor-confirmed
-                  tags surface a subtle ring; auto suggestions stay flat. */}
-              {law.theme_tags && law.theme_tags.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35 }}
-                  className="mt-8 flex flex-wrap items-center gap-2"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 mr-1">
-                    <Tags className="w-3.5 h-3.5" />
-                    {currentLang === 'fr' ? 'Thématiques' : 'Tèm'}
-                  </span>
-                  {law.theme_tags.map((tag: any) => {
-                    const label = themeLabel(tag.theme, currentLang) ?? tag.theme
-                    const isEditor = tag.source === 'editor'
-                    return (
-                      <Link
-                        key={tag.theme}
-                        href={`/lois?theme=${tag.theme}`}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all',
-                          isEditor
-                            ? 'bg-white text-slate-900 hover:bg-amber-100 ring-1 ring-amber-300/50'
-                            : 'bg-white/10 text-slate-200 hover:bg-white/15 ring-1 ring-white/10',
-                        )}
-                      >
-                        {label}
-                      </Link>
-                    )
-                  })}
-                </motion.div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-col sm:flex-row lg:flex-col gap-3 lg:sticky lg:top-24"
-            >
-              <div className="flex flex-wrap lg:flex-col gap-3">
-                <DownloadDropdown slug={slug} language={language} />
               </div>
+
+              <DownloadDropdown slug={slug} language={language} />
             </motion.div>
+
+            {/* ── 4. Theme chips ─────────────────────────────────────── */}
+            {law.theme_tags && law.theme_tags.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 mr-1">
+                  <Tags className="w-3.5 h-3.5" />
+                  {currentLang === 'fr' ? 'Thématiques' : 'Tèm'}
+                </span>
+                {law.theme_tags.map((tag: any) => {
+                  const label = themeLabel(tag.theme, currentLang) ?? tag.theme
+                  const isEditor = tag.source === 'editor'
+                  return (
+                    <Link
+                      key={tag.theme}
+                      href={`/lois?theme=${tag.theme}`}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all',
+                        isEditor
+                          ? 'bg-white text-slate-900 hover:bg-amber-100 ring-1 ring-amber-300/50'
+                          : 'bg-white/10 text-slate-200 hover:bg-white/15 ring-1 ring-white/10',
+                      )}
+                    >
+                      {label}
+                    </Link>
+                  )
+                })}
+              </motion.div>
+            )}
           </div>
         </div>
       </div>
@@ -1123,22 +1123,16 @@ function DownloadDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-slate-900 backdrop-blur-md px-8 py-6 rounded-full transition-all duration-300 group shadow-xl border-2"
+          className="group inline-flex items-center gap-2.5 h-11 px-5 rounded-full bg-white/5 hover:bg-white text-white hover:text-slate-900 border border-white/15 hover:border-white backdrop-blur-md transition-all duration-200"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-500/20 rounded-full group-hover:bg-red-500 transition-colors">
-              <Download className="w-5 h-5 group-hover:text-white" />
-            </div>
-            <div className="text-left">
-              <span className="block text-xs opacity-60 font-medium uppercase tracking-wider">
-                {t('lawDetail.download.label')}
-              </span>
-              <span className="block font-bold flex items-center gap-1.5">
-                PDF / Word
-                <ChevronDown className="w-3.5 h-3.5 opacity-70 group-data-[state=open]:rotate-180 transition-transform" />
-              </span>
-            </div>
-          </div>
+          <Download className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
+          <span className="text-sm font-semibold uppercase tracking-wider">
+            {t('lawDetail.download.label')}
+          </span>
+          <span className="text-xs font-medium opacity-60 group-hover:opacity-80">
+            PDF / Word
+          </span>
+          <ChevronDown className="w-3.5 h-3.5 opacity-60 group-data-[state=open]:rotate-180 transition-transform" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-72">
