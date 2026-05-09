@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type BreadcrumbItem = {
@@ -22,8 +22,12 @@ type Props = {
 }
 
 /**
- * Reusable breadcrumb trail. Each segment is a small uppercase pill
- * separated by a chevron. The last segment is non-link (omit `href`).
+ * Reusable breadcrumb trail. Lightweight inline style — small text, a
+ * Home icon for the first segment when it links to '/', chevrons between
+ * items, and a slightly brighter color on the current page.
+ *
+ * Used inside dark page headers (StandardPageHeader and the bespoke
+ * moniteur masthead) — pass `variant="light"` for white backgrounds.
  *
  * Usage:
  *   <Breadcrumb items={[
@@ -38,43 +42,48 @@ export function Breadcrumb({ items, variant = 'dark', className }: Props) {
   const isDark = variant === 'dark'
 
   const linkCls = isDark
-    ? 'bg-white/5 text-white/80 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20'
-    : 'bg-primary/5 text-primary/70 border border-primary/10 hover:bg-primary/10 hover:text-primary hover:border-primary/20'
+    ? 'text-white/50 hover:text-white'
+    : 'text-slate-500 hover:text-slate-900'
 
-  const currentCls = isDark
-    ? 'bg-white/10 text-white border border-white/15'
-    : 'bg-primary/10 text-primary border border-primary/15'
+  const currentCls = isDark ? 'text-white/85' : 'text-slate-900'
 
-  const sepCls = isDark ? 'text-white/30' : 'text-primary/30'
+  const sepCls = isDark ? 'text-white/25' : 'text-slate-300'
 
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex items-center', className)}>
-      <ol className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-        {items.map((item, i) => {
-          const isLast = i === items.length - 1
-          const pillCls = cn(
-            'inline-flex items-center px-2.5 py-1 rounded-md',
-            'text-[10px] sm:text-xs font-bold uppercase tracking-widest',
-            'transition-colors',
-            isLast || !item.href ? currentCls : linkCls,
-          )
+    <nav
+      aria-label="Fil d'ariane"
+      className={cn(
+        'flex items-center gap-2 text-xs font-medium',
+        className,
+      )}
+    >
+      {items.map((item, i) => {
+        const isLast = i === items.length - 1
+        const isHomeRoot = i === 0 && item.href === '/'
+        const cls = cn(
+          'inline-flex items-center gap-1 transition-colors',
+          isLast || !item.href ? currentCls : linkCls,
+        )
 
-          return (
-            <li key={`${i}-${item.label}`} className="flex items-center gap-1.5 sm:gap-2">
-              {item.href && !isLast ? (
-                <Link href={item.href} className={pillCls}>
-                  {item.label}
-                </Link>
-              ) : (
-                <span className={pillCls} aria-current={isLast ? 'page' : undefined}>
-                  {item.label}
-                </span>
-              )}
-              {!isLast && <ChevronRight className={cn('w-3.5 h-3.5 flex-shrink-0', sepCls)} />}
-            </li>
-          )
-        })}
-      </ol>
+        return (
+          <span key={`${i}-${item.label}`} className="flex items-center gap-2">
+            {item.href && !isLast ? (
+              <Link href={item.href} className={cls}>
+                {isHomeRoot && <Home className="w-3 h-3" />}
+                <span>{item.label}</span>
+              </Link>
+            ) : (
+              <span className={cls} aria-current={isLast ? 'page' : undefined}>
+                {isHomeRoot && <Home className="w-3 h-3" />}
+                <span>{item.label}</span>
+              </span>
+            )}
+            {!isLast && (
+              <ChevronRight className={cn('w-3 h-3 flex-shrink-0', sepCls)} />
+            )}
+          </span>
+        )
+      })}
     </nav>
   )
 }

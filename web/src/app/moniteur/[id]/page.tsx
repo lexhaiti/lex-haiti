@@ -8,11 +8,9 @@ import {
   ArrowRight,
   BookOpen,
   Calendar,
-  ChevronDown,
   ChevronRight,
   Download,
   FileText,
-  Home,
   Loader2,
   Newspaper,
 } from 'lucide-react'
@@ -23,6 +21,7 @@ import {
   type MoniteurEntryRead,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
+import { Breadcrumb } from '@/components/shared/Breadcrumb'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,6 +46,16 @@ function smartIssueNumber(raw: string): string {
   // Only prepend "N°" when the issue number starts with a digit.
   // "Spécial N° 5" stays as is, "237" becomes "N° 237".
   return /^[0-9]/.test(raw) ? `N° ${raw}` : raw
+}
+
+// Le Moniteur Officiel d'Haïti was founded in 1845 — the first published
+// "année" was 1846. So the historic année count for a calendar year is
+// `year - 1845` (e.g. 2017 → 172e année). Anchor lives here rather than
+// being derived per call so the founding-year decision is documented.
+const MONITEUR_FOUNDING_YEAR = 1845
+
+function moniteurAnnee(year: number): number {
+  return Math.max(1, year - MONITEUR_FOUNDING_YEAR)
 }
 
 type DocType = NonNullable<MoniteurEntryRead['detected_category']>
@@ -429,28 +438,15 @@ export default function MoniteurDetailPage() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
         </div>
 
-        <div className="relative z-10 container py-12 lg:py-16 pt-24 lg:pt-32">
-          {/* Lightweight breadcrumb */}
-          <motion.nav
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 text-xs text-white/50 mb-8"
-            aria-label="Fil d'ariane"
-          >
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 hover:text-white transition-colors"
-            >
-              <Home className="w-3 h-3" />
-              <span>Accueil</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-white/30" />
-            <Link href="/moniteur" className="hover:text-white transition-colors">
-              Le Moniteur
-            </Link>
-            <ChevronRight className="w-3 h-3 text-white/30" />
-            <span className="text-white/80">{numberDisplay}</span>
-          </motion.nav>
+        <div className="relative z-10 w-full px-6 lg:px-12 py-12 lg:py-16 pt-24 lg:pt-32">
+          <Breadcrumb
+            className="mb-8"
+            items={[
+              { label: 'Accueil', href: '/' },
+              { label: 'Le Moniteur', href: '/moniteur' },
+              { label: numberDisplay },
+            ]}
+          />
 
           {/* Two-column layout: title block + meta sidebar */}
           <div className="grid lg:grid-cols-[1fr_auto] gap-8 lg:gap-12 items-end">
@@ -494,7 +490,9 @@ export default function MoniteurDetailPage() {
                   </span>
                 )}
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-medium">
-                  Année {issue.year}
+                  {moniteurAnnee(issue.year)}
+                  <sup className="ml-px">e</sup>
+                  <span className="ml-1">année</span>
                 </span>
               </motion.div>
             </div>
@@ -552,7 +550,7 @@ export default function MoniteurDetailPage() {
       {/* ------------------------------------------------------------------- */}
       {/* Body                                                               */}
       {/* ------------------------------------------------------------------- */}
-      <div className="container py-10 lg:py-16">
+      <div className="w-full px-6 lg:px-12 py-10 lg:py-16">
         {/* Category breakdown chips */}
         {sortedCategoryEntries.length > 0 && (
           <motion.div
