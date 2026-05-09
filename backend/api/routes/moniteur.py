@@ -2,7 +2,7 @@
 
 Two halves:
   - PUBLIC reads — list/get issues for the homepage and /moniteur archive.
-  - EDITOR writes — upload PDF, trigger parse, review candidates, promote.
+  - EDITOR writes — upload PDF, trigger parse, review entries, promote.
 
 The split lives in this single file (using `EditorialUser` dependency on
 the writer endpoints) rather than a separate `moniteur_editor.py` because
@@ -27,14 +27,15 @@ from packages.schemas.enums import (
     LegalCategory,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
+    PROMOTABLE_TYPES,
 )
 from packages.schemas.moniteur import (
-    CandidateReviewInput,
+    EntryReviewInput,
+    MoniteurEntryRead,
     MoniteurIssueCreate,
     MoniteurIssueRead,
     MoniteurIssueUpdate,
-    MoniteurIssueWithCandidates,
-    MoniteurLawCandidateRead,
+    MoniteurIssueWithEntries,
     SommaireEntry,
 )
 from services.ingestion.moniteur.repository import MoniteurRepository
@@ -85,22 +86,22 @@ def _save_uploaded_pdf(upload: UploadFile, year: int, number: str) -> str:
 
 def _to_read(issue) -> MoniteurIssueRead:
     payload = MoniteurIssueRead.model_validate(issue)
-    candidates = getattr(issue, "candidates", []) or []
-    payload.candidates_count = len(candidates)
+    entries = getattr(issue, "entries", []) or []
+    payload.entries_count = len(entries)
     payload.accepted_count = sum(
-        1 for c in candidates
-        if c.review_status == MoniteurCandidateStatus.accepted
+        1 for e in entries
+        if e.review_status == MoniteurCandidateStatus.accepted
     )
     payload.sommaire = [
         SommaireEntry(
-            category=c.detected_category,
-            title=c.display_title or c.detected_title,
+            category=e.detected_category,
+            title=e.display_title or e.detected_title,
             promoted_slug=getattr(
-                getattr(c, "promoted_legal_text", None), "slug", None
+                getattr(e, "promoted_legal_text", None), "slug", None
             ),
         )
-        for c in candidates
-        if not c.parent_candidate_id
+        for e in entries
+        if not e.parent_entry_id
     ]
     return payload
 
@@ -141,23 +142,23 @@ def list_issues(
 
 @router.get(
     "/issues/{issue_id}",
-    response_model=MoniteurIssueWithCandidates,
+    response_model=MoniteurIssueWithEntries,
 )
 def get_issue(issue_id: int, db: DbSession):
-    """Full issue + candidates payload."""
+    """Full issue + entries payload."""
     repo = MoniteurRepository(db)
-    issue = repo.get_issue_with_candidates(issue_id)
+    issue = repo.get_issue_with_entries(issue_id)
     if not issue:
         raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
-    payload = MoniteurIssueWithCandidates.model_validate(issue)
-    payload.candidates_count = len(issue.candidates)
+    payload = MoniteurIssueWithEntries.model_validate(issue)
+    payload.entries_count = len(issue.entries)
     payload.accepted_count = sum(
         1
-        for c in issue.candidates
-        if c.review_status == MoniteurCandidateStatus.accepted
+        for e in issue.entries
+        if e.review_status == MoniteurCandidateStatus.accepted
     )
-    payload.candidates = [
-        MoniteurLawCandidateRead.model_validate(c) for c in issue.candidates
+    payload.entries = [
+        MoniteurEntryRead.model_validate(e) for e in issue.entries
     ]
     return payload
 
@@ -271,10 +272,10 @@ def delete_issue(
     db: DbSession,
     user: EditorialUser,  # noqa: ARG001 — gate behind editor session
 ):
-    """Hard-delete a Moniteur issue plus its candidates and uploaded PDF.
+    """Hard-delete a Moniteur issue plus its entries and uploaded PDF.
 
     Useful when the editor uploads the wrong file or wants to re-test the
-    pipeline. Cascades to `moniteur_law_candidates` via the FK definition;
+    pipeline. Cascades to `moniteur_entries` via the FK definition;
     the on-disk PDF is unlinked best-effort.
     """
     repo = MoniteurRepository(db)
@@ -320,7 +321,7 @@ def upload_pdf(
 
 @router.post(
     "/issues/{issue_id}/parse",
-    response_model=MoniteurIssueWithCandidates,
+    response_model=MoniteurIssueWithEntries,
 )
 def parse_issue(
     issue_id: int,
@@ -331,7 +332,7 @@ def parse_issue(
 
     Returns the issue immediately with `processing_status='ocr_pending'`.
     The actual work runs in the RQ worker; the editor polls the issue's
-    status to see candidates land. For the rare degenerate case where
+    status to see entries land. For the rare degenerate case where
     Redis is down, we fall through to a synchronous in-request parse
     (1-page text-layered PDFs work fine; large scans will time out).
     """
@@ -342,10 +343,6 @@ def parse_issue(
     if not issue.file_url:
         raise HTTPException(400, "No file uploaded for this issue.")
 
-    # Mark `ocr_pending` immediately so the dashboard reflects "queued"
-    # before the worker picks it up. The worker overwrites this on
-    # success/failure; if it never runs (Redis down), the row is at
-    # least honest.
     issue.processing_status = MoniteurIssueStatus.ocr_pending
     issue.processing_error = None
     db.commit()
@@ -356,10 +353,6 @@ def parse_issue(
 
         get_queue().enqueue(parse_moniteur_issue, issue_id, job_timeout=60 * 60)
     except Exception as e:  # noqa: BLE001
-        # Redis unreachable / RQ broken — fall back to synchronous parse
-        # so a one-off dev session without Redis still works on small PDFs.
-        # Big scans will exceed the HTTP timeout; that's acceptable for the
-        # fallback path since the deploy environment always has Redis up.
         import logging
         logging.getLogger(__name__).warning(
             "RQ enqueue failed (%s) — running parse synchronously", e
@@ -371,126 +364,130 @@ def parse_issue(
             db.rollback()
             raise
 
-    full = repo.get_issue_with_candidates(issue.id)
-    payload = MoniteurIssueWithCandidates.model_validate(full)
-    payload.candidates_count = len(full.candidates)
+    full = repo.get_issue_with_entries(issue.id)
+    payload = MoniteurIssueWithEntries.model_validate(full)
+    payload.entries_count = len(full.entries)
     payload.accepted_count = sum(
         1
-        for c in full.candidates
-        if c.review_status == MoniteurCandidateStatus.accepted
+        for e in full.entries
+        if e.review_status == MoniteurCandidateStatus.accepted
     )
-    payload.candidates = [
-        MoniteurLawCandidateRead.model_validate(c) for c in full.candidates
+    payload.entries = [
+        MoniteurEntryRead.model_validate(e) for e in full.entries
     ]
     return payload
 
 
 @router.patch(
     "/candidates/{candidate_id}",
-    response_model=MoniteurLawCandidateRead,
+    response_model=MoniteurEntryRead,
 )
-def review_candidate(
+def review_entry(
     candidate_id: int,
-    payload: CandidateReviewInput,
+    payload: EntryReviewInput,
     db: DbSession,
     user: EditorialUser,
 ):
-    """Editor's verdict on a candidate.
+    """Editor's verdict on an entry.
 
     For `accepted`, prefer the dedicated `/promote` endpoint which also
     creates the LegalText. This endpoint just updates review fields.
     """
     repo = MoniteurRepository(db)
-    candidate = repo.get_candidate(candidate_id)
-    if not candidate:
-        raise HTTPException(HTTP_404_NOT_FOUND, "Candidate not found")
+    entry = repo.get_entry(candidate_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
 
-    # Apply detected-field overrides if supplied.
     for k in (
         "detected_category",
         "detected_title",
         "display_title",
         "detected_number",
         "detected_date",
-        "parent_candidate_id",
+        "parent_entry_id",
+        "summary_fr",
+        "summary_ht",
     ):
         v = getattr(payload, k)
         if v is not None:
-            setattr(candidate, k, v)
+            setattr(entry, k, v)
 
-    # Only touch review state when the editor explicitly changed it. This
-    # lets the inline "Edit fields" UI patch detected_* without flipping
-    # the candidate from `pending` to something else accidentally.
     if payload.review_status is not None:
-        repo.update_candidate_review(
-            candidate,
+        repo.update_entry_review(
+            entry,
             review_status=payload.review_status,
             review_notes=payload.review_notes,
         )
     elif payload.review_notes is not None:
-        candidate.review_notes = payload.review_notes
+        entry.review_notes = payload.review_notes
     db.commit()
-    db.refresh(candidate)
-    return MoniteurLawCandidateRead.model_validate(candidate)
+    db.refresh(entry)
+    return MoniteurEntryRead.model_validate(entry)
 
 
 @router.post(
     "/candidates/{candidate_id}/promote",
-    response_model=MoniteurLawCandidateRead,
+    response_model=MoniteurEntryRead,
 )
-def promote_candidate(
+def promote_entry(
     candidate_id: int,
     db: DbSession,
     user: EditorialUser,
 ):
-    """Promote a candidate to a draft `LegalText`.
+    """Promote an entry to a draft `LegalText`.
 
-    Uses the candidate's editor-corrected fields (title / category / date /
+    Uses the entry's editor-corrected fields (title / category / date /
     number) to create the LegalText with `editorial_status='draft'`. The
     editor still has to publish it from the regular law-edit flow before
     it appears on /lois.
     """
     repo = MoniteurRepository(db)
-    candidate = repo.get_candidate(candidate_id)
-    if not candidate:
-        raise HTTPException(HTTP_404_NOT_FOUND, "Candidate not found")
+    entry = repo.get_entry(candidate_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
 
-    if not candidate.detected_title:
+    if not entry.detected_title:
         raise HTTPException(
-            400, "Candidate has no title — set one before promoting."
+            400, "Entry has no title — set one before promoting."
         )
-    if not candidate.detected_category:
+    if not entry.detected_category:
         raise HTTPException(
-            400, "Candidate has no category — set one before promoting."
+            400, "Entry has no category — set one before promoting."
+        )
+
+    if entry.detected_category not in PROMOTABLE_TYPES:
+        raise HTTPException(
+            400,
+            f"Category '{entry.detected_category.value}' is not promotable "
+            f"to a LegalText. Only normative types can be promoted.",
         )
 
     slug = _slugify(
-        candidate.detected_title,
-        fallback=f"moniteur-{candidate.issue_id}-cand-{candidate.id}",
+        entry.detected_title,
+        fallback=f"moniteur-{entry.issue_id}-entry-{entry.id}",
     )
 
-    # Avoid slug collisions with existing texts.
     from sqlalchemy import select
     from services.corpus.models import LegalText
 
     counter = 0
-    candidate_slug = slug
+    entry_slug = slug
     while db.execute(
-        select(LegalText.id).where(LegalText.slug == candidate_slug)
+        select(LegalText.id).where(LegalText.slug == entry_slug)
     ).first():
         counter += 1
-        candidate_slug = f"{slug}-{counter}"
+        entry_slug = f"{slug}-{counter}"
 
-    repo.promote_candidate(
-        candidate,
-        slug=candidate_slug,
-        title_fr=candidate.detected_title,
-        category=candidate.detected_category,
-        publication_date=candidate.detected_date,
+    repo.promote_entry(
+        entry,
+        slug=entry_slug,
+        title_fr=entry.detected_title,
+        category=entry.detected_category,
+        publication_date=entry.detected_date,
     )
     db.commit()
-    db.refresh(candidate)
-    return MoniteurLawCandidateRead.model_validate(candidate)
+    db.refresh(entry)
+    return MoniteurEntryRead.model_validate(entry)
 
 
 def _slugify(text: str, *, fallback: str) -> str:

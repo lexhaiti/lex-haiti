@@ -264,7 +264,7 @@ export default function MoniteurDashboardPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right tabular-nums text-slate-600">
-                        {it.candidates_count}
+                        {it.entries_count}
                         {it.accepted_count > 0 && (
                           <span className="ml-1 text-emerald-600">
                             ({it.accepted_count} ✓)

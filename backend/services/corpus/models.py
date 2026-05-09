@@ -180,6 +180,12 @@ class LegalText(Base):
     description_ht: Mapped[Optional[str]] = mapped_column(Text)
     preamble_fr: Mapped[Optional[str]] = mapped_column(Text)
     preamble_ht: Mapped[Optional[str]] = mapped_column(Text)
+    visas_fr: Mapped[Optional[str]] = mapped_column(Text)
+    visas_ht: Mapped[Optional[str]] = mapped_column(Text)
+    considerants_fr: Mapped[Optional[str]] = mapped_column(Text)
+    considerants_ht: Mapped[Optional[str]] = mapped_column(Text)
+    enacting_formula_fr: Mapped[Optional[str]] = mapped_column(Text)
+    enacting_formula_ht: Mapped[Optional[str]] = mapped_column(Text)
 
     promulgation_date: Mapped[Optional[date]] = mapped_column(Date)
     publication_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
@@ -695,23 +701,23 @@ class MoniteurIssue(Base):
         nullable=False,
     )
 
-    candidates: Mapped[list["MoniteurLawCandidate"]] = relationship(
+    entries: Mapped[list["MoniteurEntry"]] = relationship(
         back_populates="issue",
         cascade="all, delete-orphan",
-        order_by="MoniteurLawCandidate.position",
+        order_by="MoniteurEntry.position",
     )
 
 
-class MoniteurLawCandidate(Base):
-    """One parsed-law candidate inside a Moniteur issue.
+class MoniteurEntry(Base):
+    """One entry (document) inside a Moniteur issue.
 
     Produced by the heuristic parser after OCR. An editor reviews each
-    candidate on the `/editorial/moniteur/[id]/review` page; accepting one
+    entry on the `/editorial/moniteur/[id]/review` page; accepting one
     promotes it to a real `LegalText` (and stamps `promoted_legal_text_id`
     so we can track the ingestion provenance).
     """
 
-    __tablename__ = "moniteur_law_candidates"
+    __tablename__ = "moniteur_entries"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     issue_id: Mapped[int] = mapped_column(
@@ -733,10 +739,13 @@ class MoniteurLawCandidate(Base):
     detected_number: Mapped[Optional[str]] = mapped_column(Text)
     detected_date: Mapped[Optional[date]] = mapped_column(Date)
 
-    # Self-FK: promulgation letters / cover pages belong to their parent law
-    parent_candidate_id: Mapped[Optional[int]] = mapped_column(
+    summary_fr: Mapped[Optional[str]] = mapped_column(Text)
+    summary_ht: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Self-FK: promulgation letters / cover pages belong to their parent entry
+    parent_entry_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey(
-            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_law_candidates.id",
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_entries.id",
             ondelete="SET NULL",
         ),
         index=True,
@@ -772,15 +781,14 @@ class MoniteurLawCandidate(Base):
         nullable=False,
     )
 
-    issue: Mapped[MoniteurIssue] = relationship(back_populates="candidates")
-    # Self-referential: promulgation → parent law
-    parent_candidate: Mapped[Optional["MoniteurLawCandidate"]] = relationship(
-        remote_side="MoniteurLawCandidate.id",
-        foreign_keys=[parent_candidate_id],
+    issue: Mapped[MoniteurIssue] = relationship(back_populates="entries")
+    parent_entry: Mapped[Optional["MoniteurEntry"]] = relationship(
+        remote_side="MoniteurEntry.id",
+        foreign_keys=[parent_entry_id],
     )
-    children: Mapped[list["MoniteurLawCandidate"]] = relationship(
-        back_populates="parent_candidate",
-        foreign_keys="MoniteurLawCandidate.parent_candidate_id",
+    children: Mapped[list["MoniteurEntry"]] = relationship(
+        back_populates="parent_entry",
+        foreign_keys="MoniteurEntry.parent_entry_id",
     )
     # ↗ to the LegalText that was created when an editor accepted this
     # candidate. Nullable — pending / rejected candidates have no draft yet.
@@ -806,5 +814,5 @@ __all__ = [
     "EditorialAction",
     "LegalThemeTag",
     "MoniteurIssue",
-    "MoniteurLawCandidate",
+    "MoniteurEntry",
 ]

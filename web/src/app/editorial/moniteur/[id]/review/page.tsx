@@ -19,10 +19,10 @@ import { useLanguage } from '@/i18n/LanguageContext'
 import {
   getMoniteurIssue,
   parseMoniteurIssue,
-  promoteMoniteurCandidate,
-  reviewMoniteurCandidate,
-  type MoniteurIssueWithCandidates,
-  type MoniteurLawCandidateRead,
+  promoteMoniteurEntry,
+  reviewMoniteurEntry,
+  type MoniteurIssueWithEntries,
+  type MoniteurEntryRead,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 
@@ -124,7 +124,7 @@ const CATEGORY_LABEL: Record<string, { fr: string; ht: string }> = {
 type PillCopyKey = 'pending' | 'promoted' | 'rejected' | 'deferred'
 
 const REVIEW_PILL: Record<
-  MoniteurLawCandidateRead['review_status'],
+  MoniteurEntryRead['review_status'],
   { cls: string; key: PillCopyKey }
 > = {
   pending: { cls: 'bg-slate-100 text-slate-700 border-slate-200', key: 'pending' },
@@ -143,7 +143,7 @@ export default function MoniteurReviewPage() {
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
   const copy = COPY[lang]
 
-  const [issue, setIssue] = useState<MoniteurIssueWithCandidates | null>(null)
+  const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -159,7 +159,7 @@ export default function MoniteurReviewPage() {
   } | null>(null)
   const [savingFields, setSavingFields] = useState(false)
 
-  function startEditFields(c: MoniteurLawCandidateRead) {
+  function startEditFields(c: MoniteurEntryRead) {
     setEditingFields({
       candidateId: c.id,
       detected_category: c.detected_category ?? '',
@@ -178,7 +178,7 @@ export default function MoniteurReviewPage() {
     try {
       // Send only the four detected_* fields — leave review_status unset
       // so the backend doesn't flip pending → something else by accident.
-      await reviewMoniteurCandidate(editingFields.candidateId, {
+      await reviewMoniteurEntry(editingFields.candidateId, {
         detected_category: (editingFields.detected_category || null) as any,
         detected_title: editingFields.detected_title || null,
         detected_number: editingFields.detected_number || null,
@@ -221,11 +221,11 @@ export default function MoniteurReviewPage() {
     }
   }
 
-  async function handleAccept(c: MoniteurLawCandidateRead) {
+  async function handleAccept(c: MoniteurEntryRead) {
     setBusyId(c.id)
     setError(null)
     try {
-      await promoteMoniteurCandidate(c.id)
+      await promoteMoniteurEntry(c.id)
       await refresh()
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
@@ -234,11 +234,11 @@ export default function MoniteurReviewPage() {
     }
   }
 
-  async function handleReject(c: MoniteurLawCandidateRead) {
+  async function handleReject(c: MoniteurEntryRead) {
     setBusyId(c.id)
     setError(null)
     try {
-      await reviewMoniteurCandidate(c.id, { review_status: 'rejected' })
+      await reviewMoniteurEntry(c.id, { review_status: 'rejected' })
       await refresh()
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
@@ -247,11 +247,11 @@ export default function MoniteurReviewPage() {
     }
   }
 
-  async function handleDefer(c: MoniteurLawCandidateRead) {
+  async function handleDefer(c: MoniteurEntryRead) {
     setBusyId(c.id)
     setError(null)
     try {
-      await reviewMoniteurCandidate(c.id, { review_status: 'deferred' })
+      await reviewMoniteurEntry(c.id, { review_status: 'deferred' })
       await refresh()
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
@@ -301,7 +301,7 @@ export default function MoniteurReviewPage() {
                 ? copy.loading
                 : !issue.file_url
                   ? copy.subtitleNoFile
-                  : issue.candidates.length === 0
+                  : issue.entries.length === 0
                     ? copy.subtitleNoCandidates
                     : copy.subtitlePending}
             </motion.p>
@@ -339,14 +339,14 @@ export default function MoniteurReviewPage() {
           </div>
         )}
 
-        {issue && issue.candidates.length === 0 && !parsing && (
+        {issue && issue.entries.length === 0 && !parsing && (
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-6 py-10 text-center text-sm text-slate-600">
             {copy.subtitleNoCandidates}
           </div>
         )}
 
         <div className="space-y-5">
-          {issue?.candidates.map((c) => {
+          {issue?.entries.map((c) => {
             const pill = REVIEW_PILL[c.review_status]
             const cat = c.detected_category
               ? (CATEGORY_LABEL[c.detected_category]?.[lang] ?? c.detected_category)

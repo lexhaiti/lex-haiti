@@ -3,11 +3,10 @@
 The pipeline has two main entities:
 
   - MoniteurIssue (the publication itself — date, number, PDF)
-  - MoniteurLawCandidate (parser output — one suspected law per row)
+  - MoniteurEntry (one document/entry inside an issue)
 
-Editor reviews candidates and promotes them to real `LegalText` rows.
-See backend/services/ingestion/moniteur/ for the parser and promotion
-logic.
+Editor reviews entries and promotes normative ones to real `LegalText` rows.
+See backend/services/ingestion/moniteur/ for the parser and promotion logic.
 """
 from __future__ import annotations
 
@@ -51,7 +50,7 @@ class MoniteurIssueUpdate(BaseModel):
 
 
 class SommaireEntry(BaseModel):
-    """Lightweight summary of a candidate for the list-page cards."""
+    """Lightweight summary of an entry for the list-page cards."""
 
     category: Optional[MoniteurDocumentType] = None
     title: Optional[str] = None
@@ -73,15 +72,15 @@ class MoniteurIssueRead(MoniteurIssueBase):
     created_at: datetime
     updated_at: datetime
 
-    candidates_count: int = 0
+    entries_count: int = 0
     accepted_count: int = 0
     sommaire: List[SommaireEntry] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class MoniteurLawCandidateRead(BaseModel):
-    """Parser output — one suspected law inside an issue."""
+class MoniteurEntryRead(BaseModel):
+    """One entry (document) inside a Moniteur issue."""
 
     id: int
     issue_id: int
@@ -92,7 +91,9 @@ class MoniteurLawCandidateRead(BaseModel):
     display_title: Optional[str] = None
     detected_number: Optional[str] = None
     detected_date: Optional[date] = None
-    parent_candidate_id: Optional[int] = None
+    parent_entry_id: Optional[int] = None
+    summary_fr: Optional[str] = None
+    summary_ht: Optional[str] = None
 
     raw_text: str
     confidence: Optional[Decimal] = None
@@ -101,9 +102,6 @@ class MoniteurLawCandidateRead(BaseModel):
 
     review_status: MoniteurCandidateStatus
     promoted_legal_text_id: Optional[int] = None
-    # Pre-resolved slug of the promoted LegalText so the editor UI can build
-    # a /loi/{slug} permalink without an extra round-trip. Null until the
-    # candidate is accepted and promoted.
     promoted_legal_text_slug: Optional[str] = None
     promoted_legal_text_title_fr: Optional[str] = None
     review_notes: Optional[str] = None
@@ -116,11 +114,6 @@ class MoniteurLawCandidateRead(BaseModel):
 
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):  # type: ignore[override]
-        # Promote the relationship's slug + title up into the flat shape.
-        # Pydantic's from_attributes mode pulls them from `obj.promoted_legal_text_slug`
-        # automatically — but the relationship attribute is named
-        # `promoted_legal_text`, not `_slug` / `_title_fr`. So we read the
-        # related row ourselves and patch the result post-validation.
         result = super().model_validate(obj, *args, **kwargs)
         promoted = getattr(obj, "promoted_legal_text", None)
         if promoted is not None:
@@ -131,22 +124,20 @@ class MoniteurLawCandidateRead(BaseModel):
         return result
 
 
-class MoniteurIssueWithCandidates(MoniteurIssueRead):
-    """Full review payload — issue + all its candidates."""
+class MoniteurIssueWithEntries(MoniteurIssueRead):
+    """Full review payload — issue + all its entries."""
 
-    candidates: List[MoniteurLawCandidateRead] = []
+    entries: List[MoniteurEntryRead] = []
 
 
-class CandidateReviewInput(BaseModel):
-    """Editor input for a candidate.
+class EntryReviewInput(BaseModel):
+    """Editor input for an entry review.
 
     Two use cases share this shape:
       1. **Status change** (accept / reject / defer) — set `review_status`,
          optionally override the detected fields at the same time.
       2. **Field correction only** — leave `review_status` unset, supply
-         only the `detected_*` fields the editor wants to fix. Used by the
-         "Edit fields" inline editor on the review page so the editor can
-         clean up parser noise (typos, wrong category) before promoting.
+         only the `detected_*` fields the editor wants to fix.
     """
 
     review_status: Optional[MoniteurCandidateStatus] = None
@@ -155,5 +146,7 @@ class CandidateReviewInput(BaseModel):
     display_title: Optional[str] = None
     detected_number: Optional[str] = None
     detected_date: Optional[date] = None
-    parent_candidate_id: Optional[int] = None
+    parent_entry_id: Optional[int] = None
+    summary_fr: Optional[str] = None
+    summary_ht: Optional[str] = None
     review_notes: Optional[str] = None

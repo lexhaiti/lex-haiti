@@ -53,6 +53,10 @@ interface TableOfContentsProps {
   externalQuery?: string
   hasPreamble?: boolean
   onPreambleClick?: () => void
+  hasVisas?: boolean
+  onVisasClick?: () => void
+  hasConsiderants?: boolean
+  onConsiderantsClick?: () => void
 }
 
 /** Build a tree from flat headings + attach articles to their heading nodes */
@@ -201,6 +205,10 @@ export default function TableOfContents({
   externalQuery,
   hasPreamble,
   onPreambleClick,
+  hasVisas,
+  onVisasClick,
+  hasConsiderants,
+  onConsiderantsClick,
 }: TableOfContentsProps) {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -423,6 +431,24 @@ export default function TableOfContents({
             >
               <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
               <span>{currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}</span>
+            </button>
+          )}
+          {hasVisas && onVisasClick && (
+            <button
+              onClick={onVisasClick}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-slate-600 hover:text-red-600 transition-colors mb-1 ml-3"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <span>{currentLang === 'fr' ? 'Visas' : 'Visa'}</span>
+            </button>
+          )}
+          {hasConsiderants && onConsiderantsClick && (
+            <button
+              onClick={onConsiderantsClick}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-slate-600 hover:text-red-600 transition-colors mb-1 ml-3"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <span>{currentLang === 'fr' ? 'Considérants' : 'Konsideran'}</span>
             </button>
           )}
           {filteredTree.length > 0 ? (

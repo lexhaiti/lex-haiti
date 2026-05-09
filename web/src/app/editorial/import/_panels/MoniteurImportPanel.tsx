@@ -187,7 +187,7 @@ export default function MoniteurImportPanel() {
       // TODO(worker): replace with an RQ job + polling via getMoniteurIssue.
       parseMoniteurIssue(issue.id)
         .then((result) => {
-          setCandidatesCount(result.candidates_count ?? 0)
+          setCandidatesCount(result.entries_count ?? 0)
           setPhase('done')
         })
         .catch(() => {

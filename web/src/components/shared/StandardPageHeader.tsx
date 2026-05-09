@@ -14,6 +14,7 @@ interface StandardPageHeaderProps {
    * dark variant. The last item should be the current page (no href).
    */
   breadcrumbs?: BreadcrumbItem[]
+  children?: React.ReactNode
 }
 
 export function StandardPageHeader({
@@ -21,6 +22,7 @@ export function StandardPageHeader({
   subtitle,
   icon: Icon,
   breadcrumbs,
+  children,
 }: StandardPageHeaderProps) {
   return (
     <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
@@ -55,6 +57,8 @@ export function StandardPageHeader({
             {subtitle}
           </motion.p>
         )}
+
+        {children}
       </div>
     </div>
   )

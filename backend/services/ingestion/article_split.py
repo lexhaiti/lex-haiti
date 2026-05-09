@@ -10,10 +10,9 @@ Detection is purely regex — finds article-heading lines like
 `Article 1er. —`, `Article 1.`, `ARTICLE 12`, `Art. 25`. Body of an
 article extends from one heading to the next (or to end-of-text).
 
-Lead-in text BEFORE the first article (preamble, considérants, signatures
-section, "Le Président de la République, … ARRÊTE :") is returned
-separately so callers can store it on `LegalText.preamble_fr` instead of
-silently dropping it.
+Lead-in text BEFORE the first article is returned separately.
+`split_preamble()` further breaks it into the four legal blocks:
+préambule → visas → considérants → formule d'adoption.
 """
 
 from __future__ import annotations
@@ -30,6 +29,23 @@ class ParsedArticle:
     number: str
     body: str
     title: Optional[str] = None  # Reserved — most Haitian laws don't title articles.
+
+
+@dataclass
+class PreambleParts:
+    """Structured breakdown of the pre-article text.
+
+    Real-world ordering in a Haitian legal instrument:
+      préambule (rare, mostly constitutions)
+      → visas ("Vu …")
+      → considérants ("Considérant que …")
+      → formule d'adoption ("Le Corps Législatif a voté …" / "DÉCRÈTE :")
+    """
+
+    preamble: Optional[str]
+    visas: Optional[str]
+    considerants: Optional[str]
+    enacting_formula: Optional[str]
 
 
 @dataclass
@@ -103,6 +119,73 @@ def split_into_articles(body: str) -> SplitResult:
         articles.append(ParsedArticle(number=number, body=article_body))
 
     return SplitResult(preamble=preamble, articles=articles)
+
+
+_VU_RE = re.compile(r"^\s*Vu\s", re.IGNORECASE)
+_CONS_RE = re.compile(r"^\s*Consid[éeè]rant\s", re.IGNORECASE)
+_TRANSITIONAL_RE = re.compile(
+    r"^\s*(?:"
+    r"Le\s+Corps\s+L[éeè]gislatif|"
+    r"Sur\s+proposition|"
+    r"Le\s+Pr[éeè]sident|"
+    r"Le\s+Conseil|"
+    r"Le\s+Pouvoir|"
+    r"ARR[ÊE]TE|"
+    r"D[ÉE]CR[ÈE]TE|"
+    r"ORDONNE"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def split_preamble(text: str) -> PreambleParts:
+    """Split pre-article text into its four legal blocks.
+
+    States flow forward only: pre → visa → considerant → enacting.
+    Text before any "Vu" is a true preamble (rare — mostly constitutions).
+    Text after considérants is the enacting formula.
+    """
+    if not text or not text.strip():
+        return PreambleParts(
+            preamble=None, visas=None, considerants=None, enacting_formula=None,
+        )
+
+    lines = text.split("\n")
+    preamble_lines: list[str] = []
+    visa_lines: list[str] = []
+    cons_lines: list[str] = []
+    enacting_lines: list[str] = []
+
+    state = "pre"
+
+    for line in lines:
+        stripped = line.strip()
+
+        if _VU_RE.match(stripped):
+            state = "visa"
+            visa_lines.append(line)
+        elif _CONS_RE.match(stripped):
+            state = "considerant"
+            cons_lines.append(line)
+        elif state in ("visa", "considerant"):
+            if stripped and _TRANSITIONAL_RE.match(stripped):
+                state = "enacting"
+                enacting_lines.append(line)
+            elif state == "visa":
+                visa_lines.append(line)
+            else:
+                cons_lines.append(line)
+        elif state == "enacting":
+            enacting_lines.append(line)
+        else:
+            preamble_lines.append(line)
+
+    return PreambleParts(
+        preamble="\n".join(preamble_lines).strip() or None,
+        visas="\n".join(visa_lines).strip() or None,
+        considerants="\n".join(cons_lines).strip() or None,
+        enacting_formula="\n".join(enacting_lines).strip() or None,
+    )
 
 
 def _normalize_number(raw: str) -> str:

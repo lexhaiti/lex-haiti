@@ -28,6 +28,12 @@ class LegalTextBase(BaseModel):
     description_ht: Optional[str] = None
     preamble_fr: Optional[str] = None
     preamble_ht: Optional[str] = None
+    visas_fr: Optional[str] = None
+    visas_ht: Optional[str] = None
+    considerants_fr: Optional[str] = None
+    considerants_ht: Optional[str] = None
+    enacting_formula_fr: Optional[str] = None
+    enacting_formula_ht: Optional[str] = None
 
     promulgation_date: Optional[date] = None
     publication_date: Optional[date] = None

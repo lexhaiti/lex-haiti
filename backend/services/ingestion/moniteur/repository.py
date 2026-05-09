@@ -1,7 +1,7 @@
 """Repository for the Moniteur ingestion pipeline.
 
-Manages MoniteurIssue and MoniteurLawCandidate lifecycle, pipeline
-orchestration, and promotion of candidates to LegalText.
+Manages MoniteurIssue and MoniteurEntry lifecycle, pipeline
+orchestration, and promotion of entries to LegalText.
 """
 from __future__ import annotations
 
@@ -23,10 +23,10 @@ from services.corpus.models import (
     Article,
     ArticleVersion,
     LegalText,
+    MoniteurEntry,
     MoniteurIssue,
-    MoniteurLawCandidate,
 )
-from services.ingestion.article_split import split_into_articles
+from services.ingestion.article_split import split_into_articles, split_preamble
 from services.ingestion.moniteur.parser import ParsedCandidate, run_pipeline
 
 
@@ -86,8 +86,8 @@ class MoniteurRepository:
                 desc(MoniteurIssue.id),
             )
             .options(
-                selectinload(MoniteurIssue.candidates).selectinload(
-                    MoniteurLawCandidate.promoted_legal_text
+                selectinload(MoniteurIssue.entries).selectinload(
+                    MoniteurEntry.promoted_legal_text
                 )
             )
             .offset(offset)
@@ -121,43 +121,43 @@ class MoniteurRepository:
         self.session.flush()
 
     # -------------------------------------------------------------------
-    # Candidates
+    # Entries
     # -------------------------------------------------------------------
 
-    def get_issue_with_candidates(
+    def get_issue_with_entries(
         self, issue_id: int
     ) -> Optional[MoniteurIssue]:
         stmt = (
             select(MoniteurIssue)
             .where(MoniteurIssue.id == issue_id)
             .options(
-                selectinload(MoniteurIssue.candidates).selectinload(
-                    MoniteurLawCandidate.promoted_legal_text
+                selectinload(MoniteurIssue.entries).selectinload(
+                    MoniteurEntry.promoted_legal_text
                 )
             )
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def get_candidate(self, candidate_id: int) -> Optional[MoniteurLawCandidate]:
+    def get_entry(self, entry_id: int) -> Optional[MoniteurEntry]:
         stmt = (
-            select(MoniteurLawCandidate)
-            .where(MoniteurLawCandidate.id == candidate_id)
-            .options(selectinload(MoniteurLawCandidate.promoted_legal_text))
+            select(MoniteurEntry)
+            .where(MoniteurEntry.id == entry_id)
+            .options(selectinload(MoniteurEntry.promoted_legal_text))
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def replace_candidates(
+    def replace_entries(
         self, issue: MoniteurIssue, parsed: List[ParsedCandidate]
-    ) -> List[MoniteurLawCandidate]:
-        """Drop existing unpromoted candidates and write new parser output."""
-        for old in list(issue.candidates):
+    ) -> List[MoniteurEntry]:
+        """Drop existing unpromoted entries and write new parser output."""
+        for old in list(issue.entries):
             if old.promoted_legal_text_id is None:
                 self.session.delete(old)
         self.session.flush()
 
-        out: list[MoniteurLawCandidate] = []
+        out: list[MoniteurEntry] = []
         for i, p in enumerate(parsed):
-            row = MoniteurLawCandidate(
+            row = MoniteurEntry(
                 issue_id=issue.id,
                 position=i,
                 detected_category=p.detected_category,
@@ -179,7 +179,7 @@ class MoniteurRepository:
     # -------------------------------------------------------------------
 
     def run_parse_for_issue(self, issue: MoniteurIssue) -> MoniteurIssue:
-        """OCR + parse the issue's PDF, write candidates, update status."""
+        """OCR + parse the issue's PDF, write entries, update status."""
         if not issue.file_url:
             issue.processing_status = MoniteurIssueStatus.failed
             issue.processing_error = "No file uploaded for this issue."
@@ -191,7 +191,7 @@ class MoniteurRepository:
 
         try:
             parsed = run_pipeline(issue.file_url)
-            self.replace_candidates(issue, parsed)
+            self.replace_entries(issue, parsed)
             issue.processing_status = MoniteurIssueStatus.parsed
             issue.processing_error = None
             issue.parsed_at = datetime.now(timezone.utc)
@@ -202,12 +202,12 @@ class MoniteurRepository:
         return issue
 
     # -------------------------------------------------------------------
-    # Promotion: candidate -> LegalText
+    # Promotion: entry -> LegalText
     # -------------------------------------------------------------------
 
-    def promote_candidate(
+    def promote_entry(
         self,
-        candidate: MoniteurLawCandidate,
+        entry: MoniteurEntry,
         *,
         slug: str,
         title_fr: str,
@@ -215,22 +215,26 @@ class MoniteurRepository:
         description_fr: Optional[str] = None,
         publication_date=None,
     ) -> LegalText:
-        """Create a draft LegalText from a candidate and link it back."""
-        split = split_into_articles(candidate.raw_text or "")
+        """Create a draft LegalText from an entry and link it back."""
+        split = split_into_articles(entry.raw_text or "")
         has_articles = len(split.articles) > 0
+        parts = split_preamble(split.preamble)
         legal_text = LegalText(
             slug=slug,
             category=category,
             jurisdiction="HT",
             title_fr=title_fr,
             description_fr=description_fr or (
-                None if has_articles else (candidate.raw_text or "")[:500]
+                None if has_articles else (entry.raw_text or "")[:500]
             ),
-            preamble_fr=split.preamble or None,
-            publication_date=publication_date or candidate.detected_date,
+            preamble_fr=parts.preamble,
+            visas_fr=parts.visas,
+            considerants_fr=parts.considerants,
+            enacting_formula_fr=parts.enacting_formula,
+            publication_date=publication_date or entry.detected_date,
             status=LegalStatus.in_force,
             editorial_status=EditorialStatus.draft,
-            moniteur_issue_id=candidate.issue_id,
+            moniteur_issue_id=entry.issue_id,
         )
         self.session.add(legal_text)
         self.session.flush()
@@ -251,7 +255,7 @@ class MoniteurRepository:
                 title_fr=parsed.title,
                 text_fr=parsed.body,
                 editorial_status=EditorialStatus.draft,
-                confidence=candidate.confidence,
+                confidence=entry.confidence,
             )
             self.session.add(version)
             self.session.flush()
@@ -259,25 +263,25 @@ class MoniteurRepository:
         if has_articles:
             self.session.flush()
 
-        candidate.promoted_legal_text_id = legal_text.id
-        candidate.review_status = MoniteurCandidateStatus.accepted
-        candidate.reviewed_at = datetime.now(timezone.utc)
+        entry.promoted_legal_text_id = legal_text.id
+        entry.review_status = MoniteurCandidateStatus.accepted
+        entry.reviewed_at = datetime.now(timezone.utc)
         self.session.flush()
         return legal_text
 
-    def update_candidate_review(
+    def update_entry_review(
         self,
-        candidate: MoniteurLawCandidate,
+        entry: MoniteurEntry,
         *,
         review_status: MoniteurCandidateStatus,
         review_notes: Optional[str] = None,
-    ) -> MoniteurLawCandidate:
-        candidate.review_status = review_status
+    ) -> MoniteurEntry:
+        entry.review_status = review_status
         if review_notes is not None:
-            candidate.review_notes = review_notes
-        candidate.reviewed_at = datetime.now(timezone.utc)
+            entry.review_notes = review_notes
+        entry.reviewed_at = datetime.now(timezone.utc)
         self.session.flush()
-        return candidate
+        return entry
 
 
 def _slugify_article_number(num: str) -> str:

@@ -50,11 +50,11 @@ def parse_moniteur_issue(issue_id: int) -> dict:
             return {"ok": False, "error": f"issue {issue_id} not found"}
         repo.run_parse_for_issue(issue)
         sess.commit()
-        full = repo.get_issue_with_candidates(issue_id)
+        full = repo.get_issue_with_entries(issue_id)
         return {
             "ok": True,
             "issue_id": issue_id,
-            "candidates": len(full.candidates) if full else 0,
+            "entries": len(full.entries) if full else 0,
             "status": (full.processing_status.value if full else None),
         }
     except Exception as e:  # noqa: BLE001

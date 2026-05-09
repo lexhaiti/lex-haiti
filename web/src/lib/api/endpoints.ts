@@ -170,7 +170,7 @@ export type MoniteurIssueRead = {
   published_at: string | null
   created_at: string
   updated_at: string
-  candidates_count: number
+  entries_count: number
   accepted_count: number
   sommaire: Array<{
     category: string | null
@@ -179,7 +179,7 @@ export type MoniteurIssueRead = {
   }>
 }
 
-export type MoniteurLawCandidateRead = {
+export type MoniteurEntryRead = {
   id: number
   issue_id: number
   position: number
@@ -200,8 +200,10 @@ export type MoniteurLawCandidateRead = {
   detected_title: string | null
   display_title: string | null
   detected_number: string | null
-  parent_candidate_id: number | null
+  parent_entry_id: number | null
   detected_date: string | null
+  summary_fr: string | null
+  summary_ht: string | null
   raw_text: string
   confidence: string | null
   page_from: number | null
@@ -216,8 +218,16 @@ export type MoniteurLawCandidateRead = {
   updated_at: string
 }
 
+/** @deprecated Use MoniteurEntryRead instead */
+export type MoniteurLawCandidateRead = MoniteurEntryRead
+
+export type MoniteurIssueWithEntries = MoniteurIssueRead & {
+  entries: MoniteurEntryRead[]
+}
+
+/** @deprecated Use MoniteurIssueWithEntries instead */
 export type MoniteurIssueWithCandidates = MoniteurIssueRead & {
-  candidates: MoniteurLawCandidateRead[]
+  candidates: MoniteurEntryRead[]
 }
 
 export async function listMoniteurIssues(params?: {
@@ -234,7 +244,7 @@ export async function listMoniteurIssues(params?: {
 }
 
 export async function getMoniteurIssue(id: number) {
-  return apiGet<MoniteurIssueWithCandidates>(`/moniteur/issues/${id}`)
+  return apiGet<MoniteurIssueWithEntries>(`/moniteur/issues/${id}`)
 }
 
 export async function createMoniteurIssue(payload: {
@@ -306,13 +316,13 @@ export async function extractMoniteurMetadata(file: File) {
 }
 
 export async function parseMoniteurIssue(id: number) {
-  return apiPost<MoniteurIssueWithCandidates>(
+  return apiPost<MoniteurIssueWithEntries>(
     `/moniteur/issues/${id}/parse`,
     {},
   )
 }
 
-/** Hard-delete a Moniteur issue (and its candidates + uploaded PDF). */
+/** Hard-delete a Moniteur issue (and its entries + uploaded PDF). */
 export async function deleteMoniteurIssue(id: number) {
   const r = await fetch(`/api/v1/moniteur/issues/${id}`, {
     method: 'DELETE',
@@ -330,11 +340,9 @@ export async function deleteMoniteurIssue(id: number) {
   }
 }
 
-export async function reviewMoniteurCandidate(
+export async function reviewMoniteurEntry(
   id: number,
   payload: {
-    /** Optional — leave unset to do a pure field-edit without changing the
-     *  review state (lets the inline editor patch detected_* in place). */
     review_status?: 'pending' | 'accepted' | 'rejected' | 'deferred'
     detected_category?: string | null
     detected_title?: string | null
@@ -343,18 +351,24 @@ export async function reviewMoniteurCandidate(
     review_notes?: string | null
   },
 ) {
-  return apiPatch<MoniteurLawCandidateRead>(
+  return apiPatch<MoniteurEntryRead>(
     `/moniteur/candidates/${id}`,
     payload,
   )
 }
 
-export async function promoteMoniteurCandidate(id: number) {
-  return apiPost<MoniteurLawCandidateRead>(
+/** @deprecated Use reviewMoniteurEntry instead */
+export const reviewMoniteurCandidate = reviewMoniteurEntry
+
+export async function promoteMoniteurEntry(id: number) {
+  return apiPost<MoniteurEntryRead>(
     `/moniteur/candidates/${id}/promote`,
     {},
   )
 }
+
+/** @deprecated Use promoteMoniteurEntry instead */
+export const promoteMoniteurCandidate = promoteMoniteurEntry
 
 // -----------------------------------------------------------------------
 // Decisions (jurisprudence)
@@ -474,6 +488,12 @@ export type LegalTextCreatePayload = {
   description_ht?: string | null
   preamble_fr?: string | null
   preamble_ht?: string | null
+  visas_fr?: string | null
+  visas_ht?: string | null
+  considerants_fr?: string | null
+  considerants_ht?: string | null
+  enacting_formula_fr?: string | null
+  enacting_formula_ht?: string | null
   promulgation_date?: string | null
   publication_date?: string | null
   moniteur_ref?: string | null

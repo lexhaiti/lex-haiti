@@ -33,7 +33,7 @@ from services.corpus.models import (
     LegalSigner,
     LegalText,
     MoniteurIssue,
-    MoniteurLawCandidate,
+    MoniteurEntry,
 )
 
 ISSUE_NUMBER = "Spécial N° 5"
@@ -960,7 +960,7 @@ def seed() -> None:
         print(f"  Law 1 id={law1.id} slug={law1.slug} ({len(LAW1_ARTICLES)} articles)")
 
         # Candidate for Law 1
-        cand1 = MoniteurLawCandidate(
+        cand1 = MoniteurEntry(
             issue_id=issue.id,
             position=0,
             detected_category=MoniteurDocumentType.loi,
@@ -1007,7 +1007,7 @@ def seed() -> None:
         print(f"  Law 2 id={law2.id} slug={law2.slug} ({len(LAW2_ARTICLES)} articles)")
 
         # Candidate for Law 2
-        cand2 = MoniteurLawCandidate(
+        cand2 = MoniteurEntry(
             issue_id=issue.id,
             position=1,
             detected_category=MoniteurDocumentType.loi,
@@ -1026,7 +1026,7 @@ def seed() -> None:
         session.add(cand2)
 
         # ── 4. Communiqué (candidate only, not promoted) ──
-        cand3 = MoniteurLawCandidate(
+        cand3 = MoniteurEntry(
             issue_id=issue.id,
             position=2,
             detected_category=MoniteurDocumentType.communique,

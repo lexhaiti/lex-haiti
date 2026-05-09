@@ -489,17 +489,17 @@ export interface paths {
         };
         /**
          * Get Issue
-         * @description Full issue + candidates payload.
+         * @description Full issue + entries payload.
          */
         get: operations["get_issue_api_v1_moniteur_issues__issue_id__get"];
         put?: never;
         post?: never;
         /**
          * Delete Issue
-         * @description Hard-delete a Moniteur issue plus its candidates and uploaded PDF.
+         * @description Hard-delete a Moniteur issue plus its entries and uploaded PDF.
          *
          *     Useful when the editor uploads the wrong file or wants to re-test the
-         *     pipeline. Cascades to `moniteur_law_candidates` via the FK definition;
+         *     pipeline. Cascades to `moniteur_entries` via the FK definition;
          *     the on-disk PDF is unlinked best-effort.
          */
         delete: operations["delete_issue_api_v1_moniteur_issues__issue_id__delete"];
@@ -570,7 +570,7 @@ export interface paths {
          *
          *     Returns the issue immediately with `processing_status='ocr_pending'`.
          *     The actual work runs in the RQ worker; the editor polls the issue's
-         *     status to see candidates land. For the rare degenerate case where
+         *     status to see entries land. For the rare degenerate case where
          *     Redis is down, we fall through to a synchronous in-request parse
          *     (1-page text-layered PDFs work fine; large scans will time out).
          */
@@ -595,13 +595,13 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Review Candidate
-         * @description Editor's verdict on a candidate.
+         * Review Entry
+         * @description Editor's verdict on an entry.
          *
          *     For `accepted`, prefer the dedicated `/promote` endpoint which also
          *     creates the LegalText. This endpoint just updates review fields.
          */
-        patch: operations["review_candidate_api_v1_moniteur_candidates__candidate_id__patch"];
+        patch: operations["review_entry_api_v1_moniteur_candidates__candidate_id__patch"];
         trace?: never;
     };
     "/api/v1/moniteur/candidates/{candidate_id}/promote": {
@@ -614,15 +614,15 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Promote Candidate
-         * @description Promote a candidate to a draft `LegalText`.
+         * Promote Entry
+         * @description Promote an entry to a draft `LegalText`.
          *
-         *     Uses the candidate's editor-corrected fields (title / category / date /
+         *     Uses the entry's editor-corrected fields (title / category / date /
          *     number) to create the LegalText with `editorial_status='draft'`. The
          *     editor still has to publish it from the regular law-edit flow before
          *     it appears on /lois.
          */
-        post: operations["promote_candidate_api_v1_moniteur_candidates__candidate_id__promote_post"];
+        post: operations["promote_entry_api_v1_moniteur_candidates__candidate_id__promote_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -939,34 +939,6 @@ export interface components {
             file: string;
         };
         /**
-         * CandidateReviewInput
-         * @description Editor input for a candidate.
-         *
-         *     Two use cases share this shape:
-         *       1. **Status change** (accept / reject / defer) — set `review_status`,
-         *          optionally override the detected fields at the same time.
-         *       2. **Field correction only** — leave `review_status` unset, supply
-         *          only the `detected_*` fields the editor wants to fix. Used by the
-         *          "Edit fields" inline editor on the review page so the editor can
-         *          clean up parser noise (typos, wrong category) before promoting.
-         */
-        CandidateReviewInput: {
-            review_status?: components["schemas"]["MoniteurCandidateStatus"] | null;
-            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
-            /** Detected Title */
-            detected_title?: string | null;
-            /** Display Title */
-            display_title?: string | null;
-            /** Detected Number */
-            detected_number?: string | null;
-            /** Detected Date */
-            detected_date?: string | null;
-            /** Parent Candidate Id */
-            parent_candidate_id?: number | null;
-            /** Review Notes */
-            review_notes?: string | null;
-        };
-        /**
          * CitationNodeType
          * @enum {string}
          */
@@ -1113,6 +1085,36 @@ export interface components {
          */
         EditorialStatus: "draft" | "pending_review" | "published" | "rejected";
         /**
+         * EntryReviewInput
+         * @description Editor input for an entry review.
+         *
+         *     Two use cases share this shape:
+         *       1. **Status change** (accept / reject / defer) — set `review_status`,
+         *          optionally override the detected fields at the same time.
+         *       2. **Field correction only** — leave `review_status` unset, supply
+         *          only the `detected_*` fields the editor wants to fix.
+         */
+        EntryReviewInput: {
+            review_status?: components["schemas"]["MoniteurCandidateStatus"] | null;
+            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
+            /** Detected Title */
+            detected_title?: string | null;
+            /** Display Title */
+            display_title?: string | null;
+            /** Detected Number */
+            detected_number?: string | null;
+            /** Detected Date */
+            detected_date?: string | null;
+            /** Parent Entry Id */
+            parent_entry_id?: number | null;
+            /** Summary Fr */
+            summary_fr?: string | null;
+            /** Summary Ht */
+            summary_ht?: string | null;
+            /** Review Notes */
+            review_notes?: string | null;
+        };
+        /**
          * ExtractionMethod
          * @enum {string}
          */
@@ -1243,6 +1245,18 @@ export interface components {
             preamble_fr?: string | null;
             /** Preamble Ht */
             preamble_ht?: string | null;
+            /** Visas Fr */
+            visas_fr?: string | null;
+            /** Visas Ht */
+            visas_ht?: string | null;
+            /** Considerants Fr */
+            considerants_fr?: string | null;
+            /** Considerants Ht */
+            considerants_ht?: string | null;
+            /** Enacting Formula Fr */
+            enacting_formula_fr?: string | null;
+            /** Enacting Formula Ht */
+            enacting_formula_ht?: string | null;
             /** Promulgation Date */
             promulgation_date?: string | null;
             /** Publication Date */
@@ -1346,6 +1360,18 @@ export interface components {
             preamble_fr?: string | null;
             /** Preamble Ht */
             preamble_ht?: string | null;
+            /** Visas Fr */
+            visas_fr?: string | null;
+            /** Visas Ht */
+            visas_ht?: string | null;
+            /** Considerants Fr */
+            considerants_fr?: string | null;
+            /** Considerants Ht */
+            considerants_ht?: string | null;
+            /** Enacting Formula Fr */
+            enacting_formula_fr?: string | null;
+            /** Enacting Formula Ht */
+            enacting_formula_ht?: string | null;
             /** Promulgation Date */
             promulgation_date?: string | null;
             /** Publication Date */
@@ -1439,6 +1465,62 @@ export interface components {
          */
         MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "promulgation" | "errata" | "autre";
         /**
+         * MoniteurEntryRead
+         * @description One entry (document) inside a Moniteur issue.
+         */
+        MoniteurEntryRead: {
+            /** Id */
+            id: number;
+            /** Issue Id */
+            issue_id: number;
+            /** Position */
+            position: number;
+            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
+            /** Detected Title */
+            detected_title?: string | null;
+            /** Display Title */
+            display_title?: string | null;
+            /** Detected Number */
+            detected_number?: string | null;
+            /** Detected Date */
+            detected_date?: string | null;
+            /** Parent Entry Id */
+            parent_entry_id?: number | null;
+            /** Summary Fr */
+            summary_fr?: string | null;
+            /** Summary Ht */
+            summary_ht?: string | null;
+            /** Raw Text */
+            raw_text: string;
+            /** Confidence */
+            confidence?: string | null;
+            /** Page From */
+            page_from?: number | null;
+            /** Page To */
+            page_to?: number | null;
+            review_status: components["schemas"]["MoniteurCandidateStatus"];
+            /** Promoted Legal Text Id */
+            promoted_legal_text_id?: number | null;
+            /** Promoted Legal Text Slug */
+            promoted_legal_text_slug?: string | null;
+            /** Promoted Legal Text Title Fr */
+            promoted_legal_text_title_fr?: string | null;
+            /** Review Notes */
+            review_notes?: string | null;
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
          * MoniteurIssueCreate
          * @description POST /moniteur/issues body. PDF arrives separately via multipart upload.
          */
@@ -1506,15 +1588,20 @@ export interface components {
              */
             updated_at: string;
             /**
-             * Candidates Count
+             * Entries Count
              * @default 0
              */
-            candidates_count: number;
+            entries_count: number;
             /**
              * Accepted Count
              * @default 0
              */
             accepted_count: number;
+            /**
+             * Sommaire
+             * @default []
+             */
+            sommaire: components["schemas"]["SommaireEntry"][];
         };
         /**
          * MoniteurIssueStatus
@@ -1537,10 +1624,10 @@ export interface components {
             edition_label?: string | null;
         };
         /**
-         * MoniteurIssueWithCandidates
-         * @description Full review payload — issue + all its candidates.
+         * MoniteurIssueWithEntries
+         * @description Full review payload — issue + all its entries.
          */
-        MoniteurIssueWithCandidates: {
+        MoniteurIssueWithEntries: {
             /**
              * Number
              * @description e.g. "47" or "47-bis"
@@ -1584,72 +1671,25 @@ export interface components {
              */
             updated_at: string;
             /**
-             * Candidates Count
+             * Entries Count
              * @default 0
              */
-            candidates_count: number;
+            entries_count: number;
             /**
              * Accepted Count
              * @default 0
              */
             accepted_count: number;
             /**
-             * Candidates
+             * Sommaire
              * @default []
              */
-            candidates: components["schemas"]["MoniteurLawCandidateRead"][];
-        };
-        /**
-         * MoniteurLawCandidateRead
-         * @description Parser output — one suspected law inside an issue.
-         */
-        MoniteurLawCandidateRead: {
-            /** Id */
-            id: number;
-            /** Issue Id */
-            issue_id: number;
-            /** Position */
-            position: number;
-            detected_category?: components["schemas"]["MoniteurDocumentType"] | null;
-            /** Detected Title */
-            detected_title?: string | null;
-            /** Display Title */
-            display_title?: string | null;
-            /** Detected Number */
-            detected_number?: string | null;
-            /** Detected Date */
-            detected_date?: string | null;
-            /** Parent Candidate Id */
-            parent_candidate_id?: number | null;
-            /** Raw Text */
-            raw_text: string;
-            /** Confidence */
-            confidence?: string | null;
-            /** Page From */
-            page_from?: number | null;
-            /** Page To */
-            page_to?: number | null;
-            review_status: components["schemas"]["MoniteurCandidateStatus"];
-            /** Promoted Legal Text Id */
-            promoted_legal_text_id?: number | null;
-            /** Promoted Legal Text Slug */
-            promoted_legal_text_slug?: string | null;
-            /** Promoted Legal Text Title Fr */
-            promoted_legal_text_title_fr?: string | null;
-            /** Review Notes */
-            review_notes?: string | null;
-            /** Reviewed At */
-            reviewed_at?: string | null;
+            sommaire: components["schemas"]["SommaireEntry"][];
             /**
-             * Created At
-             * Format: date-time
+             * Entries
+             * @default []
              */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
+            entries: components["schemas"]["MoniteurEntryRead"][];
         };
         /** PaginatedResponse[ArticleListItem] */
         PaginatedResponse_ArticleListItem_: {
@@ -1786,6 +1826,17 @@ export interface components {
              * @default
              */
             snippet_ht: string;
+        };
+        /**
+         * SommaireEntry
+         * @description Lightweight summary of an entry for the list-page cards.
+         */
+        SommaireEntry: {
+            category?: components["schemas"]["MoniteurDocumentType"] | null;
+            /** Title */
+            title?: string | null;
+            /** Promoted Slug */
+            promoted_slug?: string | null;
         };
         /**
          * ThemeSource
@@ -2717,7 +2768,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoniteurIssueWithCandidates"];
+                    "application/json": components["schemas"]["MoniteurIssueWithEntries"];
                 };
             };
             /** @description Validation Error */
@@ -2880,7 +2931,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoniteurIssueWithCandidates"];
+                    "application/json": components["schemas"]["MoniteurIssueWithEntries"];
                 };
             };
             /** @description Validation Error */
@@ -2894,7 +2945,7 @@ export interface operations {
             };
         };
     };
-    review_candidate_api_v1_moniteur_candidates__candidate_id__patch: {
+    review_entry_api_v1_moniteur_candidates__candidate_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -2905,7 +2956,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CandidateReviewInput"];
+                "application/json": components["schemas"]["EntryReviewInput"];
             };
         };
         responses: {
@@ -2915,7 +2966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoniteurLawCandidateRead"];
+                    "application/json": components["schemas"]["MoniteurEntryRead"];
                 };
             };
             /** @description Validation Error */
@@ -2929,7 +2980,7 @@ export interface operations {
             };
         };
     };
-    promote_candidate_api_v1_moniteur_candidates__candidate_id__promote_post: {
+    promote_entry_api_v1_moniteur_candidates__candidate_id__promote_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2946,7 +2997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoniteurLawCandidateRead"];
+                    "application/json": components["schemas"]["MoniteurEntryRead"];
                 };
             };
             /** @description Validation Error */

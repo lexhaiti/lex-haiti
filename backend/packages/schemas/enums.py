@@ -110,6 +110,17 @@ class MoniteurDocumentType(str, Enum):
     autre = "autre"
 
 
+PROMOTABLE_TYPES: frozenset[MoniteurDocumentType] = frozenset({
+    MoniteurDocumentType.constitution,
+    MoniteurDocumentType.code,
+    MoniteurDocumentType.loi,
+    MoniteurDocumentType.decret,
+    MoniteurDocumentType.arrete,
+    MoniteurDocumentType.convention,
+    MoniteurDocumentType.ordonnance,
+})
+
+
 class MoniteurIssueStatus(str, Enum):
     """Lifecycle of a Moniteur issue in the ingestion pipeline.
 

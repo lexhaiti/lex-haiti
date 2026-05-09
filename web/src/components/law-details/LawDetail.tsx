@@ -16,6 +16,7 @@ import {
   Newspaper,
   PanelLeft,
   PanelLeftClose,
+  PenLine,
   PauseCircle,
   RotateCcw,
   Search,
@@ -278,7 +279,11 @@ export default function LawDetail() {
   // useRef must be called before any early returns (Rules of Hooks)
   const articleViewerRef = React.useRef<HTMLDivElement>(null)
   const preambleRef = React.useRef<HTMLDivElement>(null)
+  const visasRef = React.useRef<HTMLDivElement>(null)
+  const considerantsRef = React.useRef<HTMLDivElement>(null)
   const [preambleExpanded, setPreambleExpanded] = useState(false)
+  const [visasExpanded, setVisasExpanded] = useState(false)
+  const [considerantsExpanded, setConsiderantsExpanded] = useState(false)
 
   if (isLoading) {
     return (
@@ -494,7 +499,7 @@ export default function LawDetail() {
                           <p className="text-white font-medium truncate max-w-[24rem] group-hover/moniteur:underline">
                             <em className="italic font-semibold">Le Moniteur</em>{' '}
                             <span className="font-normal text-slate-200">
-                              N° {law.moniteur_issue_number} {dateStr}
+                              {/^[0-9]/.test(law.moniteur_issue_number ?? '') ? `N° ${law.moniteur_issue_number}` : law.moniteur_issue_number} {dateStr}
                             </span>
                           </p>
                         </div>
@@ -605,6 +610,28 @@ export default function LawDetail() {
                             })
                           }, 100)
                         }}
+                        hasVisas={!!law.visas_fr}
+                        onVisasClick={() => {
+                          setVisasExpanded(true)
+                          setIsSidebarOpen(false)
+                          setTimeout(() => {
+                            visasRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            })
+                          }, 100)
+                        }}
+                        hasConsiderants={!!law.considerants_fr}
+                        onConsiderantsClick={() => {
+                          setConsiderantsExpanded(true)
+                          setIsSidebarOpen(false)
+                          setTimeout(() => {
+                            considerantsRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'start',
+                            })
+                          }, 100)
+                        }}
                       />
                     </div>
                   </motion.div>
@@ -659,6 +686,26 @@ export default function LawDetail() {
                       setPreambleExpanded(true)
                       setTimeout(() => {
                         preambleRef.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                      }, 100)
+                    }}
+                    hasVisas={!!law.visas_fr}
+                    onVisasClick={() => {
+                      setVisasExpanded(true)
+                      setTimeout(() => {
+                        visasRef.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                      }, 100)
+                    }}
+                    hasConsiderants={!!law.considerants_fr}
+                    onConsiderantsClick={() => {
+                      setConsiderantsExpanded(true)
+                      setTimeout(() => {
+                        considerantsRef.current?.scrollIntoView({
                           behavior: 'smooth',
                           block: 'start',
                         })
@@ -750,40 +797,121 @@ export default function LawDetail() {
               </div>
             )}
 
-            {/* Preamble — "Vu la loi...", "Considérant que..." section */}
-            {law.preamble_fr && law.articles && law.articles.length > 0 && (
-              <div ref={preambleRef} className="mb-8 scroll-mt-24">
-                <button
-                  onClick={() => setPreambleExpanded(!preambleExpanded)}
-                  className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
-                >
-                  {preambleExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  )}
-                  <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                    {currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
-                  </span>
-                  <span className="text-xs text-slate-400 ml-auto">
-                    {currentLang === 'fr' ? 'Visas et considérants' : 'Visa ak konsideran'}
-                  </span>
-                </button>
-                <AnimatePresence>
-                  {preambleExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
+            {/* Pre-article blocks: Préambule → Visas → Considérants → Formule d'adoption */}
+            {law.articles && law.articles.length > 0 && (law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr) && (
+              <div className="mb-8 space-y-3">
+                {law.preamble_fr && (
+                  <div ref={preambleRef} className="scroll-mt-24">
+                    <button
+                      onClick={() => setPreambleExpanded(!preambleExpanded)}
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
                     >
-                      <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                        {law.preamble_fr}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      {preambleExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
+                        {currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
+                      </span>
+                    </button>
+                    <AnimatePresence>
+                      {preambleExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            {law.preamble_fr}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {law.visas_fr && (
+                  <div ref={visasRef} className="scroll-mt-24">
+                    <button
+                      onClick={() => setVisasExpanded(!visasExpanded)}
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
+                    >
+                      {visasExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
+                        Visas
+                      </span>
+                      <span className="text-xs text-slate-400 ml-auto">
+                        {currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
+                      </span>
+                    </button>
+                    <AnimatePresence>
+                      {visasExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            {law.visas_fr}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {law.considerants_fr && (
+                  <div ref={considerantsRef} className="scroll-mt-24">
+                    <button
+                      onClick={() => setConsiderantsExpanded(!considerantsExpanded)}
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
+                    >
+                      {considerantsExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
+                        {currentLang === 'fr' ? 'Considérants' : 'Konsideran'}
+                      </span>
+                      <span className="text-xs text-slate-400 ml-auto">
+                        {currentLang === 'fr' ? 'Considérant que...' : 'Konsidere ke...'}
+                      </span>
+                    </button>
+                    <AnimatePresence>
+                      {considerantsExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                            {law.considerants_fr}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {law.enacting_formula_fr && (
+                  <div className="py-4 text-center">
+                    <p className="text-sm font-semibold italic text-slate-500 tracking-wide">
+                      {law.enacting_formula_fr}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -819,6 +947,32 @@ export default function LawDetail() {
                 />
               )}
             </div>
+
+            {/* Signataires */}
+            {law.signers && law.signers.length > 0 && (
+              <div className="mb-12 pt-8 border-t border-slate-200">
+                <div className="flex items-center gap-2 mb-6">
+                  <PenLine className="w-4 h-4 text-slate-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    {currentLang === 'fr' ? 'Signataires' : 'Siyatè'}
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+                  {law.signers.map((signer: any) => (
+                    <div key={signer.id} className="flex flex-col gap-0.5">
+                      <span className="text-sm font-bold text-slate-900">
+                        {signer.name}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {currentLang === 'ht' && signer.function_ht
+                          ? signer.function_ht
+                          : signer.function_fr}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Editor floating bar — visible only when signed in */}
             {isEditor && law && (
