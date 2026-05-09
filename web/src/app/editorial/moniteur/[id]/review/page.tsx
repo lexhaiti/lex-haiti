@@ -276,8 +276,10 @@ export default function MoniteurReviewPage() {
               { label: copy.crumbs.editor, href: '/profile' },
               { label: copy.crumbs.moniteur, href: '/editorial/moniteur' },
               {
+                // Smart N° prefix: skip the prefix when the issue.number
+                // already starts with non-digit text like "Spécial N° 5".
                 label: issue
-                  ? `n° ${issue.number} / ${issue.year}`
+                  ? `${/^[0-9]/.test(issue.number) ? `N° ${issue.number}` : issue.number} / ${issue.year}`
                   : copy.crumbs.review,
               },
             ]}

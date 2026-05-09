@@ -90,12 +90,13 @@ export default function AllLaws() {
     refresh()
   }
 
-  // Effect to update title if search query is cleared
-  useEffect(() => {
-    if (searchQuery === '') {
-      setActiveSearchTerm('')
-    }
-  }, [searchQuery])
+  // Note: do NOT auto-clear `activeSearchTerm` whenever `searchQuery`
+  // becomes empty. That effect used to wipe the URL-driven search on
+  // initial mount because `searchQuery` starts at '' before the
+  // searchParams effect populates it. The H1's "you are searching for X"
+  // mode now reliably reflects either the URL ?q=… or the last submitted
+  // input value. Clearing happens through the URL effect (q absent) or
+  // the user re-submitting an empty query — both already handled above.
 
   return (
     <AllLawsUI
