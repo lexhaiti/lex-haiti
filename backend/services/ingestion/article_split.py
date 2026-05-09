@@ -78,6 +78,7 @@ class SplitResult:
 _ARTICLE_HEADING_RE = re.compile(
     r"""
     ^[\s ]*                       # start of line, optional indent
+    (?:\#{1,6}[\s ]+)?             # optional Markdown heading marker (## …)
     (?:Article|ARTICLE|Art\.?)         # the keyword
     [\s ]+                        # at least one space
     (\d+(?:[\.\-]\d+)?(?:\s*(?:bis|ter|quater))?(?:er|ère|e)?)  # number, captured

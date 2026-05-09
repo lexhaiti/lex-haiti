@@ -153,6 +153,34 @@ class SommaireEntryInput(BaseModel):
     page_to: int
 
 
+class TranscriptArticlePreview(BaseModel):
+    """One article as the splitter would extract it from raw_text."""
+
+    number: str
+    body_preview: str  # first ~200 chars
+    body_length: int
+
+
+class TranscriptPreview(BaseModel):
+    """Live preview of how the OCR transcript would be split into the
+    structured legal blocks at promotion time. Lets editors validate
+    their corrections (line breaks, marker placement) before promoting,
+    instead of finding out the structure is off only after."""
+
+    preamble: Optional[str] = None
+    visas: Optional[str] = None
+    considerants: Optional[str] = None
+    enacting_formula: Optional[str] = None
+    articles: List[TranscriptArticlePreview]
+
+
+class TranscriptPreviewInput(BaseModel):
+    """Optional override of the entry's stored raw_text for the preview
+    endpoint. None means "preview against what's currently saved." """
+
+    raw_text: Optional[str] = None
+
+
 class SommaireBulkInput(BaseModel):
     """Wrapper for the sommaire endpoint — N entries at once.
 

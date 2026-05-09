@@ -390,6 +390,21 @@ export async function reviewMoniteurEntry(
 /** @deprecated Use reviewMoniteurEntry instead */
 export const reviewMoniteurCandidate = reviewMoniteurEntry
 
+export type TranscriptPreview = components['schemas']['TranscriptPreview']
+
+/** Live preview of how the splitter would carve up an entry's raw_text
+ *  into préambule / visas / considérants / formule d'adoption /
+ *  articles. Pass `raw_text` to preview against unsaved edits. */
+export async function previewMoniteurEntrySplit(
+  id: number,
+  raw_text?: string,
+) {
+  return apiPost<TranscriptPreview>(
+    `/moniteur/candidates/${id}/preview-split`,
+    raw_text === undefined ? {} : { raw_text },
+  )
+}
+
 export async function promoteMoniteurEntry(id: number) {
   return apiPost<MoniteurEntryRead>(
     `/moniteur/candidates/${id}/promote`,

@@ -19,10 +19,12 @@ import { useLanguage } from '@/i18n/LanguageContext'
 import {
   getMoniteurIssue,
   parseMoniteurIssue,
+  previewMoniteurEntrySplit,
   promoteMoniteurEntry,
   reviewMoniteurEntry,
   type MoniteurIssueWithEntries,
   type MoniteurEntryRead,
+  type TranscriptPreview,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +54,16 @@ const COPY = {
     textSaved: 'Transcription enregistrée.',
     textHelp:
       "Corrigez les fautes d'OCR, retirez les en-têtes / pieds de page parasites, ajoutez les sauts de ligne entre articles. Le texte mis à jour sera utilisé lors de la promotion.",
+    previewTitle: 'Aperçu de la structure',
+    previewHint:
+      "Comment le texte sera découpé en blocs juridiques lors de la promotion. Utilisez « Article 1. », « Vu… » ou « Considérant que… » au début d'une ligne pour aider le découpage.",
+    previewVisas: 'Visas',
+    previewConsiderants: 'Considérants',
+    previewEnacting: "Formule d'adoption",
+    previewPreamble: 'Préambule',
+    previewArticles: 'Articles',
+    previewEmpty: 'Aucun bloc structuré détecté.',
+    previewLoading: 'Calcul…',
     accept: 'Accepter & promouvoir',
     reject: 'Rejeter',
     defer: 'Reporter',
@@ -96,6 +108,16 @@ const COPY = {
     textSaved: 'Transkripsyon anrejistre.',
     textHelp:
       "Korije erè OCR, retire ankèt / pye paj ki pa nesesè, ajoute sou liy ant atik yo. Tèks ki mete ajou ap itilize pandan pwomosyon an.",
+    previewTitle: 'Apèsi estrikti a',
+    previewHint:
+      "Kijan tèks la pral koupe an blòk jiridik pandan pwomosyon an. Itilize « Article 1. », « Vu… » oswa « Considérant que… » nan kòmansman yon liy pou ede koupe.",
+    previewVisas: 'Viza',
+    previewConsiderants: 'Konsiderasyon',
+    previewEnacting: "Fòmil adopsyon",
+    previewPreamble: 'Preambil',
+    previewArticles: 'Atik',
+    previewEmpty: 'Pa gen blòk estriktire detekte.',
+    previewLoading: 'Ap kalkile…',
     accept: 'Aksepte & pwomouvwa',
     reject: 'Rejte',
     defer: 'Repòte',
@@ -213,12 +235,18 @@ export default function MoniteurReviewPage() {
     raw_text: string
   } | null>(null)
   const [savingText, setSavingText] = useState(false)
+  // Live structural preview while the editor is typing in edit mode.
+  // Debounced (350ms) to avoid hammering the backend on every keystroke.
+  const [preview, setPreview] = useState<TranscriptPreview | null>(null)
+  const [previewing, setPreviewing] = useState(false)
 
   function startEditText(c: MoniteurEntryRead) {
     setEditingText({ candidateId: c.id, raw_text: c.raw_text ?? '' })
+    setPreview(null)
   }
   function cancelEditText() {
     setEditingText(null)
+    setPreview(null)
   }
   async function saveEditText() {
     if (!editingText) return
@@ -229,6 +257,7 @@ export default function MoniteurReviewPage() {
         raw_text: editingText.raw_text,
       })
       setEditingText(null)
+      setPreview(null)
       await refresh()
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
@@ -236,6 +265,32 @@ export default function MoniteurReviewPage() {
       setSavingText(false)
     }
   }
+
+  // Debounced preview — fires whenever the editor pauses typing for
+  // 350ms. The cleanup cancels the pending fetch and the in-flight
+  // promise's result is discarded if a newer edit lands first.
+  useEffect(() => {
+    if (!editingText) return
+    const { candidateId, raw_text } = editingText
+    setPreviewing(true)
+    let cancelled = false
+    const handle = setTimeout(() => {
+      previewMoniteurEntrySplit(candidateId, raw_text)
+        .then((res) => {
+          if (!cancelled) setPreview(res)
+        })
+        .catch(() => {
+          if (!cancelled) setPreview(null)
+        })
+        .finally(() => {
+          if (!cancelled) setPreviewing(false)
+        })
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [editingText])
 
   async function refresh() {
     try {
@@ -592,6 +647,16 @@ export default function MoniteurReviewPage() {
                           {copy.cancelText}
                         </button>
                       </div>
+
+                      {/* Live structural preview — recomputed (debounced)
+                          as the editor types, so they see immediately how
+                          their corrections will land in the structured
+                          legal blocks at promotion time. */}
+                      <TranscriptPreviewPanel
+                        preview={preview}
+                        loading={previewing}
+                        copy={copy}
+                      />
                     </div>
                   ) : (
                     <div className="mt-2">
@@ -678,6 +743,108 @@ export default function MoniteurReviewPage() {
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function TranscriptPreviewPanel({
+  preview,
+  loading,
+  copy,
+}: {
+  preview: TranscriptPreview | null
+  loading: boolean
+  copy: (typeof COPY)['fr']
+}) {
+  const blockSummary: Array<{ key: keyof TranscriptPreview; label: string }> = [
+    { key: 'preamble', label: copy.previewPreamble },
+    { key: 'visas', label: copy.previewVisas },
+    { key: 'considerants', label: copy.previewConsiderants },
+    { key: 'enacting_formula', label: copy.previewEnacting },
+  ]
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/40 p-3">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          {copy.previewTitle}
+        </p>
+        {loading && (
+          <span className="text-[10px] text-slate-400 inline-flex items-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            {copy.previewLoading}
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] text-slate-500 leading-relaxed mb-3">
+        {copy.previewHint}
+      </p>
+      {!preview ||
+      (!preview.preamble &&
+        !preview.visas &&
+        !preview.considerants &&
+        !preview.enacting_formula &&
+        preview.articles.length === 0) ? (
+        <p className="text-xs text-slate-400 italic">{copy.previewEmpty}</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {blockSummary.map(({ key, label }) => {
+            const value = preview[key] as string | null | undefined
+            const has = !!value && value.trim().length > 0
+            return (
+              <div
+                key={key}
+                className={cn(
+                  'rounded-md border px-2 py-1.5 text-center',
+                  has
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-slate-200 bg-white text-slate-400',
+                )}
+              >
+                <div className="text-[9px] font-bold uppercase tracking-wider">
+                  {label}
+                </div>
+                <div className="text-base font-bold tabular-nums">
+                  {has ? '✓' : '—'}
+                </div>
+              </div>
+            )
+          })}
+          <div
+            className={cn(
+              'rounded-md border px-2 py-1.5 text-center col-span-2 sm:col-span-4',
+              preview.articles.length > 0
+                ? 'border-blue-200 bg-blue-50 text-blue-800'
+                : 'border-slate-200 bg-white text-slate-400',
+            )}
+          >
+            <div className="text-[9px] font-bold uppercase tracking-wider">
+              {copy.previewArticles}
+            </div>
+            <div className="text-base font-bold tabular-nums">
+              {preview.articles.length}
+            </div>
+            {preview.articles.length > 0 && (
+              <div className="mt-1 flex flex-wrap justify-center gap-1">
+                {preview.articles.slice(0, 12).map((a) => (
+                  <span
+                    key={a.number}
+                    title={`${a.body_length} car.`}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded bg-white border border-blue-200 text-[10px] font-mono text-blue-700"
+                  >
+                    {a.number}
+                  </span>
+                ))}
+                {preview.articles.length > 12 && (
+                  <span className="text-[10px] text-blue-700">
+                    +{preview.articles.length - 12}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

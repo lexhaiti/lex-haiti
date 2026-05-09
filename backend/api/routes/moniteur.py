@@ -38,7 +38,11 @@ from packages.schemas.moniteur import (
     MoniteurIssueWithEntries,
     SommaireBulkInput,
     SommaireEntry,
+    TranscriptArticlePreview,
+    TranscriptPreview,
+    TranscriptPreviewInput,
 )
+from services.ingestion.article_split import split_into_articles, split_preamble
 from services.ingestion.moniteur.repository import MoniteurRepository
 
 router = APIRouter(prefix="/moniteur", tags=["moniteur"])
@@ -466,6 +470,50 @@ def review_entry(
     db.commit()
     db.refresh(entry)
     return MoniteurEntryRead.model_validate(entry)
+
+
+@router.post(
+    "/candidates/{candidate_id}/preview-split",
+    response_model=TranscriptPreview,
+)
+def preview_entry_split(
+    candidate_id: int,
+    payload: TranscriptPreviewInput,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — auth dep
+):
+    """Preview how the entry's raw_text would be split at promotion time.
+
+    Lets the review-page editor see immediately how their corrections
+    will land in the structured legal blocks (préambule / visas /
+    considérants / formule d'adoption / articles) before committing the
+    promotion. The preview either reads the entry's stored raw_text or
+    a hypothetical override sent in the body — useful for live preview
+    while the editor is typing in the review page's edit mode.
+    """
+    repo = MoniteurRepository(db)
+    entry = repo.get_entry(candidate_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
+
+    text = payload.raw_text if payload.raw_text is not None else (entry.raw_text or "")
+    split = split_into_articles(text)
+    parts = split_preamble(split.preamble)
+
+    return TranscriptPreview(
+        preamble=parts.preamble,
+        visas=parts.visas,
+        considerants=parts.considerants,
+        enacting_formula=parts.enacting_formula,
+        articles=[
+            TranscriptArticlePreview(
+                number=a.number,
+                body_preview=a.body[:200],
+                body_length=len(a.body),
+            )
+            for a in split.articles
+        ],
+    )
 
 
 @router.post(

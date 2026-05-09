@@ -655,6 +655,33 @@ export interface paths {
         patch: operations["review_entry_api_v1_moniteur_candidates__candidate_id__patch"];
         trace?: never;
     };
+    "/api/v1/moniteur/candidates/{candidate_id}/preview-split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Entry Split
+         * @description Preview how the entry's raw_text would be split at promotion time.
+         *
+         *     Lets the review-page editor see immediately how their corrections
+         *     will land in the structured legal blocks (préambule / visas /
+         *     considérants / formule d'adoption / articles) before committing the
+         *     promotion. The preview either reads the entry's stored raw_text or
+         *     a hypothetical override sent in the body — useful for live preview
+         *     while the editor is typing in the review page's edit mode.
+         */
+        post: operations["preview_entry_split_api_v1_moniteur_candidates__candidate_id__preview_split_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/candidates/{candidate_id}/promote": {
         parameters: {
             query?: never;
@@ -2053,6 +2080,46 @@ export interface components {
              */
             children: components["schemas"]["TocNode"][];
         };
+        /**
+         * TranscriptArticlePreview
+         * @description One article as the splitter would extract it from raw_text.
+         */
+        TranscriptArticlePreview: {
+            /** Number */
+            number: string;
+            /** Body Preview */
+            body_preview: string;
+            /** Body Length */
+            body_length: number;
+        };
+        /**
+         * TranscriptPreview
+         * @description Live preview of how the OCR transcript would be split into the
+         *     structured legal blocks at promotion time. Lets editors validate
+         *     their corrections (line breaks, marker placement) before promoting,
+         *     instead of finding out the structure is off only after.
+         */
+        TranscriptPreview: {
+            /** Preamble */
+            preamble?: string | null;
+            /** Visas */
+            visas?: string | null;
+            /** Considerants */
+            considerants?: string | null;
+            /** Enacting Formula */
+            enacting_formula?: string | null;
+            /** Articles */
+            articles: components["schemas"]["TranscriptArticlePreview"][];
+        };
+        /**
+         * TranscriptPreviewInput
+         * @description Optional override of the entry's stored raw_text for the preview
+         *     endpoint. None means "preview against what's currently saved."
+         */
+        TranscriptPreviewInput: {
+            /** Raw Text */
+            raw_text?: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -3209,6 +3276,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoniteurEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_entry_split_api_v1_moniteur_candidates__candidate_id__preview_split_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranscriptPreviewInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptPreview"];
                 };
             };
             /** @description Validation Error */
