@@ -107,26 +107,46 @@ class MoniteurRepository:
         limit: int = 10,
         published_only: bool = True,
     ) -> Tuple[List[MoniteurIssue], int]:
-        """Substring match across the issue's identifier-ish fields.
+        """Substring + fuzzy-trigram match across the issue's identifier-ish
+        fields (number, edition label, year) and the loi numbers carried
+        by its child entries (detected_number).
 
-        Used by the global /search endpoint to surface a Moniteur issue
-        directly when a visitor types a number or part of an edition
-        label. We don't run FTS here — the search surface is short
-        (number, edition label, year, child entry numbers) and ILIKE
-        on a tiny corpus is plenty fast and predictable.
+        Two layers compose:
+          • ILIKE  — strict substring match. Catches "Spécial",
+            "Spécial 5", partial entry numbers, year prefixes.
+          • pg_trgm `%` similarity — fuzzy fallback for typo'd
+            identifiers (default 0.3 threshold). "CL-007-07-09" still
+            finds an issue whose entry carries "CL-007-09-09" — same
+            as the law search's `identifier_matches` branch.
+
+        Both layers OR together so the editor's homepage search picks
+        up issues whether they typed the loi number cleanly, with a
+        digit off, or with a partial label.
+
+        We deliberately don't run full-text on this surface — the
+        searchable surface is short identifiers, FTS would tokenize
+        oddly (hyphens split CL-007 into 'cl' + '007') and trigrams
+        already match those cases.
         """
         limit = max(1, min(limit, 50))
-        needle = f"%{q.strip()}%"
+        q_clean = q.strip()
+        needle = f"%{q_clean}%"
+
+        # Fuzzy clauses only fire for identifier-like queries — short,
+        # alphanumeric, no spaces. Otherwise a query like "constitution"
+        # would noisily fuzzy-match every short field on the table.
+        identifier_like = bool(q_clean) and (
+            "-" in q_clean
+            or (len(q_clean) <= 24 and all(c.isalnum() or c in "./_-" for c in q_clean))
+        )
 
         clauses = [
             MoniteurIssue.number.ilike(needle),
             MoniteurIssue.edition_label.ilike(needle),
             cast(MoniteurIssue.year, String).ilike(needle),
-            # Match the issue when one of its entries carries the
-            # supplied loi / décret number (e.g. "CL-007-09-09").
-            # Surfaces the issue card on the homepage search even when
-            # the visitor types the law identifier rather than the
-            # issue number.
+            # Strict-substring match against an entry's loi number —
+            # surfaces the issue when the visitor types the law
+            # identifier exactly (e.g. "CL-007-09-09" → "Spécial N° 5").
             select(1)
             .select_from(MoniteurEntry)
             .where(
@@ -135,6 +155,30 @@ class MoniteurRepository:
             )
             .exists(),
         ]
+
+        if identifier_like:
+            # Fuzzy on the issue's own number (typo'd issue numbers like
+            # "Special 5" without the accent — trigram similarity catches
+            # the swapped-character case the law search already handles).
+            clauses.append(
+                func.similarity(
+                    func.coalesce(MoniteurIssue.number, ""), q_clean
+                )
+                > 0.3
+            )
+            # Fuzzy on the child entry's detected_number — the typo case
+            # the user flagged ("CL-007-07-09" finds "CL-007-09-09").
+            clauses.append(
+                select(1)
+                .select_from(MoniteurEntry)
+                .where(
+                    MoniteurEntry.issue_id == MoniteurIssue.id,
+                    MoniteurEntry.detected_number.is_not(None),
+                    func.similarity(MoniteurEntry.detected_number, q_clean)
+                    > 0.3,
+                )
+                .exists()
+            )
 
         stmt = select(MoniteurIssue).where(or_(*clauses))
         if published_only:
