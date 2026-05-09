@@ -149,15 +149,15 @@ export default function Page() {
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-10">
             <div className="flex-1">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
-                {isFr ? 'Proverbe haïtien' : 'Pwovèb ayisyen'}
+                {isFr ? 'Maxime juridique' : 'Maksim jiridik'}
               </p>
-              <h2 className="text-3xl lg:text-5xl font-black mb-2 leading-tight">
-                Men anpil chay pa lou.
+              <h2 className="text-3xl lg:text-5xl font-black italic mb-3 leading-tight">
+                Publicitas iuris fundamentum libertatis.
               </h2>
               <p className="text-base lg:text-lg italic text-slate-300 mb-6">
                 {isFr
-                  ? "« Plusieurs mains rendent le fardeau léger. »"
-                  : '« Lè nou ansanm, chay la pa lou. »'}
+                  ? "« La publicité du droit est le fondement de la liberté. »"
+                  : '« Piblisite dwa a se fondasyon libète a. »'}
               </p>
               <p className="text-slate-400 text-lg leading-relaxed max-w-2xl">
                 {isFr
