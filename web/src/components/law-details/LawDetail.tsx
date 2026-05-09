@@ -1124,26 +1124,38 @@ function DownloadDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        {/* Styled as a metadata item so it sits seamlessly inline with
+            année / contenu / référence: same icon circle, same small
+            uppercase label, value below. The whole tile is the dropdown
+            trigger; the chevron next to the value telegraphs that. */}
+        <button
+          type="button"
           aria-label={buttonLabel}
-          title={buttonLabel}
           className={cn(
-            // Icon-only round button — sits inline with the metadata row,
-            // visually anchored next to the Moniteur reference. The
-            // download icon + dropdown convention carry the meaning;
-            // the title attribute supplies a hover tooltip.
-            'group inline-flex items-center justify-center w-11 h-11 rounded-full',
-            'bg-white/5 hover:bg-white/15 active:bg-white/20 text-white',
-            'border border-white/10 hover:border-white/30',
-            'transition-all duration-200',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-primary',
+            'group/dl flex items-center gap-4 text-left',
+            'rounded-xl -m-2 p-2 hover:bg-white/5 transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
           )}
         >
-          <Download
+          <div
             aria-hidden
-            className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
-          />
-        </Button>
+            className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/dl:bg-white/10 group-hover/dl:border-white/20 transition-colors"
+          >
+            <Download className="w-5 h-5 text-slate-400 group-hover/dl:text-white transition-colors" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
+              {t('lawDetail.download.label')}
+            </p>
+            <p className="text-white font-bold flex items-center gap-1.5">
+              PDF · Word
+              <ChevronDown
+                aria-hidden
+                className="w-3.5 h-3.5 opacity-70 group-data-[state=open]:rotate-180 transition-transform"
+              />
+            </p>
+          </div>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-72">
         <DropdownMenuItem asChild className="cursor-pointer">
