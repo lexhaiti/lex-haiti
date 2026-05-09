@@ -2168,6 +2168,8 @@ export interface components {
          */
         SommaireEntry: {
             category?: components["schemas"]["MoniteurDocumentType"] | null;
+            /** Number */
+            number?: string | null;
             /** Title */
             title?: string | null;
             /** Promoted Slug */

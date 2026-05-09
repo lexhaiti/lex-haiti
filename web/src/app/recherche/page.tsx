@@ -109,12 +109,64 @@ function SearchBar({
 // Moniteur issue card — small, link to /moniteur/[id]
 // ---------------------------------------------------------------------------
 
+function highlightMatches(
+  text: string,
+  query?: string,
+): React.ReactNode {
+  if (!text || !query || !query.trim()) return text
+  const stripAccents = (s: string) =>
+    s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+  const stripped = stripAccents(text)
+  const tokens = stripAccents(query.trim())
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+  if (tokens.length === 0) return text
+
+  const ranges: Array<[number, number]> = []
+  for (const tok of tokens) {
+    let idx = 0
+    while (idx < stripped.length) {
+      const found = stripped.indexOf(tok, idx)
+      if (found < 0) break
+      ranges.push([found, found + tok.length])
+      idx = found + tok.length
+    }
+  }
+  if (ranges.length === 0) return text
+  ranges.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = []
+  for (const r of ranges) {
+    const last = merged[merged.length - 1]
+    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
+    else merged.push([r[0], r[1]])
+  }
+  const out: React.ReactNode[] = []
+  let cursor = 0
+  for (const [start, end] of merged) {
+    if (cursor < start) out.push(text.slice(cursor, start))
+    out.push(
+      <mark
+        key={`${start}-${end}`}
+        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
+      >
+        {text.slice(start, end)}
+      </mark>,
+    )
+    cursor = end
+  }
+  if (cursor < text.length) out.push(text.slice(cursor))
+  return <>{out}</>
+}
+
 function MoniteurCard({
   issue,
   lang,
+  query,
 }: {
   issue: GlobalSearchResponse['moniteur_issues'][number]
   lang: 'fr' | 'ht'
+  /** Query string to highlight inside number / edition_label / year. */
+  query?: string
 }) {
   const numberDisplay = smartIssueNumber(issue.number)
   return (
@@ -127,10 +179,11 @@ function MoniteurCard({
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
-          {lang === 'fr' ? 'Le Moniteur' : 'Moniteur'} · {issue.year}
+          {lang === 'fr' ? 'Le Moniteur' : 'Moniteur'} ·{' '}
+          {highlightMatches(String(issue.year), query)}
         </div>
         <div className="text-base font-bold text-slate-900 truncate">
-          {numberDisplay}
+          {highlightMatches(numberDisplay, query)}
         </div>
         <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
           {issue.publication_date && (
@@ -139,7 +192,9 @@ function MoniteurCard({
               {formatLongDate(issue.publication_date)}
             </span>
           )}
-          {issue.edition_label && <span>{issue.edition_label}</span>}
+          {issue.edition_label && (
+            <span>{highlightMatches(issue.edition_label, query)}</span>
+          )}
         </div>
       </div>
       <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
@@ -291,6 +346,7 @@ function SearchPageInner() {
                       language={lang}
                       cardStyle="grid"
                       index={i}
+                      query={query}
                     />
                   ))}
                 </div>
@@ -310,7 +366,12 @@ function SearchPageInner() {
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 mt-6">
                   {data.moniteur_issues.map((issue) => (
-                    <MoniteurCard key={issue.id} issue={issue} lang={lang} />
+                    <MoniteurCard
+                      key={issue.id}
+                      issue={issue}
+                      lang={lang}
+                      query={query}
+                    />
                   ))}
                 </div>
               </section>

@@ -53,6 +53,11 @@ class SommaireEntry(BaseModel):
     """Lightweight summary of an entry for the list-page cards."""
 
     category: Optional[MoniteurDocumentType] = None
+    # The loi / décret / arrêté number ("CL-007-09-09", "13-04", …).
+    # Surfaced on the card so visitors can recognise an entry by its
+    # identifier, and so the cross-entity search picks the issue up
+    # when someone types the number in the homepage search bar.
+    number: Optional[str] = None
     title: Optional[str] = None
     promoted_slug: Optional[str] = None
 

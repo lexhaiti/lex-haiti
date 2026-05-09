@@ -112,8 +112,8 @@ class MoniteurRepository:
         Used by the global /search endpoint to surface a Moniteur issue
         directly when a visitor types a number or part of an edition
         label. We don't run FTS here — the search surface is short
-        (number, edition label, year) and ILIKE on a tiny corpus is
-        plenty fast and predictable.
+        (number, edition label, year, child entry numbers) and ILIKE
+        on a tiny corpus is plenty fast and predictable.
         """
         limit = max(1, min(limit, 50))
         needle = f"%{q.strip()}%"
@@ -122,6 +122,18 @@ class MoniteurRepository:
             MoniteurIssue.number.ilike(needle),
             MoniteurIssue.edition_label.ilike(needle),
             cast(MoniteurIssue.year, String).ilike(needle),
+            # Match the issue when one of its entries carries the
+            # supplied loi / décret number (e.g. "CL-007-09-09").
+            # Surfaces the issue card on the homepage search even when
+            # the visitor types the law identifier rather than the
+            # issue number.
+            select(1)
+            .select_from(MoniteurEntry)
+            .where(
+                MoniteurEntry.issue_id == MoniteurIssue.id,
+                MoniteurEntry.detected_number.ilike(needle),
+            )
+            .exists(),
         ]
 
         stmt = select(MoniteurIssue).where(or_(*clauses))

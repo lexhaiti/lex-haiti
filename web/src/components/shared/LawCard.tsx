@@ -31,6 +31,8 @@ type Props =
       cardStyle?: CardStyle
       index?: number
       className?: string
+      /** Wrap query matches in <mark> inside title + description. */
+      query?: string
     }
   | {
       item: LegalTextListItem
@@ -38,6 +40,8 @@ type Props =
       cardStyle?: CardStyle
       index?: number
       className?: string
+      /** Wrap query matches in <mark> inside title + description. */
+      query?: string
     }
   | {
       displayItem: DisplayItem
@@ -45,6 +49,8 @@ type Props =
       cardStyle?: CardStyle
       index?: number
       className?: string
+      /** Wrap query matches in <mark> inside title + description. */
+      query?: string
     }
   | {
       law: any // For backward compatibility or different models
@@ -53,6 +59,8 @@ type Props =
       cardStyle?: CardStyle
       index?: number
       className?: string
+      /** Wrap query matches in <mark> inside title + description. */
+      query?: string
     }
 
 function statusBadgeMeta(badge?: {
@@ -91,26 +99,64 @@ function subtitleMetaIcon(subtitle?: string) {
   return Hash
 }
 
-function HighlightText({ text, query }: { text: string; query?: string }) {
-  if (!query || !query.trim()) return <>{text}</>
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'))
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark
-            key={i}
-            className="bg-red-500/20 text-red-700 font-bold rounded-sm px-0.5"
-          >
-            {part}
-          </mark>
-        ) : (
-          part
-        ),
-      )}
-    </>
-  )
+/**
+ * Wrap every occurrence of any query token inside `text` in a `<mark>`.
+ * Matching is case- AND accent-insensitive ("president" matches
+ * "président" and vice versa), but the rendered slices preserve the
+ * original casing/accents from `text`.
+ *
+ * Multi-word queries split on whitespace; tokens shorter than 2
+ * characters are dropped to avoid noisy single-letter highlights.
+ */
+function HighlightText({ text, query }: { text: string; query?: string }) {
+  if (!text || !query || !query.trim()) return <>{text}</>
+
+  const stripped = stripAccents(text)
+  const tokens = stripAccents(query.trim())
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+  if (tokens.length === 0) return <>{text}</>
+
+  // Find every occurrence of every token; sort + merge overlapping ranges.
+  const ranges: Array<[number, number]> = []
+  for (const tok of tokens) {
+    let idx = 0
+    while (idx < stripped.length) {
+      const found = stripped.indexOf(tok, idx)
+      if (found < 0) break
+      ranges.push([found, found + tok.length])
+      idx = found + tok.length
+    }
+  }
+  if (ranges.length === 0) return <>{text}</>
+  ranges.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = []
+  for (const r of ranges) {
+    const last = merged[merged.length - 1]
+    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
+    else merged.push([r[0], r[1]])
+  }
+
+  const out: React.ReactNode[] = []
+  let cursor = 0
+  for (const [start, end] of merged) {
+    if (cursor < start) out.push(text.slice(cursor, start))
+    out.push(
+      <mark
+        key={`${start}-${end}`}
+        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
+      >
+        {text.slice(start, end)}
+      </mark>,
+    )
+    cursor = end
+  }
+  if (cursor < text.length) out.push(text.slice(cursor))
+  return <>{out}</>
 }
 
 export function LawCard(props: Props) {
@@ -139,6 +185,12 @@ export function LawCard(props: Props) {
 
   const { href, title, subtitle, description, color, badge, stats } = model
   const Icon: LucideIcon = model.icon
+
+  // Optional query string — when set, the card wraps query matches in
+  // <mark> inside the title and description renders. Used by /recherche
+  // and the search results page so visitors see WHERE their query
+  // matched in each card.
+  const highlightQuery = (props as { query?: string }).query
 
   // Deep search logic
   const isHit = 'displayItem' in props && props.displayItem.type === 'hit'
@@ -220,7 +272,7 @@ export function LawCard(props: Props) {
                           )}
                           title={title}
                         >
-                          {title}
+                          <HighlightText text={title} query={highlightQuery} />
                         </h3>
                         {/* Subtitle under title */}
                         {subtitle && (
@@ -268,7 +320,10 @@ export function LawCard(props: Props) {
                             </div>
                           ) : (
                             <p className="text-sm text-gray-600 line-clamp-2">
-                              {description}
+                              <HighlightText
+                                text={description ?? ''}
+                                query={highlightQuery}
+                              />
                             </p>
                           )}
                         </div>
@@ -295,7 +350,7 @@ export function LawCard(props: Props) {
                 {description && (
                   <div className="md:hidden mb-3">
                     <p className="text-sm text-gray-600 line-clamp-2">
-                      {description}
+                      <HighlightText text={description} query={highlightQuery} />
                     </p>
                   </div>
                 )}
@@ -420,7 +475,7 @@ export function LawCard(props: Props) {
 
           <div className="mb-8 flex-1">
             <h3 className="mb-2 text-xl font-bold text-gray-900 group-hover:text-[var(--card-theme)] transition-colors">
-              {title}
+              <HighlightText text={title} query={highlightQuery} />
             </h3>
 
             {subtitle && (
@@ -431,7 +486,7 @@ export function LawCard(props: Props) {
 
             {description && !isHit && (
               <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">
-                {description}
+                <HighlightText text={description} query={highlightQuery} />
               </p>
             )}
 

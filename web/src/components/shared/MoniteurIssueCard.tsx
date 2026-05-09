@@ -1,9 +1,65 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { ArrowRight, BookOpen, Calendar, FileText } from 'lucide-react'
 import type { MoniteurIssueRead } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
+
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
+
+/**
+ * Wrap query matches inside `text` in `<mark>`. Case- and accent-
+ * insensitive. Mirrors the helper in LawCard so result-card visuals
+ * stay consistent across surfaces. Multi-word queries are tokenized
+ * on whitespace; tokens shorter than 2 characters are dropped.
+ */
+function HighlightText({ text, query }: { text: string; query?: string }) {
+  if (!text || !query || !query.trim()) return <>{text}</>
+  const stripped = stripAccents(text)
+  const tokens = stripAccents(query.trim())
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+  if (tokens.length === 0) return <>{text}</>
+
+  const ranges: Array<[number, number]> = []
+  for (const tok of tokens) {
+    let idx = 0
+    while (idx < stripped.length) {
+      const found = stripped.indexOf(tok, idx)
+      if (found < 0) break
+      ranges.push([found, found + tok.length])
+      idx = found + tok.length
+    }
+  }
+  if (ranges.length === 0) return <>{text}</>
+  ranges.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = []
+  for (const r of ranges) {
+    const last = merged[merged.length - 1]
+    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
+    else merged.push([r[0], r[1]])
+  }
+
+  const out: React.ReactNode[] = []
+  let cursor = 0
+  for (const [start, end] of merged) {
+    if (cursor < start) out.push(text.slice(cursor, start))
+    out.push(
+      <mark
+        key={`${start}-${end}`}
+        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
+      >
+        {text.slice(start, end)}
+      </mark>,
+    )
+    cursor = end
+  }
+  if (cursor < text.length) out.push(text.slice(cursor))
+  return <>{out}</>
+}
 
 const MONTHS = {
   fr: [
@@ -84,6 +140,7 @@ export function MoniteurIssueCard({
   variant = 'default',
   sommaireLimit = 4,
   className,
+  query,
 }: {
   issue: MoniteurIssueRead
   href?: string
@@ -91,6 +148,11 @@ export function MoniteurIssueCard({
   variant?: 'default' | 'compact'
   sommaireLimit?: number
   className?: string
+  /** When set, query matches inside the issue number, edition label,
+   *  and sommaire titles/numbers are wrapped in `<mark>`. Used by the
+   *  cross-entity /recherche page so visitors see why the issue card
+   *  surfaced for their query. */
+  query?: string
 }) {
   const target = href ?? `/moniteur/${issue.id}`
   const numberDisplay = smartIssueNumber(issue.number)
@@ -129,7 +191,7 @@ export function MoniteurIssueCard({
                 isCompact ? 'text-lg' : 'text-xl',
               )}
             >
-              {numberDisplay}
+              <HighlightText text={numberDisplay} query={query} />
             </p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-white/60 text-xs">
               <span className="inline-flex items-center gap-1">
@@ -139,7 +201,9 @@ export function MoniteurIssueCard({
               {issue.edition_label && (
                 <>
                   <span className="text-white/30">·</span>
-                  <span>{issue.edition_label}</span>
+                  <span>
+                    <HighlightText text={issue.edition_label} query={query} />
+                  </span>
                 </>
               )}
             </div>
@@ -176,8 +240,18 @@ export function MoniteurIssueCard({
                       {CATEGORY_LABEL[s.category] ?? s.category}
                     </span>
                   )}
+                  {s.number && (
+                    <span className="font-mono text-[11px] text-slate-500 mr-1">
+                      N° <HighlightText text={s.number} query={query} />
+                    </span>
+                  )}
                   <span className="text-slate-600">
-                    {titleCase(s.title ?? (lang === 'fr' ? 'Sans titre' : 'San tit'))}
+                    <HighlightText
+                      text={titleCase(
+                        s.title ?? (lang === 'fr' ? 'Sans titre' : 'San tit'),
+                      )}
+                      query={query}
+                    />
                   </span>
                 </span>
               </li>

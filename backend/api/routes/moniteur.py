@@ -104,6 +104,7 @@ def _to_read(issue) -> MoniteurIssueRead:
     payload.sommaire = [
         SommaireEntry(
             category=e.detected_category,
+            number=e.detected_number,
             title=e.display_title or e.detected_title,
             promoted_slug=getattr(
                 getattr(e, "promoted_legal_text", None), "slug", None

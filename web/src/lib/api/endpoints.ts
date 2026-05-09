@@ -237,35 +237,12 @@ export async function getAmendmentsForText(slug: string) {
 // Moniteur ingestion pipeline
 // -----------------------------------------------------------------------
 
-export type MoniteurIssueRead = {
-  id: number
-  number: string
-  year: number
-  publication_date: string | null
-  edition_label: string | null
-  file_url: string | null
-  page_count: number | null
-  processing_status:
-    | 'uploaded'
-    | 'ocr_pending'
-    | 'parsed'
-    | 'reviewed'
-    | 'published'
-    | 'failed'
-  processing_error: string | null
-  uploaded_at: string
-  parsed_at: string | null
-  published_at: string | null
-  created_at: string
-  updated_at: string
-  entries_count: number
-  accepted_count: number
-  sommaire: Array<{
-    category: string | null
-    title: string | null
-    promoted_slug: string | null
-  }>
-}
+// Derived from the OpenAPI spec so backend additions (like the
+// `number` we just added to SommaireEntry) flow through to consumers
+// without a manual edit. The hand-typed version that lived here used
+// to drift — it carried no `number` field even after the backend
+// surfaced it, breaking the card render.
+export type MoniteurIssueRead = components['schemas']['MoniteurIssueRead']
 
 export type MoniteurEntryRead = {
   id: number
