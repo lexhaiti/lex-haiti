@@ -215,9 +215,16 @@ export default function Page() {
           </div>
         ) : visibleIssues.length > 0 ? (
           <motion.div
+            // `key` forces a fresh mount whenever the filter changes so the
+            // stagger animation re-runs against the new card set. Using
+            // `whileInView` here was racy after a filter switch — when the
+            // grid remounted already inside the viewport, the
+            // IntersectionObserver sometimes never fired, leaving the
+            // children locked at their `hidden` (opacity-0) variant and
+            // making the page look empty even though results were loaded.
+            key={`grid-${editorialFilter}`}
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
+            animate="visible"
             variants={{
               hidden: { opacity: 0 },
               visible: {
