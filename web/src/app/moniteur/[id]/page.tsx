@@ -438,7 +438,11 @@ export default function MoniteurDetailPage() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
         </div>
 
-        <div className="relative z-10 container pt-24 lg:pt-32 pb-24 lg:pb-32">
+        {/* Spacer reserving the fixed menu nav's height (h-20). Decoupling
+            menu clearance from the inner padding lets us use balanced py-*
+            below for symmetric top/bottom space inside the dark band. */}
+        <div aria-hidden className="h-20" />
+        <div className="relative z-10 container py-12 lg:py-20">
           <Breadcrumb
             className="mb-8"
             items={[

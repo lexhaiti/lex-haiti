@@ -4,11 +4,12 @@ import { Suspense } from 'react'
 import AllLaws from '@/components/all-laws/AllLaws'
 
 export default function Page() {
+  // Menu clearance is handled inside the dark page header (h-20 spacer in
+  // AllLawsUI), so the wrapper doesn't need its own pt-20 — that would
+  // double-count the menu height.
   return (
-    <div className="pt-20 lg:pt-20">
-      <Suspense>
-        <AllLaws />
-      </Suspense>
-    </div>
+    <Suspense>
+      <AllLaws />
+    </Suspense>
   )
 }
