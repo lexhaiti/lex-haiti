@@ -31,8 +31,10 @@ type Filters = {
   sort: string // UI only
 }
 
-/** Editorial status filter — UI option, lifted out of the regular filter set. */
-export type EditorialStatusFilter = 'all' | 'published' | 'draft'
+// Re-exported from the shared filter component which owns the canonical
+// type — see web/src/components/shared/EditorialFilter.tsx.
+export type { EditorialStatusFilter } from '@/components/shared/EditorialFilter'
+import type { EditorialStatusFilter } from '@/components/shared/EditorialFilter'
 
 type Args = {
   q: string

@@ -1,9 +1,20 @@
 'use client'
 
 import { CheckCircle2, FileEdit, Layers } from 'lucide-react'
-import type { EditorialStatusFilter } from '@/lib/hooks/useAllTexts'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { cn } from '@/lib/utils'
+
+/**
+ * Closed set of editorial-view scopes the toggle exposes:
+ *  - `all`        — show everything regardless of editorial state
+ *  - `published`  — only items the public site would render
+ *  - `draft`      — only items still pending publication
+ *
+ * Defined here (not in a hook) because this is the canonical type for
+ * the filter API; consumers (useAllTexts, moniteur page, etc.) import
+ * from the component.
+ */
+export type EditorialStatusFilter = 'all' | 'published' | 'draft'
 
 const COPY = {
   fr: {
@@ -28,10 +39,16 @@ const OPTIONS: ReadonlyArray<{
 ]
 
 /**
- * Compact pill that lives inline with the other filters on `/lois`. Only
- * rendered when the visitor is signed in as an editor — its mere presence
- * signals "you're looking at the editor view," so the verbose "mode éditeur"
- * label of the previous design is no longer needed here.
+ * Compact pill that scopes a listing to all / published-only / drafts-only.
+ * Only rendered when the visitor is signed in as an editor — its mere
+ * presence signals "you're looking at the editor view," so no extra
+ * "mode éditeur" label is needed.
+ *
+ * The amber palette is intentional and consistent across both light page
+ * backgrounds (white filter bar on /lois) and dark page headers
+ * (navy masthead on /moniteur). Editor surfaces in this app standardize
+ * on amber as the "editorial chrome" accent — see EditorBar / draft
+ * indicators / pending-review chips.
  */
 export function EditorialFilter({
   value,

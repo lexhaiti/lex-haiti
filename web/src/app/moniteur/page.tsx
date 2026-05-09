@@ -11,9 +11,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  FileEdit,
   FileText,
-  Layers,
   Loader2,
   Newspaper,
   Search,
@@ -26,6 +24,10 @@ import {
 } from '@/lib/api/endpoints'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { cn } from '@/lib/utils'
+import {
+  EditorialFilter,
+  type EditorialStatusFilter,
+} from '@/components/shared/EditorialFilter'
 
 const MONTHS_FR = [
   '',
@@ -93,19 +95,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   autre: 'Autre',
 }
 
-type EditorialFilter = 'all' | 'published' | 'draft'
-
-const FILTER_OPTIONS: ReadonlyArray<{
-  value: EditorialFilter
-  icon: typeof CheckCircle2
-  fr: string
-  ht: string
-}> = [
-  { value: 'all', icon: Layers, fr: 'Tous', ht: 'Tout' },
-  { value: 'published', icon: CheckCircle2, fr: 'Publiés', ht: 'Pibliye' },
-  { value: 'draft', icon: FileEdit, fr: 'Brouillons', ht: 'Bouyon' },
-]
-
 function titleCase(s: string): string {
   if (!s) return s
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
@@ -120,7 +109,7 @@ export default function Page() {
   const [issues, setIssues] = useState<MoniteurIssueRead[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
-  const [editorialFilter, setEditorialFilter] = useState<EditorialFilter>('published')
+  const [editorialFilter, setEditorialFilter] = useState<EditorialStatusFilter>('published')
 
   useEffect(() => {
     let cancelled = false
@@ -210,39 +199,10 @@ export default function Page() {
 
         {isEditor && (
           <div className="mt-4">
-            <div
-              className={cn(
-                'inline-flex items-center rounded-lg',
-                'border border-amber-200/50 bg-amber-50/20 backdrop-blur-sm',
-                'p-0.5 h-11',
-              )}
-              role="group"
-              aria-label={isFr ? 'Filtre éditeur' : 'Filtè editè'}
-            >
-              {FILTER_OPTIONS.map((opt) => {
-                const active = editorialFilter === opt.value
-                const Icon = opt.icon
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setEditorialFilter(opt.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      'flex items-center gap-1.5 h-10 px-3 rounded-md',
-                      'text-xs font-bold uppercase tracking-wider',
-                      'transition-all',
-                      active
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-white/70 hover:text-white hover:bg-white/10',
-                    )}
-                  >
-                    <Icon className={cn('h-3.5 w-3.5', active ? 'opacity-100' : 'opacity-70')} />
-                    <span>{isFr ? opt.fr : opt.ht}</span>
-                  </button>
-                )
-              })}
-            </div>
+            <EditorialFilter
+              value={editorialFilter}
+              onChange={setEditorialFilter}
+            />
           </div>
         )}
       </StandardPageHeader>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useT } from '@/i18n/useT'
 import { AllLawsUI } from '@/components/all-laws/ALlLawUI'
-import { EditorialFilter } from '@/components/all-laws/EditorialFilter'
+import { EditorialFilter } from '@/components/shared/EditorialFilter'
 import {
   useAllTexts,
   type EditorialStatusFilter,
