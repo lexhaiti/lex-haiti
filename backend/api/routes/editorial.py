@@ -26,8 +26,10 @@ from packages.schemas.enums import (
     EditorialStatus,
     LegalCategory,
     LegalStatus,
+    LegalTheme,
 )
 from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
+from packages.schemas.theme import LegalThemeTagWrite
 from services.editorial.service import EditorialService
 
 logger = logging.getLogger(__name__)
@@ -340,6 +342,28 @@ def request_changes(
 ):
     """Leave a comment requesting modifications. Status stays draft."""
     result = service.request_changes(slug, actor=user, comment=body.comment)
+    db.commit()
+    return result
+
+
+@router.put(
+    "/legal-texts/{slug}/themes",
+    response_model=LegalTextRead,
+)
+def update_themes(
+    slug: str,
+    body: LegalThemeTagWrite,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Replace the editor-confirmed theme set on a legal text.
+
+    Auto suggester tags coexist alongside; a matching auto tag is promoted
+    to editor instead of being duplicated. To remove all editor tags, send
+    an empty list.
+    """
+    result = service.replace_theme_tags(slug, themes=body.themes, actor=user)
     db.commit()
     return result
 

@@ -14,6 +14,7 @@ from packages.schemas.enums import (
 )
 from packages.schemas.heading import LegalHeadingCreate, LegalHeadingRead
 from packages.schemas.signer import LegalSignerCreate, LegalSignerRead
+from packages.schemas.theme import LegalThemeTagRead
 
 
 class LegalTextBase(BaseModel):
@@ -88,6 +89,10 @@ class LegalTextListItem(BaseModel):
     updated_at: Optional[datetime] = None
     published_at: Optional[datetime] = None
 
+    # Theme chips for the listing card. Populated by the service from the
+    # bulk-fetch helper to avoid N+1.
+    theme_tags: List[LegalThemeTagRead] = []
+
     # Populated only when the route is called with `with_snippets=true` and a
     # search query was applied. Up to 2 article snippets per text where the
     # match was found in the body (not in the title/description).
@@ -107,6 +112,7 @@ class LegalTextRead(LegalTextBase):
     headings: List[LegalHeadingRead] = []
     articles: List[ArticleEmbed] = []
     signers: List[LegalSignerRead] = []
+    theme_tags: List[LegalThemeTagRead] = []
 
     # Reverse link to the Moniteur issue this text was published in.
     # Populated from the `moniteur_issue` relationship at validation time.

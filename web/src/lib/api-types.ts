@@ -439,6 +439,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editorial/legal-texts/{slug}/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Themes
+         * @description Replace the editor-confirmed theme set on a legal text.
+         *
+         *     Auto suggester tags coexist alongside; a matching auto tag is promoted
+         *     to editor instead of being duplicated. To remove all editor tags, send
+         *     an empty list.
+         */
+        put: operations["update_themes_api_v1_editorial_legal_texts__slug__themes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/editorial/me": {
         parameters: {
             query?: never;
@@ -1305,6 +1329,11 @@ export interface components {
             updated_at?: string | null;
             /** Published At */
             published_at?: string | null;
+            /**
+             * Theme Tags
+             * @default []
+             */
+            theme_tags: components["schemas"]["LegalThemeTagRead"][];
             /** Match Snippets */
             match_snippets?: components["schemas"]["MatchSnippet"][] | null;
         };
@@ -1411,6 +1440,11 @@ export interface components {
              * @default []
              */
             signers: components["schemas"]["LegalSignerRead"][];
+            /**
+             * Theme Tags
+             * @default []
+             */
+            theme_tags: components["schemas"]["LegalThemeTagRead"][];
             /** Moniteur Issue Id */
             moniteur_issue_id?: number | null;
             /** Moniteur Issue Number */
@@ -1432,6 +1466,29 @@ export interface components {
          * @enum {string}
          */
         LegalTheme: "droit_societes" | "droit_fiscal" | "droit_bancaire" | "propriete_intellectuelle" | "droit_travail" | "protection_sociale" | "droit_famille" | "successions" | "droit_administratif" | "marches_publics" | "environnement" | "foncier";
+        /**
+         * LegalThemeTagRead
+         * @description A single theme tag attached to a legal text.
+         */
+        LegalThemeTagRead: {
+            theme: components["schemas"]["LegalTheme"];
+            source: components["schemas"]["ThemeSource"];
+            /** Confidence */
+            confidence?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * LegalThemeTagWrite
+         * @description Editor-supplied theme write payload (no source — server sets editor).
+         */
+        LegalThemeTagWrite: {
+            /** Themes */
+            themes: components["schemas"]["LegalTheme"][];
+        };
         /**
          * MatchSnippet
          * @description A highlighted excerpt showing where the search query matched in an
@@ -2651,6 +2708,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_themes_api_v1_editorial_legal_texts__slug__themes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalThemeTagWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalTextRead"];
                 };
             };
             /** @description Validation Error */

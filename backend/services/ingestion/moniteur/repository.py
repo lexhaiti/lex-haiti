@@ -26,6 +26,8 @@ from services.corpus.models import (
     MoniteurEntry,
     MoniteurIssue,
 )
+from services.corpus.repository import CorpusRepository
+from services.corpus.themes import suggest_themes
 from services.ingestion.article_split import split_into_articles, split_preamble
 from services.ingestion.moniteur.parser import ParsedCandidate, run_pipeline
 
@@ -262,6 +264,29 @@ class MoniteurRepository:
             article.current_version_id = version.id
         if has_articles:
             self.session.flush()
+
+        # Auto-tag themes from title + description (and bodies for codes /
+        # constitutions; lois/décrets get title-only matching). The editor
+        # confirms or overrides on the law detail page; auto tags remain
+        # visible in /lois?theme=… until promoted or removed.
+        article_bodies = (
+            [v.text_fr for a in legal_text.articles for v in a.versions if v.text_fr]
+            if has_articles
+            else []
+        )
+        theme_matches = suggest_themes(
+            title_fr=legal_text.title_fr,
+            title_ht=legal_text.title_ht,
+            description_fr=legal_text.description_fr,
+            description_ht=legal_text.description_ht,
+            category=legal_text.category,
+            article_bodies=article_bodies,
+        )
+        if theme_matches:
+            CorpusRepository(self.session).upsert_auto_theme_tags(
+                legal_text.id,
+                [(m.theme, float(m.confidence)) for m in theme_matches],
+            )
 
         entry.promoted_legal_text_id = legal_text.id
         entry.review_status = MoniteurCandidateStatus.accepted

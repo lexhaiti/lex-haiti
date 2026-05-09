@@ -16,6 +16,7 @@ from packages.schemas.enums import (
     EditorialStatus,
     LegalCategory,
     LegalStatus,
+    LegalTheme,
 )
 from packages.schemas.article import ArticleCreate, ArticleEmbed
 from packages.schemas.heading import LegalHeadingCreate
@@ -33,6 +34,7 @@ from services.corpus.models import (
 )
 from services.corpus.repository import CorpusRepository
 from services.corpus.service import CorpusService, article_to_embed
+from services.corpus.themes import suggest_themes
 
 # Fields the metadata editor is allowed to write. Excludes `slug` (permalink
 # stability), `editorial_status` (use publish/unpublish), `preamble_*` (body
@@ -209,6 +211,26 @@ class EditorialService:
                 self.session.add(signer)
             self.session.flush()
 
+        # --- Auto-tag themes from title + description (and bodies for codes) ---
+        article_bodies = (
+            [v.text_fr for a in legal_text.articles for v in a.versions if v.text_fr]
+            if data.articles
+            else []
+        )
+        theme_matches = suggest_themes(
+            title_fr=legal_text.title_fr,
+            title_ht=legal_text.title_ht,
+            description_fr=legal_text.description_fr,
+            description_ht=legal_text.description_ht,
+            category=legal_text.category,
+            article_bodies=article_bodies,
+        )
+        if theme_matches:
+            self.repo.upsert_auto_theme_tags(
+                legal_text.id,
+                [(m.theme, float(m.confidence)) for m in theme_matches],
+            )
+
         # --- Audit ---
         _audit(
             self.session,
@@ -221,6 +243,7 @@ class EditorialService:
                 "title_fr": data.title_fr,
                 "headings_count": len(data.headings or []),
                 "articles_count": len(data.articles or []),
+                "auto_themes": [m.theme.value for m in theme_matches],
             },
         )
         self.session.flush()
@@ -278,14 +301,22 @@ class EditorialService:
         self.session.flush()
         # The corpus service filters by published; re-fetch unfiltered.
         text = self.repo.get_text_by_slug(slug, editorial_status=None)
-        return LegalTextRead.model_validate(  # safe: no articles loaded
-            {
-                **{k: getattr(text, k) for k in LegalTextRead.model_fields if k not in ("headings", "articles", "signers")},
-                "headings": [],
-                "articles": [],
-                "signers": [],
-            }
-        )
+        # Use getattr with a sentinel so missing attributes (newly-added
+        # schema fields like theme_tags / moniteur_issue_* on a partial mock)
+        # are skipped — Pydantic then uses the schema's own default ([] / None).
+        # A fresh corpus.get_text_by_slug call on the next page-load
+        # rehydrates them properly.
+        skip = {"headings", "articles", "signers"}
+        sentinel = object()
+        payload: dict = {"headings": [], "articles": [], "signers": []}
+        for k in LegalTextRead.model_fields:
+            if k in skip:
+                continue
+            value = getattr(text, k, sentinel)
+            if value is sentinel:
+                continue
+            payload[k] = value
+        return LegalTextRead.model_validate(payload)
 
     def request_changes(
         self, slug: str, *, actor: User, comment: str
@@ -366,6 +397,49 @@ class EditorialService:
             target_id=text.id,
             diff=diff,
             comment=comment,
+        )
+        self.session.flush()
+        return self.get_text(slug, include="toc")
+
+    # -------------------------------------------------------------------
+    # Theme tags (editorial overrides)
+    # -------------------------------------------------------------------
+
+    def replace_theme_tags(
+        self,
+        slug: str,
+        *,
+        themes: list[LegalTheme],
+        actor: User,
+    ) -> LegalTextRead:
+        """Replace the editor-confirmed theme set on a legal text.
+
+        Auto suggester tags are preserved alongside; the repo helper either
+        promotes a matching auto tag to editor or inserts a new editor row.
+        Audited regardless of whether the set actually changed — gives us a
+        timeline of editorial decisions even when an editor reaffirms the
+        existing tags.
+        """
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        before = sorted(
+            t.theme.value
+            for t in self.repo.get_theme_tags_for_text(text.id)
+        )
+        self.repo.replace_editor_theme_tags(text.id, themes)
+        after = sorted(
+            t.theme.value
+            for t in self.repo.get_theme_tags_for_text(text.id)
+        )
+        _audit(
+            self.session,
+            actor=actor,
+            action="update_themes",
+            target_type="legal_text",
+            target_id=text.id,
+            diff={"before": before, "after": after},
         )
         self.session.flush()
         return self.get_text(slug, include="toc")

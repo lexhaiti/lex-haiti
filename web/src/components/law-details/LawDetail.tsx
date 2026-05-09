@@ -20,6 +20,7 @@ import {
   PauseCircle,
   RotateCcw,
   Search,
+  Tags,
   XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -139,6 +140,25 @@ const categoryLabels: Record<
   decret: { fr: 'Décret', ht: 'Dekrè', color: 'bg-green-500' },
   arrete: { fr: 'Arrêté', ht: 'Arète', color: 'bg-purple-500' },
   loi: { fr: 'Loi', ht: 'Lwa', color: 'bg-indigo-500' },
+}
+
+// Theme chips — short bilingual labels per LegalTheme enum value. Linking
+// to /lois?theme=<key> turns each chip into a navigational entry into the
+// thematique-filtered listing. Keep in sync with the menu (web/src/i18n/*)
+// and the backend enum (backend/packages/schemas/enums.py).
+const THEME_LABELS: Record<string, { fr: string; ht: string }> = {
+  droit_societes: { fr: 'Droit des Sociétés', ht: 'Dwa sosyete' },
+  droit_fiscal: { fr: 'Droit Fiscal', ht: 'Dwa fiskal' },
+  droit_bancaire: { fr: 'Droit Bancaire', ht: 'Dwa bank' },
+  propriete_intellectuelle: { fr: 'Propriété Intellectuelle', ht: 'Pwopriyete entelektyèl' },
+  droit_travail: { fr: 'Droit du Travail', ht: 'Dwa travay' },
+  protection_sociale: { fr: 'Protection Sociale', ht: 'Pwoteksyon sosyal' },
+  droit_famille: { fr: 'Droit de la Famille', ht: 'Dwa fanmi' },
+  successions: { fr: 'Successions', ht: 'Eritaj' },
+  droit_administratif: { fr: 'Droit Administratif', ht: 'Dwa administratif' },
+  marches_publics: { fr: 'Marchés Publics', ht: 'Mache piblik' },
+  environnement: { fr: 'Environnement', ht: 'Anviwònman' },
+  foncier: { fr: 'Droit Foncier', ht: 'Dwa fonse' },
 }
 
 export default function LawDetail() {
@@ -535,6 +555,42 @@ export default function LawDetail() {
                   )
                 })()}
               </motion.div>
+
+              {/* Theme chips — cross-cutting LegalTheme tags, link into the
+                  filtered listing on the public site. Editor-confirmed
+                  tags surface a subtle ring; auto suggestions stay flat. */}
+              {law.theme_tags && law.theme_tags.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="mt-8 flex flex-wrap items-center gap-2"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 mr-1">
+                    <Tags className="w-3.5 h-3.5" />
+                    {currentLang === 'fr' ? 'Thématiques' : 'Tèm'}
+                  </span>
+                  {law.theme_tags.map((tag: any) => {
+                    const label =
+                      THEME_LABELS[tag.theme]?.[currentLang] ?? tag.theme
+                    const isEditor = tag.source === 'editor'
+                    return (
+                      <Link
+                        key={tag.theme}
+                        href={`/lois?theme=${tag.theme}`}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all',
+                          isEditor
+                            ? 'bg-white text-slate-900 hover:bg-amber-100 ring-1 ring-amber-300/50'
+                            : 'bg-white/10 text-slate-200 hover:bg-white/15 ring-1 ring-white/10',
+                        )}
+                      >
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </motion.div>
+              )}
             </div>
 
             {/* Action Buttons */}

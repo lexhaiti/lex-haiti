@@ -5,105 +5,120 @@ import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
 import {
   ArrowRight,
   Briefcase,
-  ChevronRight,
-  Home,
+  Building2,
+  Coins,
+  FileSignature,
+  Gavel,
+  HeartHandshake,
   Landmark,
   LayoutGrid,
-  Shield,
+  Leaf,
+  Lightbulb,
+  MapPin,
+  Scale,
+  Scroll,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import type { LucideIcon } from 'lucide-react'
+
+// ---------------------------------------------------------------------------
+// Theme catalogue — mirrors the Thématiques megamenu (3 columns) and the
+// LegalTheme enum on the backend. Adding a theme here also requires an
+// entry in:
+//   • backend/packages/schemas/enums.py (LegalTheme)
+//   • backend/services/corpus/themes.py (THEME_KEYWORDS_FR / _HT)
+//   • web/src/i18n/{fr,ht}.ts (menu.themes.*)
+// ---------------------------------------------------------------------------
+
+type ThemeItem = {
+  /** Backend LegalTheme enum value — used for ?theme=… URL */
+  key: string
+  labelKey: string
+  descKey: string
+  icon: LucideIcon
+}
+
+type ThemeColumn = {
+  /** Color palette for the column header + accent bars */
+  palette: 'blue' | 'rose' | 'amber'
+  titleKey: string
+  descKey: string
+  items: ThemeItem[]
+}
+
+const COLUMNS: ThemeColumn[] = [
+  {
+    palette: 'blue',
+    titleKey: 'menu.themes.col1Title',
+    descKey: 'menu.themes.col1Desc',
+    items: [
+      { key: 'droit_societes', labelKey: 'menu.themes.societes', descKey: 'menu.themes.societesDesc', icon: Building2 },
+      { key: 'droit_fiscal', labelKey: 'menu.themes.fiscal', descKey: 'menu.themes.fiscalDesc', icon: Coins },
+      { key: 'droit_bancaire', labelKey: 'menu.themes.bancaire', descKey: 'menu.themes.bancaireDesc', icon: Landmark },
+      { key: 'propriete_intellectuelle', labelKey: 'menu.themes.pi', descKey: 'menu.themes.piDesc', icon: Lightbulb },
+    ],
+  },
+  {
+    palette: 'rose',
+    titleKey: 'menu.themes.col2Title',
+    descKey: 'menu.themes.col2Desc',
+    items: [
+      { key: 'droit_travail', labelKey: 'menu.themes.travail', descKey: 'menu.themes.travailDesc', icon: Briefcase },
+      { key: 'protection_sociale', labelKey: 'menu.themes.protection', descKey: 'menu.themes.protectionDesc', icon: ShieldCheck },
+      { key: 'droit_famille', labelKey: 'menu.themes.famille', descKey: 'menu.themes.familleDesc', icon: HeartHandshake },
+      { key: 'successions', labelKey: 'menu.themes.successions', descKey: 'menu.themes.successionsDesc', icon: Users },
+    ],
+  },
+  {
+    palette: 'amber',
+    titleKey: 'menu.themes.col3Title',
+    descKey: 'menu.themes.col3Desc',
+    items: [
+      { key: 'droit_administratif', labelKey: 'menu.themes.administratif', descKey: 'menu.themes.administratifDesc', icon: Scale },
+      { key: 'marches_publics', labelKey: 'menu.themes.marches', descKey: 'menu.themes.marchesDesc', icon: FileSignature },
+      { key: 'environnement', labelKey: 'menu.themes.environnement', descKey: 'menu.themes.environnementDesc', icon: Leaf },
+      { key: 'foncier', labelKey: 'menu.themes.foncier', descKey: 'menu.themes.foncierDesc', icon: MapPin },
+    ],
+  },
+]
+
+const PALETTE = {
+  blue: {
+    bar: 'bg-blue-500',
+    iconBg: 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+    chipBg: 'bg-blue-100/60 text-blue-800',
+    headerIcon: Briefcase,
+  },
+  rose: {
+    bar: 'bg-rose-500',
+    iconBg: 'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
+    chipBg: 'bg-rose-100/60 text-rose-800',
+    headerIcon: HeartHandshake,
+  },
+  amber: {
+    bar: 'bg-amber-500',
+    iconBg: 'bg-amber-50 text-amber-700 group-hover:bg-amber-600 group-hover:text-white',
+    chipBg: 'bg-amber-100/60 text-amber-800',
+    headerIcon: Gavel,
+  },
+}
 
 export default function Page() {
   const { t, language } = useT()
   const isFr = language === 'fr'
 
-  const themes = [
-    {
-      id: 'affaires',
-      icon: Briefcase,
-      title: isFr ? 'Vie des Affaires' : 'Lavi Biznis',
-      description: isFr
-        ? 'Droit des sociétés, fiscalité, banques et propriété intellectuelle.'
-        : 'Dwa sosyete, fiskalite, bank ak pwopriyete entelektyèl.',
-      color: 'blue',
-      query: 'affaires',
-      href: '/thematiques/affaires',
-    },
-    {
-      id: 'famille',
-      icon: Users,
-      title: isFr ? 'Droit de la Famille' : 'Dwa Fanmi',
-      description: isFr
-        ? 'Mariage, divorce, filiation, successions et donations.'
-        : 'Maryaj, divòs, filyasyon, siksesyon ak donasyon.',
-      color: 'red',
-      query: 'famille',
-      href: '/thematiques/famille',
-    },
-    {
-      id: 'immobilier',
-      icon: Home,
-      title: isFr ? 'Droit Immobilier' : 'Dwa Imobilye',
-      description: isFr
-        ? 'Propriété, cadastre, baux et droit foncier haïtien.'
-        : 'Pwopriyete, kadast, kontra lwaye ak dwa fonzye ayisyen.',
-      color: 'amber',
-      query: 'immobilier',
-      href: '/thematiques/immobilier',
-    },
-    {
-      id: 'social',
-      icon: Shield,
-      title: isFr ? 'Droit Social' : 'Dwa Sosyal',
-      description: isFr
-        ? 'Droit du travail, protection sociale et sécurité sociale.'
-        : 'Dwa travay, pwoteksyon sosyal ak sekirite sosyal.',
-      color: 'emerald',
-      query: 'social',
-      href: '/thematiques/social',
-    },
-    {
-      id: 'fiscalite',
-      icon: Landmark,
-      title: isFr ? 'Fiscalité & Douanes' : 'Fiskalite ak Douàn',
-      description: isFr
-        ? 'Impôts, taxes, tarifs douaniers et procédures fiscales.'
-        : 'Impo, taks, tarif douanyè ak pwosedi fiskal.',
-      color: 'purple',
-      query: 'fiscalite',
-      href: '/thematiques/fiscalite',
-    },
-  ]
-
-  const getColorClasses = (color: string) => {
-    switch (color) {
-      case 'blue':
-        return 'bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600'
-      case 'red':
-        return 'bg-red-50 text-red-600 border-red-100 group-hover:bg-red-600'
-      case 'amber':
-        return 'bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-600'
-      case 'emerald':
-        return 'bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-600'
-      case 'purple':
-        return 'bg-purple-50 text-purple-600 border-purple-100 group-hover:bg-purple-600'
-      default:
-        return 'bg-slate-50 text-slate-600 border-slate-100 group-hover:bg-slate-600'
-    }
-  }
-
   return (
     <div className="min-h-screen bg-white">
       <StandardPageHeader
-        title={t('themes.title', { fallback: isFr ? 'Thématiques' : 'Tèm yo' })}
-        subtitle={t('themes.subtitle', {
-          fallback: isFr
-            ? 'Explorez le droit haïtien classé par domaines d’application.'
-            : 'Eksplore dwa ayisyen an klase pa domèn aplikasyon.',
-        })}
+        title={isFr ? 'Thématiques' : 'Tèm yo'}
+        subtitle={
+          isFr
+            ? 'Explorez le droit haïtien classé par domaines d’application. 12 thématiques transversales — un même texte peut en porter plusieurs.'
+            : 'Eksplore dwa ayisyen an klase pa domèn aplikasyon. 12 tèm transvèsal — yon menm tèks ka pote plizyè ladan yo.'
+        }
         icon={LayoutGrid}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
@@ -111,84 +126,110 @@ export default function Page() {
         ]}
       />
 
-      <div className="container py-20 lg:py-32">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {themes.map((theme, idx) => (
-            <motion.div
-              key={theme.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="group relative"
-            >
-              <Link
-                href={theme.href}
-                className="block h-full bg-white border border-slate-100 rounded-[2.5rem] p-8 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2 overflow-hidden"
+      <div className="container py-16 lg:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {COLUMNS.map((col) => {
+            const palette = PALETTE[col.palette]
+            const HeaderIcon = palette.headerIcon
+            return (
+              <section
+                key={col.titleKey}
+                className="rounded-3xl border border-slate-200/80 bg-white overflow-hidden flex flex-col"
               >
-                {/* Decorative Background */}
-                <div
-                  className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-50 to-transparent rounded-full translate-x-10 -translate-y-10 group-hover:scale-150 transition-transform duration-700`}
-                />
-
-                <div className="relative z-10 h-full flex flex-col">
-                  <div
-                    className={`mb-8 inline-flex p-4 rounded-3xl border transition-all duration-500 group-hover:text-white group-hover:shadow-lg ${getColorClasses(theme.color)}`}
-                  >
-                    <theme.icon className="w-8 h-8" />
+                {/* Column header */}
+                <header className="relative px-6 lg:px-8 pt-7 pb-5 border-b border-slate-100">
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${palette.bar}`} />
+                  <div className="flex items-start gap-3 mb-2">
+                    <div
+                      className={`p-2.5 rounded-xl ${palette.chipBg}`}
+                    >
+                      <HeaderIcon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-xl font-black text-slate-900 leading-tight">
+                        {t(col.titleKey)}
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        {t(col.descKey)}
+                      </p>
+                    </div>
                   </div>
+                </header>
 
-                  <h3 className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-red-600 transition-colors">
-                    {theme.title}
-                  </h3>
-
-                  <p className="text-slate-500 leading-relaxed mb-8 flex-1">
-                    {theme.description}
-                  </p>
-
-                  <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-900 transition-colors">
-                    <span>{isFr ? 'Explorer' : 'Eksplore'}</span>
-                    <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
+                {/* Items */}
+                <ul className="flex-1 divide-y divide-slate-100">
+                  {col.items.map((item, idx) => {
+                    const Icon = item.icon
+                    return (
+                      <motion.li
+                        key={item.key}
+                        initial={{ opacity: 0, x: -6 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: idx * 0.04 }}
+                      >
+                        <Link
+                          href={`/lois?theme=${item.key}`}
+                          className="group flex items-center gap-4 px-6 lg:px-8 py-4 hover:bg-slate-50 transition-colors"
+                        >
+                          <div
+                            className={`flex-shrink-0 inline-flex p-2.5 rounded-xl border border-slate-100 transition-all duration-200 ${palette.iconBg}`}
+                          >
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors">
+                              {t(item.labelKey)}
+                            </h3>
+                            <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+                              {t(item.descKey)}
+                            </p>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                        </Link>
+                      </motion.li>
+                    )
+                  })}
+                </ul>
+              </section>
+            )
+          })}
         </div>
 
-        {/* Info Section */}
+        {/* Info section */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mt-32 p-12 rounded-[3rem] bg-primary text-white relative overflow-hidden"
+          className="mt-20 p-10 lg:p-14 rounded-3xl bg-primary text-white relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-600/10 blur-[100px] rounded-full -translate-x-1/2 translate-y-1/2" />
 
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-10 items-center">
             <div>
-              <h2 className="text-3xl lg:text-5xl font-black mb-8 leading-tight">
+              <h2 className="text-3xl lg:text-4xl font-black mb-4 leading-tight">
                 {isFr ? 'Recherche par thématique' : 'Rechèch pa tèm'}
               </h2>
-              <p className="text-slate-400 text-lg lg:text-xl leading-relaxed mb-8">
+              <p className="text-slate-300 text-base lg:text-lg leading-relaxed mb-6 max-w-2xl">
                 {isFr
-                  ? 'Le droit est un domaine vaste. Nous avons organisé les textes juridiques par thématiques pour vous aider à trouver rapidement les informations qui concernent votre situation spécifique.'
-                  : 'Lwa se yon domèn ki laj anpil. Nou òganize tèks jiridik yo pa tèm pou n ede w jwenn enfòmasyon ki konsène sitiyasyon w lan pi vit.'}
+                  ? 'Un texte peut porter plusieurs thématiques — le Code civil couvre famille, successions et sociétés à la fois. Combinez les filtres pour affiner votre recherche.'
+                  : 'Yon tèks ka pote plizyè tèm — Kòd sivil la kouvri fanmi, eritaj ak sosyete an menm tan. Konbine filtè yo pou afine rechèch ou.'}
               </p>
-              <Link href="/lois">
-                <Button className="rounded-full bg-white text-slate-900 hover:bg-red-600 hover:text-white h-12 px-8 font-bold transition-all">
-                  {isFr ? 'Accéder à tous les textes' : 'Wè tout tèks yo'}
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </Button>
+              <Link
+                href="/lois"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-slate-900 hover:bg-red-600 hover:text-white font-bold transition-all"
+              >
+                {isFr ? 'Accéder à tous les textes' : 'Wè tout tèks yo'}
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
             <div className="hidden lg:block">
-              <div className="relative aspect-square max-w-sm mx-auto">
-                <div className="absolute inset-0 bg-white/5 rounded-[3rem] rotate-6" />
-                <div className="absolute inset-0 bg-red-600/20 rounded-[3rem] -rotate-3" />
-                <div className="relative bg-white/10 backdrop-blur-md border border-white/10 rounded-[3rem] p-10 flex items-center justify-center">
-                  <LayoutGrid className="w-32 h-32 text-white/50" />
+              <div className="relative w-48 h-48">
+                <div className="absolute inset-0 bg-white/5 rounded-3xl rotate-6" />
+                <div className="absolute inset-0 bg-red-600/20 rounded-3xl -rotate-3" />
+                <div className="relative bg-white/10 backdrop-blur-md border border-white/10 rounded-3xl p-8 flex items-center justify-center w-full h-full">
+                  <Scroll className="w-20 h-20 text-white/60" />
                 </div>
               </div>
             </div>

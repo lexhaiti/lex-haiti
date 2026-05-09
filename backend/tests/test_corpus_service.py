@@ -58,9 +58,16 @@ def _make_text(
     description_ht: Optional[str] = None,
     preamble_fr: Optional[str] = None,
     preamble_ht: Optional[str] = None,
+    visas_fr: Optional[str] = None,
+    visas_ht: Optional[str] = None,
+    considerants_fr: Optional[str] = None,
+    considerants_ht: Optional[str] = None,
+    enacting_formula_fr: Optional[str] = None,
+    enacting_formula_ht: Optional[str] = None,
     promulgation_date: Optional[date] = None,
     publication_date: Optional[date] = None,
     moniteur_ref: Optional[str] = None,
+    moniteur_issue=None,
     status: LegalStatus = LegalStatus.in_force,
     editorial_status: EditorialStatus = EditorialStatus.published,
     headings: list | None = None,
@@ -79,9 +86,16 @@ def _make_text(
         description_ht=description_ht,
         preamble_fr=preamble_fr,
         preamble_ht=preamble_ht,
+        visas_fr=visas_fr,
+        visas_ht=visas_ht,
+        considerants_fr=considerants_fr,
+        considerants_ht=considerants_ht,
+        enacting_formula_fr=enacting_formula_fr,
+        enacting_formula_ht=enacting_formula_ht,
         promulgation_date=promulgation_date,
         publication_date=publication_date,
         moniteur_ref=moniteur_ref,
+        moniteur_issue=moniteur_issue,
         status=status,
         editorial_status=editorial_status,
         created_at=_ts(),
@@ -214,6 +228,9 @@ def _service():
     session = MagicMock()
     service = CorpusService(session)
     service.repo = MagicMock()
+    # Default: no theme tags. Individual tests can override.
+    service.repo.get_theme_tags_for_text.return_value = []
+    service.repo.get_theme_tags_for_texts.return_value = {}
     return service
 
 

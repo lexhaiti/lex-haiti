@@ -35,6 +35,7 @@ from packages.schemas.enums import (
 from packages.schemas.heading import LegalHeadingRead, TocNode
 from packages.schemas.legal_text import LegalTextListItem, LegalTextRead, MatchSnippet
 from packages.schemas.signer import LegalSignerRead
+from packages.schemas.theme import LegalThemeTagRead
 from services.corpus.exceptions import NotFound
 from services.corpus.models import Article, LegalText
 from services.corpus.repository import CorpusRepository
@@ -69,6 +70,7 @@ def text_to_read(
     headings: list[LegalHeadingRead],
     articles: list[ArticleEmbed],
     signers: list[LegalSignerRead],
+    theme_tags: Optional[list[LegalThemeTagRead]] = None,
 ) -> LegalTextRead:
     """Build a LegalTextRead from an ORM row + already-converted children.
 
@@ -106,6 +108,7 @@ def text_to_read(
         headings=headings,
         articles=articles,
         signers=signers,
+        theme_tags=theme_tags or [],
         moniteur_issue_id=getattr(mi, "id", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
         moniteur_issue_number=getattr(mi, "number", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
         moniteur_issue_publication_date=getattr(mi, "publication_date", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
@@ -170,6 +173,17 @@ class CorpusService:
         )
         items = [LegalTextListItem.model_validate(t) for t in rows]
 
+        # Bulk-load theme tags for all results so each card can render its
+        # chips without N+1 fetches. The repo helper returns an empty list
+        # for texts with no tags, so the dict lookup is safe.
+        if items:
+            tags_by_id = self.repo.get_theme_tags_for_texts([it.id for it in items])
+            for it in items:
+                it.theme_tags = [
+                    LegalThemeTagRead.model_validate(t)
+                    for t in tags_by_id.get(it.id, [])
+                ]
+
         # Attach matching article snippets when requested. Only meaningful
         # when q_field=all (we searched article bodies) and a query is set.
         if with_snippets and q and q.strip() and q_field == "all" and items:
@@ -216,12 +230,20 @@ class CorpusService:
         if not text:
             raise NotFound(f"LegalText not found: {slug}")
 
+        # Always include theme chips on the detail view — they're a primary
+        # navigational signal on the law page.
+        theme_tags = [
+            LegalThemeTagRead.model_validate(t)
+            for t in self.repo.get_theme_tags_for_text(text.id)
+        ]
+
         if include == "all":
             return text_to_read(
                 text,
                 headings=[LegalHeadingRead.model_validate(h) for h in text.headings],
                 articles=[article_to_embed(a) for a in text.articles],
                 signers=[LegalSignerRead.model_validate(s) for s in text.signers],
+                theme_tags=theme_tags,
             )
         if include == "toc":
             return text_to_read(
@@ -229,9 +251,12 @@ class CorpusService:
                 headings=[LegalHeadingRead.model_validate(h) for h in text.headings],
                 articles=[],
                 signers=[],
+                theme_tags=theme_tags,
             )
         # default: metadata only
-        return text_to_read(text, headings=[], articles=[], signers=[])
+        return text_to_read(
+            text, headings=[], articles=[], signers=[], theme_tags=theme_tags
+        )
 
     def get_toc_by_slug(self, slug: str) -> List[TocNode]:
         text = self.repo.get_text_by_slug(slug)
