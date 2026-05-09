@@ -372,7 +372,7 @@ export default function LawFilters({
             })
           }
         >
-          <SelectTrigger className={cn('w-44', triggerCls(isActive('category', filters.category)))}>
+          <SelectTrigger className={cn('min-w-[11rem] w-auto', triggerCls(isActive('category', filters.category)))}>
             <SelectValue placeholder={categories[0].label[lang]} />
           </SelectTrigger>
           <SelectContent>
@@ -391,7 +391,7 @@ export default function LawFilters({
           >
             <SelectTrigger
               className={cn(
-                'w-56',
+                'min-w-[14rem] w-auto',
                 triggerCls(isActive('codeSubcategory', filters.codeSubcategory)),
               )}
             >
@@ -411,7 +411,7 @@ export default function LawFilters({
           value={filters.year ?? 'all'}
           onValueChange={(v) => patch({ year: v })}
         >
-          <SelectTrigger className={cn('w-36', triggerCls(isActive('year', filters.year)))}>
+          <SelectTrigger className={cn('min-w-[9rem] w-auto', triggerCls(isActive('year', filters.year)))}>
             <SelectValue placeholder={yearOptions[0].label[lang]} />
           </SelectTrigger>
           <SelectContent>
@@ -427,7 +427,7 @@ export default function LawFilters({
           value={filters.status ?? 'all'}
           onValueChange={(v) => patch({ status: v })}
         >
-          <SelectTrigger className={cn('w-36', triggerCls(isActive('status', filters.status)))}>
+          <SelectTrigger className={cn('min-w-[9rem] w-auto', triggerCls(isActive('status', filters.status)))}>
             <SelectValue placeholder={statuses[0].label[lang]} />
           </SelectTrigger>
           <SelectContent>
@@ -445,7 +445,7 @@ export default function LawFilters({
           value={filters.sort ?? 'newest'}
           onValueChange={(v) => patch({ sort: v })}
         >
-          <SelectTrigger className={cn('w-36', triggerCls(isActive('sort', filters.sort)))}>
+          <SelectTrigger className={cn('min-w-[12rem] w-auto', triggerCls(isActive('sort', filters.sort)))}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
