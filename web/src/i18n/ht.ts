@@ -125,7 +125,10 @@ export const ht = {
 
     footer: {
       megaHint: 'Eksplore baz done jiridik konplè nou an',
-      viewAllTexts: 'Wè tout tèks yo →',
+      // No trailing arrow in the string — the megamenu component
+      // (Header.tsx) appends a real ArrowRight icon next to it; a
+      // baked-in "→" produced "Wè tout tèks yo → →".
+      viewAllTexts: 'Wè tout tèks yo',
     },
 
     mobile: {
