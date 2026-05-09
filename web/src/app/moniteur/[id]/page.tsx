@@ -438,7 +438,7 @@ export default function MoniteurDetailPage() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
         </div>
 
-        <div className="relative z-10 w-full px-6 lg:px-12 py-12 lg:py-16 pt-24 lg:pt-32">
+        <div className="relative z-10 container py-12 lg:py-16 pt-24 lg:pt-32">
           <Breadcrumb
             className="mb-8"
             items={[
@@ -550,7 +550,7 @@ export default function MoniteurDetailPage() {
       {/* ------------------------------------------------------------------- */}
       {/* Body                                                               */}
       {/* ------------------------------------------------------------------- */}
-      <div className="w-full px-6 lg:px-12 py-10 lg:py-16">
+      <div className="container py-10 lg:py-16">
         {/* Category breakdown chips */}
         {sortedCategoryEntries.length > 0 && (
           <motion.div
