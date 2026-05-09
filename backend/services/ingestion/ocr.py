@@ -182,9 +182,32 @@ def _ocr_one_page(pdf_path: str, page_idx: int, dpi: int, lang: str) -> str:
     if not images:
         return ""
     try:
-        return pytesseract.image_to_string(images[0], lang=lang)
+        prepped = _preprocess_for_ocr(images[0])
+        return pytesseract.image_to_string(prepped, lang=lang)
     except pytesseract.TesseractNotFoundError as e:
         raise RuntimeError("tesseract binary not on PATH") from e
+
+
+def _preprocess_for_ocr(image):
+    """Light pre-OCR cleanup that pays off on the typical Moniteur scan.
+
+    Tesseract does some preprocessing internally but is happier with a
+    grayscale, contrast-stretched, mildly sharpened input. Order
+    matters: grayscale first to avoid colour artefacts in the
+    histogram, then autocontrast to pull faded scans up to full range,
+    then a small sharpness boost to firm up character edges blurred by
+    DPI conversion.
+
+    Pillow-only — no extra dependencies. Skip deskew (needs scikit-image
+    or OpenCV) and binarization (lossy on noisy scans) until we have
+    real failure cases to justify them.
+    """
+    from PIL import ImageEnhance, ImageOps  # noqa: PLC0415
+
+    gray = image.convert("L")
+    stretched = ImageOps.autocontrast(gray, cutoff=1)
+    sharpened = ImageEnhance.Sharpness(stretched).enhance(1.4)
+    return sharpened
 
 
 def _try_text_layer(
