@@ -79,7 +79,7 @@ export default function Page() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl border-l-2 border-red-600 pl-6"
+            className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
           >
             {t('about.subtitle', {
               fallback: isFr

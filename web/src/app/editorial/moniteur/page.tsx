@@ -183,7 +183,7 @@ export default function MoniteurDashboardPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl border-l-2 border-red-600 pl-6"
+              className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
             >
               {copy.subtitle}
             </motion.p>
