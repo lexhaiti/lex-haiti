@@ -240,7 +240,11 @@ export default function MoniteurDashboardPage() {
                   return (
                     <tr key={it.id} className="hover:bg-slate-50/40">
                       <td className="px-5 py-4 font-bold text-primary">
-                        n° {it.number}{' '}
+                        {/* Smart N° prefix: skip when the stored number
+                            already starts with non-digit text such as
+                            "Spécial N° 5" — otherwise we'd render the
+                            duplicate "n° Spécial N° 5". */}
+                        {/^[0-9]/.test(it.number) ? `N° ${it.number}` : it.number}{' '}
                         <span className="text-slate-400 font-normal">/ {it.year}</span>
                       </td>
                       <td className="px-5 py-4 text-slate-600">
