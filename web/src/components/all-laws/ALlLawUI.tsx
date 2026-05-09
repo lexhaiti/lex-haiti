@@ -422,23 +422,66 @@ export function AllLawsUI({
             )}
           </>
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20"
-          >
-            <FileText className="w-16 h-16 mx-auto text-gray-200 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">
-              {t?.('allLaws.empty.title') ??
-                (lang === 'fr' ? 'Aucun texte trouvé' : 'Pa gen tèks jwenn')}
-            </h3>
-            <p className="text-gray-400">
-              {t?.('allLaws.empty.subtitle') ??
-                (lang === 'fr'
-                  ? 'Essayez de modifier vos critères de recherche.'
-                  : 'Eseye modifye kritè rechèch ou yo.')}
-            </p>
-          </motion.div>
+          (() => {
+            // Detect any active narrowing filter so we can show a
+            // contextual "reset everything" CTA. Without it the
+            // visitor is stuck on the empty state and doesn't realize
+            // the filter sidebar is what's hiding all results.
+            const hasActiveFilter =
+              activeSearchTerm ||
+              (filters.category && filters.category !== 'all') ||
+              (filters.codeSubcategory &&
+                filters.codeSubcategory !== 'all') ||
+              (filters.year && filters.year !== 'all') ||
+              (filters.status && filters.status !== 'all') ||
+              themes.length > 0
+            return (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20"
+              >
+                <FileText className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+                <h3 className="text-xl font-semibold text-gray-500 mb-2">
+                  {t?.('allLaws.empty.title') ??
+                    (lang === 'fr'
+                      ? 'Aucun texte trouvé'
+                      : 'Pa gen tèks jwenn')}
+                </h3>
+                <p className="text-gray-400 max-w-md mx-auto">
+                  {hasActiveFilter
+                    ? lang === 'fr'
+                      ? "Aucun texte ne correspond à votre sélection. Élargissez les critères ou réinitialisez les filtres."
+                      : 'Pa gen tèks ki koresponn ak chwa w lan. Elaji kritè yo oswa reyinisyalize filtè yo.'
+                    : t?.('allLaws.empty.subtitle') ??
+                      (lang === 'fr'
+                        ? 'Essayez de modifier vos critères de recherche.'
+                        : 'Eseye modifye kritè rechèch ou yo.')}
+                </p>
+                {hasActiveFilter && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSearchQueryChange('')
+                      onSearch?.()
+                      onFiltersChange({
+                        category: 'all',
+                        codeSubcategory: 'all',
+                        year: 'all',
+                        status: 'all',
+                        sort: filters.sort,
+                      })
+                    }}
+                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/50 hover:text-primary transition-colors"
+                  >
+                    {lang === 'fr'
+                      ? 'Réinitialiser les filtres'
+                      : 'Reyinisyalize filtè yo'}
+                  </button>
+                )}
+              </motion.div>
+            )
+          })()
         )}
       </div>
     </div>

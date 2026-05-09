@@ -88,6 +88,8 @@ def list_legal_texts(
         "recently_updated",
         "recently_added",
         "recently_published",
+        "oldest",
+        "alphabetical",
     ] = Query(
         "publication_date",
         description=(
@@ -95,7 +97,8 @@ def list_legal_texts(
             "publication date (newest first). 'recently_updated' sorts by "
             "updated_at — the right choice for editorial activity feeds. "
             "'recently_added' sorts by created_at. 'recently_published' "
-            "sorts by published_at (the editorial-publication timestamp)."
+            "sorts by published_at. 'oldest' is publication_date ascending. "
+            "'alphabetical' sorts by title_fr."
         ),
     ),
     with_snippets: bool = Query(

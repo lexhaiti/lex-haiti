@@ -18,10 +18,23 @@ import { AddTextButton, UserMenu } from '@/components/layout/UserMenu'
 // Active when (a) the pathname matches, and (b) every query param the link
 // declares matches the current URL. With a query, exact-match wins (so
 // /lois?category=constitution highlights only CONSTITUTION). Without a
-// query, the link is active only when no categorical filter is set — that
-// way the bare "CODES & LOIS" doesn't ALSO highlight on a Constitution
-// view, since a more specific sibling owns that view.
-const _CATEGORICAL_PARAMS = ['category', 'code_subcategory'] as const
+// query, the link is active only when NO discriminating filter is set —
+// that way the bare "CODES & LOIS" doesn't ALSO highlight on a
+// Constitution / Droit Fiscal / Récents view, since a more specific
+// sibling owns that view.
+//
+// `theme`, `status`, and `sort` are included alongside category/sub-
+// category because the megamenu has links scoped by all of them
+// (Thématiques column, "Lois récentes" sort link, "Abrogées" status
+// link). Without them, /lois?theme=droit_fiscal would highlight both
+// the bare "CODES & LOIS" item AND the dedicated theme item.
+const _DISCRIMINATING_PARAMS = [
+  'category',
+  'code_subcategory',
+  'theme',
+  'status',
+  'sort',
+] as const
 
 function isPathActive(
   pathname: string | null,
@@ -33,7 +46,7 @@ function isPathActive(
   const [hPath, hQuery] = href.split('?')
   if (!pathname.startsWith(hPath)) return false
   if (!hQuery) {
-    return !_CATEGORICAL_PARAMS.some((p) => search?.get(p))
+    return !_DISCRIMINATING_PARAMS.some((p) => search?.get(p))
   }
   const required = new URLSearchParams(hQuery)
   for (const [k, v] of required.entries()) {
@@ -89,10 +102,19 @@ export default function Header() {
           // 1. Enforce consistent height/padding so it doesn't narrow
           'h-20',
 
-          // 2. Glassmorphism ONLY on scroll
-          scrolled
-            ? 'bg-white/85 backdrop-blur-md shadow-sm' // Glassy when scrolled
-            : 'bg-white', // Solid white when at top
+          // 2. On scroll, switch to a fully opaque white background.
+          //
+          // The previous behavior used a semi-transparent
+          // `bg-white/85 backdrop-blur-md` glass effect, which looked
+          // beautiful on bright pages but produced a muddy mid-blue
+          // band when scrolled over the dark navy page headers
+          // (`bg-primary` on /lois, /loi/[slug], /moniteur/[id], etc.):
+          // the navy bled through the 15% transparency and clashed with
+          // the white text the header otherwise needs to hold.
+          // Solid white avoids that boundary problem at the cost of a
+          // touch less polish — worth the trade since the dark headers
+          // are the most common landing surfaces.
+          scrolled ? 'bg-white shadow-sm' : 'bg-white',
         )}
         initial={{ y: -100 }}
         animate={{ y: 0 }}

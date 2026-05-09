@@ -120,10 +120,27 @@ export default function HeroSection() {
 
       <div className="relative z-10 container py-12 w-full">
         <div className="w-full xl:w-[78%]">
+          {/* Latin maxim eyebrow — same maxim used on /a-propos's quote
+              card, here as a small italic line above the H1 to anchor
+              the project's mission ("publicity of law is the foundation
+              of liberty") on the front door. Kept restrained so the H1
+              stays visually dominant. */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="text-xs sm:text-sm italic text-amber-300/80 mb-3"
+          >
+            <span className="not-italic font-bold uppercase tracking-[0.18em] text-amber-300/60 mr-2">
+              ⁂
+            </span>
+            Publicitas iuris fundamentum libertatis.
+          </motion.p>
+
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
             className="text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-extrabold tracking-tight leading-[1.05] text-white"
           >
             {copy.title}

@@ -6,6 +6,7 @@ import {
   listEditorialTexts,
   listTexts,
   searchTexts,
+  type LegalTextSort,
 } from '@/lib/api/endpoints'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
 
@@ -26,9 +27,20 @@ type Filters = {
   category: string
   /** Sub-filter that applies only when `category === 'code'`. */
   codeSubcategory: string
-  year: string // UI only — client-side decade filter
+  /**
+   * Decade-style year filter (e.g. "1980" = 1980-1989). The hook
+   * expands this into `year_from` / `year_to` for the API so filtering
+   * + the per-filter total run server-side and survive pagination.
+   */
+  year: string
   status: string
-  sort: string // UI only
+  /**
+   * Sort key. UI surfaces both legacy human-friendly aliases ("newest",
+   * "oldest", "alphabetical", "relevance") and the server-native keys
+   * (publication_date, recently_*). The hook normalizes both onto the
+   * server's `LegalTextSort` type before calling the API.
+   */
+  sort: string
 }
 
 // Re-exported from the shared filter component which owns the canonical
@@ -65,65 +77,51 @@ function parseStatus(v: string): LegalStatus | undefined {
   return v as LegalStatus
 }
 
-function getYear(item: LegalTextListItem): number | null {
-  if (item.publication_date) {
-    const y = Number.parseInt(item.publication_date.slice(0, 4), 10)
-    return Number.isNaN(y) ? null : y
-  }
-  return null
+/**
+ * Decade key ("1980") → inclusive [year_from, year_to] bounds for the
+ * API. Returns nulls for "all" / unparseable so callers can fall back
+ * to "no year filter".
+ */
+function expandDecade(v: string): { year_from?: number; year_to?: number } {
+  if (!v || v === 'all') return {}
+  const decade = Number.parseInt(v, 10)
+  if (Number.isNaN(decade)) return {}
+  return { year_from: decade, year_to: decade + 9 }
 }
 
-function titleForLang(item: LegalTextListItem, lang: 'fr' | 'ht') {
-  return lang === 'ht' ? (item.title_ht ?? item.title_fr) : item.title_fr
-}
-
-function clientFilterAndSort(
-  items: DisplayItem[],
-  filters: Filters,
-  lang: 'fr' | 'ht',
-) {
-  let result = [...items]
-
-  const getText = (di: DisplayItem): LegalTextListItem =>
-    di.type === 'text'
-      ? (di.data as LegalTextListItem)
-      : (di.data as SearchHit).text
-
-  if (filters.year !== 'all') {
-    const decade = Number.parseInt(filters.year, 10)
-    if (!Number.isNaN(decade)) {
-      result = result.filter((x) => {
-        const y = getYear(getText(x))
-        if (y == null) return false
-        return y >= decade && y < decade + 10
-      })
-    }
-  }
-
-  switch (filters.sort) {
+/**
+ * Maps any sort value the UI might supply to the server's
+ * `LegalTextSort`. The dropdown options drift over time; this is the
+ * single normalization point so a stale "newest" / "relevance" value
+ * doesn't punch through to the API as an unknown literal.
+ *
+ *   newest        → publication_date  (server default; newest first)
+ *   relevance     → publication_date  (only meaningful with q; backend
+ *                                      already weights ts_rank when q is
+ *                                      present)
+ *   oldest        → oldest            (server-side, added in this PR)
+ *   alphabetical  → alphabetical      (server-side, added in this PR)
+ *   recently_*    → pass-through
+ */
+function toServerSort(sort: string): LegalTextSort | undefined {
+  switch (sort) {
     case 'newest':
-      result.sort(
-        (a, b) => (getYear(getText(b)) ?? -1) - (getYear(getText(a)) ?? -1),
-      )
-      break
+    case 'relevance':
+    case '':
+    case undefined as unknown as string:
+      return undefined // server default
     case 'oldest':
-      result.sort(
-        (a, b) =>
-          (getYear(getText(a)) ?? 999999) - (getYear(getText(b)) ?? 999999),
-      )
-      break
+      return 'oldest'
     case 'alphabetical':
-      result.sort((a, b) =>
-        titleForLang(getText(a), lang).localeCompare(
-          titleForLang(getText(b), lang),
-        ),
-      )
-      break
+      return 'alphabetical'
+    case 'publication_date':
+    case 'recently_updated':
+    case 'recently_added':
+    case 'recently_published':
+      return sort as LegalTextSort
     default:
-      break
+      return undefined
   }
-
-  return result
 }
 
 export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
@@ -153,12 +151,16 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
         const codeSubcategory = parseCodeSubcategory(filters.codeSubcategory)
         const statusFilter = parseStatus(filters.status)
         const queryStr = q.trim()
+        const yearRange = expandDecade(filters.year)
+        const sortKey = toServerSort(filters.sort)
 
         let page: DisplayItem[] = []
         let newTotal = 0
 
         if (isEditor) {
           // Editor mode — see all editorial statuses (or filter by toggle).
+          // listEditorialTexts doesn't currently expose year_from/year_to /
+          // sort; if it gains them, plumb them through here too.
           const res = await listEditorialTexts({
             q: queryStr || undefined,
             category,
@@ -177,7 +179,11 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
           }))
           newTotal = res.total
         } else if (queryStr) {
-          // Public + query → deep search with snippets
+          // Public + query → deep search with snippets. The /search
+          // endpoint doesn't currently expose year_from/year_to/sort;
+          // sort is implicitly relevance + ts_rank. Year-range and
+          // explicit sort fall back to server defaults until the
+          // endpoint exposes the params.
           const res = await searchTexts({
             q: queryStr,
             category,
@@ -194,7 +200,10 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
           }))
           newTotal = res.total
         } else {
-          // Public + no query → straight list (filters to published)
+          // Public + no query → straight list. All narrowing + sort
+          // happens server-side, so `total` is the truthful "how many
+          // texts match my filters" number and pagination stays stable
+          // across page loads.
           const res = await listTexts({
             category,
             code_subcategory: codeSubcategory as
@@ -202,6 +211,9 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
               | undefined,
             status: statusFilter,
             theme: themes && themes.length ? themes : undefined,
+            year_from: yearRange.year_from,
+            year_to: yearRange.year_to,
+            sort: sortKey,
             limit,
             offset: nextOffset,
           })
@@ -224,7 +236,18 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
         setError(e instanceof Error ? e : new Error('Request failed'))
       }
     },
-    [q, filters.category, filters.codeSubcategory, filters.status, themes?.join(','), limit, isEditor, editorialStatus],
+    [
+      q,
+      filters.category,
+      filters.codeSubcategory,
+      filters.status,
+      filters.year,
+      filters.sort,
+      themes?.join(','),
+      limit,
+      isEditor,
+      editorialStatus,
+    ],
   )
 
   useEffect(() => {
@@ -236,7 +259,20 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [q, filters.category, filters.codeSubcategory, filters.status, themes?.join(','), fetchPage])
+    // Re-fetch when ANY narrowing or ordering filter changes — every
+    // input that influences the API call goes here so a filter change
+    // produces a fresh paginated result set rather than a sorted slice
+    // of the previous one.
+  }, [
+    q,
+    filters.category,
+    filters.codeSubcategory,
+    filters.status,
+    filters.year,
+    filters.sort,
+    themes?.join(','),
+    fetchPage,
+  ])
 
   const loadMore = useCallback(() => {
     fetchPage(offset + limit, true)
@@ -247,9 +283,17 @@ export function useAllTexts(args: Args & { lang: 'fr' | 'ht' }) {
     return items.length < total
   }, [items.length, total])
 
-  const displayItems = useMemo(() => {
-    return clientFilterAndSort(items, filters, lang)
-  }, [items, filters, lang])
+  // Filtering and sorting now happen server-side in fetchPage(), so the
+  // hook surfaces `items` as-is. The previous client-side post-process
+  // (clientFilterAndSort) couldn't survive pagination correctly — sorting
+  // a 24-item batch by year doesn't sort the next batch the same way, so
+  // "Plus anciens" would mix epochs as the user paged.
+  const displayItems = items
+
+  // `lang` is no longer used inside the hook (the client-side
+  // alphabetical sort is gone), but we keep it in the public API so the
+  // existing call sites don't need changes.
+  void lang
 
   return {
     status,

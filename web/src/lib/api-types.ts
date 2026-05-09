@@ -2227,8 +2227,8 @@ export interface operations {
                 theme?: components["schemas"]["LegalTheme"][] | null;
                 /** @description Restrict theme matches to a given provenance. 'editor' shows only editor-confirmed tags (strict); 'auto' shows only suggester-only tags (review queue). Omit for both. */
                 theme_source?: components["schemas"]["ThemeSource"] | null;
-                /** @description Result ordering. 'publication_date' (default) sorts by historical publication date (newest first). 'recently_updated' sorts by updated_at — the right choice for editorial activity feeds. 'recently_added' sorts by created_at. 'recently_published' sorts by published_at (the editorial-publication timestamp). */
-                sort?: "publication_date" | "recently_updated" | "recently_added" | "recently_published";
+                /** @description Result ordering. 'publication_date' (default) sorts by historical publication date (newest first). 'recently_updated' sorts by updated_at — the right choice for editorial activity feeds. 'recently_added' sorts by created_at. 'recently_published' sorts by published_at. 'oldest' is publication_date ascending. 'alphabetical' sorts by title_fr. */
+                sort?: "publication_date" | "recently_updated" | "recently_added" | "recently_published" | "oldest" | "alphabetical";
                 /** @description If true and q is set with q_field=all, each item gets up to 2 highlighted article snippets (`<mark>...</mark>`) showing where the query matched in the article body. */
                 with_snippets?: boolean;
                 limit?: number;

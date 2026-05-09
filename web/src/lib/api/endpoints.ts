@@ -4,7 +4,7 @@
  * Base URL is configured via `NEXT_PUBLIC_API_URL` (see .env.local), default
  * `http://localhost:8000/api/v1`. All paths here are relative to that base.
  */
-import type { components } from '@/lib/api-types'
+import type { components, paths } from '@/lib/api-types'
 import { apiGet, apiPatch, apiPost, apiPostForm } from '@/lib/api/client'
 
 // Re-exported types — what consumers reach for.
@@ -78,6 +78,17 @@ export async function resolveArticles(ids: number[]) {
   })
 }
 
+/**
+ * Sort keys accepted by the legal-texts list endpoint — extracted from
+ * the regenerated OpenAPI spec so a backend addition (or removal)
+ * surfaces here as a TS error instead of silently drifting.
+ */
+export type LegalTextSort = NonNullable<
+  NonNullable<
+    paths['/api/v1/legal-texts']['get']['parameters']['query']
+  >['sort']
+>
+
 /** Paginated list of legal texts with optional filters and free-text query. */
 export async function listTexts(params?: {
   q?: string
@@ -86,6 +97,10 @@ export async function listTexts(params?: {
   status?: LegalStatus
   /** One or more theme tags. ANY-match — repeat for multi-theme. */
   theme?: string[]
+  /** Inclusive year range applied against publication_date. */
+  year_from?: number
+  year_to?: number
+  sort?: LegalTextSort
   limit?: number
   offset?: number
 }) {

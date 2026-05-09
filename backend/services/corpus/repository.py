@@ -286,7 +286,23 @@ class CorpusRepository:
                 nullslast(desc(LegalText.published_at)),
                 desc(LegalText.id),
             ]
-        else:  # "publication_date" — historical publication date
+        elif sort == "oldest":
+            # Historical publication date, oldest first. NULLs last so
+            # undated texts don't dominate the head of the list.
+            order_clauses = [
+                nullslast(LegalText.publication_date.asc()),
+                LegalText.id.asc(),
+            ]
+        elif sort == "alphabetical":
+            # Title sort using the French title (the primary editorial
+            # title). Postgres' default collation ordering is reasonable
+            # for French; the collation can be tuned per-column later if
+            # diacritic ordering becomes a problem in practice.
+            order_clauses = [
+                nullslast(LegalText.title_fr.asc()),
+                LegalText.id.asc(),
+            ]
+        else:  # "publication_date" — historical publication date, newest first
             order_clauses = [
                 nullslast(desc(LegalText.publication_date)),
                 desc(LegalText.id),
