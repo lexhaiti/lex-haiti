@@ -653,6 +653,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search
+         * @description Single-call cross-entity search.
+         *
+         *     Returns the top legal-text hits (with article snippets) and the top
+         *     matching Moniteur issues. The frontend renders each list under its
+         *     own section so the visitor can pick the right entity directly,
+         *     without having to know in advance which kind of result they want.
+         */
+        get: operations["global_search_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1143,6 +1168,28 @@ export interface components {
          * @enum {string}
          */
         ExtractionMethod: "regex" | "llm" | "manual";
+        /**
+         * GlobalSearchResponse
+         * @description Cross-entity search results for the landing-page search bar.
+         *
+         *     Returns ranked legal-text hits (with their matched-article snippets,
+         *     same shape as the dedicated /legal-texts/search endpoint) plus the
+         *     Moniteur issues whose number / edition label / year matched the
+         *     query. The frontend renders each list under its own section so the
+         *     user can pick the right entity directly.
+         */
+        GlobalSearchResponse: {
+            /** Query */
+            query: string;
+            /** Legal Texts */
+            legal_texts: components["schemas"]["SearchHit"][];
+            /** Moniteur Issues */
+            moniteur_issues: components["schemas"]["MoniteurIssueRead"][];
+            /** Total Legal Texts */
+            total_legal_texts: number;
+            /** Total Moniteur Issues */
+            total_moniteur_issues: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3090,6 +3137,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoniteurEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_api_v1_search_get: {
+        parameters: {
+            query: {
+                /** @description Free-text search query. */
+                q: string;
+                legal_text_limit?: number;
+                moniteur_issue_limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalSearchResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,0 +1,434 @@
+'use client'
+
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { motion } from 'framer-motion'
+import {
+  ArrowRight,
+  Calendar,
+  FileText,
+  Loader2,
+  Newspaper,
+  Search,
+  SearchX,
+} from 'lucide-react'
+import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
+import { LawCard } from '@/components/shared/LawCard'
+import { useT } from '@/i18n/useT'
+import {
+  globalSearch,
+  type GlobalSearchResponse,
+} from '@/lib/api/endpoints'
+import { cn } from '@/lib/utils'
+
+const MONTHS_FR = [
+  '',
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+]
+
+function formatLongDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return iso
+  const day = Number.parseInt(m[3], 10)
+  const month = Number.parseInt(m[2], 10)
+  return `${day} ${MONTHS_FR[month] ?? ''} ${m[1]}`
+}
+
+function smartIssueNumber(raw: string): string {
+  // Mirror the rule used elsewhere: prepend "N°" only when the issue
+  // number starts with a digit, so a stored "Spécial N° 5" doesn't
+  // become "N° Spécial N° 5".
+  return /^[0-9]/.test(raw) ? `N° ${raw}` : raw
+}
+
+// ---------------------------------------------------------------------------
+// Inline search field — same band as the StandardPageHeader, lives inside it
+// ---------------------------------------------------------------------------
+
+function SearchBar({
+  initial,
+  onSubmit,
+  lang,
+}: {
+  initial: string
+  onSubmit: (q: string) => void
+  lang: 'fr' | 'ht'
+}) {
+  const [value, setValue] = useState(initial)
+
+  useEffect(() => {
+    setValue(initial)
+  }, [initial])
+
+  return (
+    <motion.form
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit(value.trim())
+      }}
+      className="mt-8 flex items-stretch gap-0 rounded-lg overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow"
+      role="search"
+    >
+      <div className="relative flex-1 min-w-0">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <input
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={
+            lang === 'fr'
+              ? 'Rechercher une loi, un numéro CL, un Moniteur…'
+              : 'Chèche yon lwa, yon nimewo CL, yon Moniteur…'
+          }
+          aria-label={lang === 'fr' ? 'Rechercher' : 'Chèche'}
+          className="w-full h-14 pl-11 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
+          style={{ fontSize: '16px' }}
+        />
+      </div>
+      <button
+        type="submit"
+        aria-label={lang === 'fr' ? 'Rechercher' : 'Chèche'}
+        className="inline-flex items-center gap-2 px-5 sm:px-7 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
+      >
+        <Search className="w-4 h-4" aria-hidden />
+        <span className="hidden sm:inline">
+          {lang === 'fr' ? 'Rechercher' : 'Chèche'}
+        </span>
+      </button>
+    </motion.form>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Moniteur issue card — small, link to /moniteur/[id]
+// ---------------------------------------------------------------------------
+
+function MoniteurCard({
+  issue,
+  lang,
+}: {
+  issue: GlobalSearchResponse['moniteur_issues'][number]
+  lang: 'fr' | 'ht'
+}) {
+  const numberDisplay = smartIssueNumber(issue.number)
+  return (
+    <Link
+      href={`/moniteur/${issue.id}`}
+      className="group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 transition-all hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]"
+    >
+      <div className="flex-shrink-0 p-3 rounded-xl bg-primary/5 border border-primary/10 text-primary">
+        <Newspaper className="w-6 h-6" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+          {lang === 'fr' ? 'Le Moniteur' : 'Moniteur'} · {issue.year}
+        </div>
+        <div className="text-base font-bold text-slate-900 truncate">
+          {numberDisplay}
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+          {issue.publication_date && (
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatLongDate(issue.publication_date)}
+            </span>
+          )}
+          {issue.edition_label && <span>{issue.edition_label}</span>}
+        </div>
+      </div>
+      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+    </Link>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+function SearchPageInner() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { language } = useT()
+  const lang: 'fr' | 'ht' = language === 'ht' ? 'ht' : 'fr'
+
+  // Read the query from the URL — single source of truth so deep links
+  // and back-button navigation stay coherent.
+  const query = searchParams?.get('q')?.trim() ?? ''
+
+  const [data, setData] = useState<GlobalSearchResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!query) {
+      setData(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    globalSearch({
+      q: query,
+      legal_text_limit: 20,
+      moniteur_issue_limit: 10,
+    })
+      .then((res) => {
+        if (cancelled) return
+        setData(res)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setError(
+          lang === 'fr'
+            ? 'Erreur lors de la recherche.'
+            : 'Erè pandan rechèch la.',
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [query, lang])
+
+  function navigateToQuery(q: string) {
+    if (!q) {
+      router.push('/recherche')
+      return
+    }
+    router.push(`/recherche?q=${encodeURIComponent(q)}`)
+  }
+
+  const totals = useMemo(() => {
+    if (!data) return { laws: 0, issues: 0, total: 0 }
+    return {
+      laws: data.total_legal_texts,
+      issues: data.total_moniteur_issues,
+      total: data.total_legal_texts + data.total_moniteur_issues,
+    }
+  }, [data])
+
+  const headerTitle = query
+    ? lang === 'fr'
+      ? `Résultats pour « ${query} »`
+      : `Rezilta pou « ${query} »`
+    : lang === 'fr'
+      ? 'Rechercher'
+      : 'Chèche'
+
+  const headerSubtitle = query
+    ? loading
+      ? lang === 'fr' ? 'Recherche en cours…' : 'Rechèch ap fèt…'
+      : lang === 'fr'
+        ? `${totals.total} résultat${totals.total > 1 ? 's' : ''} dans la législation et le Moniteur.`
+        : `${totals.total} rezilta nan lejislasyon an ak Moniteur la.`
+    : lang === 'fr'
+      ? "Cherchez une loi par son titre, son numéro CL ou son numéro de Moniteur."
+      : 'Chèche yon lwa pa tit li, nimewo CL li oswa nimewo Moniteur li.'
+
+  return (
+    <div className="min-h-screen bg-white">
+      <StandardPageHeader
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        icon={Search}
+        breadcrumbs={[
+          { label: lang === 'fr' ? 'Accueil' : 'Akèy', href: '/' },
+          { label: lang === 'fr' ? 'Recherche' : 'Rechèch' },
+        ]}
+      >
+        <SearchBar initial={query} onSubmit={navigateToQuery} lang={lang} />
+      </StandardPageHeader>
+
+      <div className="container py-12 lg:py-16">
+        {!query && (
+          <EmptyPrompt lang={lang} />
+        )}
+
+        {query && loading && (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-8 h-8 text-slate-300 animate-spin" />
+          </div>
+        )}
+
+        {query && !loading && error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
+            {error}
+          </div>
+        )}
+
+        {query && !loading && !error && data && totals.total === 0 && (
+          <NoResults query={query} lang={lang} />
+        )}
+
+        {query && !loading && !error && data && totals.total > 0 && (
+          <div className="flex flex-col gap-12">
+            {data.legal_texts.length > 0 && (
+              <section aria-labelledby="laws-heading">
+                <SectionHeader
+                  id="laws-heading"
+                  icon={FileText}
+                  label={lang === 'fr' ? 'Lois & Codes' : 'Lwa & Kòd'}
+                  count={data.total_legal_texts}
+                  shownCount={data.legal_texts.length}
+                  seeAllHref={`/lois?q=${encodeURIComponent(query)}`}
+                  lang={lang}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6 mt-6">
+                  {data.legal_texts.map((hit, i) => (
+                    <LawCard
+                      key={hit.text.id}
+                      item={hit.text}
+                      language={lang}
+                      cardStyle="grid"
+                      index={i}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {data.moniteur_issues.length > 0 && (
+              <section aria-labelledby="moniteur-heading">
+                <SectionHeader
+                  id="moniteur-heading"
+                  icon={Newspaper}
+                  label={lang === 'fr' ? 'Numéros du Moniteur' : 'Nimewo Moniteur'}
+                  count={data.total_moniteur_issues}
+                  shownCount={data.moniteur_issues.length}
+                  seeAllHref="/moniteur"
+                  lang={lang}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 mt-6">
+                  {data.moniteur_issues.map((issue) => (
+                    <MoniteurCard key={issue.id} issue={issue} lang={lang} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SectionHeader({
+  id,
+  icon: Icon,
+  label,
+  count,
+  shownCount,
+  seeAllHref,
+  lang,
+}: {
+  id: string
+  icon: typeof FileText
+  label: string
+  count: number
+  shownCount: number
+  seeAllHref: string
+  lang: 'fr' | 'ht'
+}) {
+  return (
+    <div className="flex items-end justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <h2
+            id={id}
+            className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500"
+          >
+            {label}
+          </h2>
+          <p className="text-base font-bold text-slate-900 mt-0.5">
+            {count} {count === 1 ? (lang === 'fr' ? 'résultat' : 'rezilta') : (lang === 'fr' ? 'résultats' : 'rezilta')}
+          </p>
+        </div>
+      </div>
+      {count > shownCount && (
+        <Link
+          href={seeAllHref}
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:gap-1.5 transition-all"
+        >
+          {lang === 'fr' ? 'Voir tout' : 'Wè tout'}
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function EmptyPrompt({ lang }: { lang: 'fr' | 'ht' }) {
+  const examples =
+    lang === 'fr'
+      ? ['Constitution 1987', 'CL-007-09-09', 'Code Civil', 'Spécial N° 5']
+      : ['Konstitisyon 1987', 'CL-007-09-09', 'Kòd Sivil', 'Spécial N° 5']
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center bg-slate-50/50">
+      <Search className="w-10 h-10 mx-auto text-slate-300 mb-4" />
+      <p className="text-slate-500">
+        {lang === 'fr'
+          ? 'Tapez votre recherche ci-dessus pour explorer la législation.'
+          : 'Tape rechèch ou anwo a pou eksplore lejislasyon an.'}
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          {lang === 'fr' ? 'Essayer' : 'Eseye'}
+        </span>
+        {examples.map((ex) => (
+          <Link
+            key={ex}
+            href={`/recherche?q=${encodeURIComponent(ex)}`}
+            className="px-3 py-1 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition-colors"
+          >
+            {ex}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NoResults({ query, lang }: { query: string; lang: 'fr' | 'ht' }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center">
+      <SearchX className="w-10 h-10 mx-auto text-slate-300 mb-4" />
+      <p className="text-slate-700 font-bold mb-1">
+        {lang === 'fr'
+          ? `Aucun résultat pour « ${query} ».`
+          : `Pa gen okenn rezilta pou « ${query} ».`}
+      </p>
+      <p className="text-sm text-slate-500 max-w-md mx-auto">
+        {lang === 'fr'
+          ? "Vérifiez l'orthographe ou essayez des termes plus généraux."
+          : 'Verifye òtograf la oswa eseye mo pi jeneral.'}
+      </p>
+    </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-slate-300 animate-spin" />
+        </div>
+      }
+    >
+      <SearchPageInner />
+    </Suspense>
+  )
+}

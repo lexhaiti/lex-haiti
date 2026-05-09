@@ -21,6 +21,8 @@ export type PaginatedArticlesResponse =
 export type PaginatedSearchResponse =
   components['schemas']['PaginatedSearchResponse']
 export type SearchHit = components['schemas']['SearchHit']
+export type GlobalSearchResponse =
+  components['schemas']['GlobalSearchResponse']
 export type LegalCategory = components['schemas']['LegalCategory']
 export type CodeSubcategory = components['schemas']['CodeSubcategory']
 export type LegalStatus = components['schemas']['LegalStatus']
@@ -93,6 +95,19 @@ export async function searchTexts(params: {
   offset?: number
 }): Promise<PaginatedSearchResponse> {
   return apiGet<PaginatedSearchResponse>('/legal-texts/search', { params })
+}
+
+/**
+ * Cross-entity search — returns matching laws (with article snippets) +
+ * matching Moniteur issues in a single call. Backs the landing-page
+ * hero search and the dedicated `/recherche` results page.
+ */
+export async function globalSearch(params: {
+  q: string
+  legal_text_limit?: number
+  moniteur_issue_limit?: number
+}): Promise<GlobalSearchResponse> {
+  return apiGet<GlobalSearchResponse>('/search', { params })
 }
 
 /** Detail by slug. `include` controls how much of the related graph loads. */

@@ -9,8 +9,9 @@ import re
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import cast, desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.types import String
 
 from packages.schemas.enums import (
     EditorialStatus,
@@ -95,6 +96,49 @@ class MoniteurRepository:
             .offset(offset)
             .limit(limit)
         )
+        rows = list(self.session.execute(stmt).scalars().all())
+        return rows, total
+
+    def search_issues(
+        self,
+        q: str,
+        *,
+        limit: int = 10,
+        published_only: bool = True,
+    ) -> Tuple[List[MoniteurIssue], int]:
+        """Substring match across the issue's identifier-ish fields.
+
+        Used by the global /search endpoint to surface a Moniteur issue
+        directly when a visitor types a number or part of an edition
+        label. We don't run FTS here — the search surface is short
+        (number, edition label, year) and ILIKE on a tiny corpus is
+        plenty fast and predictable.
+        """
+        limit = max(1, min(limit, 50))
+        needle = f"%{q.strip()}%"
+
+        clauses = [
+            MoniteurIssue.number.ilike(needle),
+            MoniteurIssue.edition_label.ilike(needle),
+            cast(MoniteurIssue.year, String).ilike(needle),
+        ]
+
+        stmt = select(MoniteurIssue).where(or_(*clauses))
+        if published_only:
+            stmt = stmt.where(
+                MoniteurIssue.processing_status == MoniteurIssueStatus.published
+            )
+
+        total = int(
+            self.session.execute(
+                select(func.count()).select_from(stmt.subquery())
+            ).scalar_one()
+        )
+
+        stmt = stmt.order_by(
+            desc(MoniteurIssue.publication_date),
+            desc(MoniteurIssue.id),
+        ).limit(limit)
         rows = list(self.session.execute(stmt).scalars().all())
         return rows, total
 

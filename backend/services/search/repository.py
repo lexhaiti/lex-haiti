@@ -79,29 +79,50 @@ class SearchRepository:
                   AND av.editorial_status = 'published'
             ),
             text_matches AS (
-                -- Rank against title + description + preamble (preamble_fr
-                -- holds full body text for legal_texts that haven't been
-                -- structured into articles yet — e.g. historical constitutions).
-                -- TODO: when corpus grows, denormalize this into a STORED
-                -- generated tsvector column to avoid recomputing per query.
+                -- Rank against title + description + preamble + identifier
+                -- fields. The identifier fields (slug, moniteur_ref, the
+                -- promoting Moniteur entry's detected_number) carry the
+                -- alphanumeric loi numbers like "CL-007-09-09" that users
+                -- type verbatim into the search bar but that aren't in the
+                -- prose of title_fr / description_fr.
+                --
+                -- Hyphens are split to spaces before tokenizing so
+                -- plainto_tsquery's hyphen-splitting tokenization aligns
+                -- with the source. preamble_fr also holds the full body
+                -- text for legal_texts that haven't been structured into
+                -- articles yet (e.g. historical constitutions).
+                --
+                -- A LATERAL subquery builds the tsvector once per row so
+                -- the source isn't duplicated between the SELECT and the
+                -- WHERE.
+                --
+                -- TODO: when the corpus grows, materialize this into a
+                -- STORED generated tsvector column to avoid recomputing
+                -- per query.
                 SELECT
                     lt.id AS legal_text_id,
-                    ts_rank_cd(
-                        to_tsvector(
-                            'french',
-                            coalesce(lt.title_fr, '') || ' ' ||
-                            coalesce(lt.description_fr, '') || ' ' ||
-                            coalesce(lt.preamble_fr, '')
-                        ),
-                        plainto_tsquery('french', :q)
-                    ) AS rank
+                    ts_rank_cd(s.tsv, plainto_tsquery('french', :q)) AS rank
                 FROM public_corpus.legal_texts lt
-                WHERE to_tsvector(
+                CROSS JOIN LATERAL (
+                    SELECT to_tsvector(
                         'french',
                         coalesce(lt.title_fr, '') || ' ' ||
                         coalesce(lt.description_fr, '') || ' ' ||
-                        coalesce(lt.preamble_fr, '')
-                      ) @@ plainto_tsquery('french', :q)
+                        coalesce(lt.preamble_fr, '') || ' ' ||
+                        replace(coalesce(lt.slug, ''), '-', ' ') || ' ' ||
+                        replace(coalesce(lt.moniteur_ref, ''), '-', ' ') || ' ' ||
+                        coalesce((
+                            SELECT string_agg(
+                                replace(me.detected_number, '-', ' '),
+                                ' '
+                            )
+                            FROM public_corpus.moniteur_entries me
+                            WHERE me.promoted_legal_text_id = lt.id
+                              AND me.detected_number IS NOT NULL
+                        ), '')
+                    ) AS tsv
+                ) s
+                WHERE s.tsv @@ plainto_tsquery('french', :q)
                   AND lt.editorial_status = 'published'
             ),
             scored AS (

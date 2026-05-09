@@ -42,7 +42,9 @@ export default function HeroSection() {
   const goSearch = (raw: string) => {
     const q = raw.trim()
     if (!q) return
-    router.push(`/lois?q=${encodeURIComponent(q)}`)
+    // Cross-entity results page — surfaces matching laws AND Moniteur
+    // issues for queries like "CL-007-09-09" or "Spécial N° 5".
+    router.push(`/recherche?q=${encodeURIComponent(q)}`)
   }
 
   const onSubmit = (e: React.FormEvent) => {

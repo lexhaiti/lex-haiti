@@ -33,7 +33,10 @@ export default function HeroSearch() {
   function goSearch(q: string) {
     const trimmed = q.trim()
     if (!trimmed) return
-    router.push(`/lois?q=${encodeURIComponent(trimmed)}`)
+    // Route to the cross-entity results page so a query like "CL-007-09-09"
+    // or "Spécial N° 5" surfaces both matching laws and Moniteur issues.
+    // /lois?q=… still works for in-listing filtered search.
+    router.push(`/recherche?q=${encodeURIComponent(trimmed)}`)
   }
 
   function onSubmit(e: React.FormEvent) {
