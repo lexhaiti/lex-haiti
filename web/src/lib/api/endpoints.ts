@@ -337,6 +337,20 @@ export async function parseMoniteurIssue(id: number) {
   )
 }
 
+export type SommaireEntryInput = components['schemas']['SommaireEntryInput']
+
+/** Pre-fill the editor's known sommaire so the parser can skip boundary
+ *  detection and OCR per declared page range instead. */
+export async function setMoniteurSommaire(
+  id: number,
+  entries: SommaireEntryInput[],
+) {
+  return apiPost<MoniteurIssueWithEntries>(
+    `/moniteur/issues/${id}/sommaire`,
+    { entries },
+  )
+}
+
 /** Hard-delete a Moniteur issue (and its entries + uploaded PDF). */
 export async function deleteMoniteurIssue(id: number) {
   const r = await fetch(`/api/v1/moniteur/issues/${id}`, {

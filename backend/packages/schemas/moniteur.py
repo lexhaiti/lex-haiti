@@ -130,6 +130,40 @@ class MoniteurIssueWithEntries(MoniteurIssueRead):
     entries: List[MoniteurEntryRead] = []
 
 
+class SommaireEntryInput(BaseModel):
+    """One pre-filled sommaire entry, supplied by the editor at upload time.
+
+    The Moniteur's front page always carries a sommaire — the editor knows
+    the type, title, and page range of every document before OCR runs.
+    Pre-filling these turns the parser's hardest job (boundary detection
+    on noisy OCR) into a deterministic page-range slice. Each pre-filled
+    entry becomes a `MoniteurEntry` row before parsing; the parser then
+    fills `raw_text` from the OCR output for that entry's pages without
+    inventing boundaries.
+
+    All fields except the type and page range are optional — the parser
+    will populate `detected_number` / `detected_date` from the OCR if the
+    editor leaves them blank.
+    """
+
+    detected_category: MoniteurDocumentType
+    detected_title: Optional[str] = None
+    detected_number: Optional[str] = None
+    page_from: int
+    page_to: int
+
+
+class SommaireBulkInput(BaseModel):
+    """Wrapper for the sommaire endpoint — N entries at once.
+
+    Replaces (not merges) any existing pending entries on the issue,
+    matching the lifecycle of the heuristic parser which also clears
+    pending entries before re-running.
+    """
+
+    entries: List[SommaireEntryInput]
+
+
 class EntryReviewInput(BaseModel):
     """Editor input for an entry review.
 

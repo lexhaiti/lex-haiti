@@ -579,6 +579,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moniteur/issues/{issue_id}/sommaire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Sommaire
+         * @description Pre-fill the issue's sommaire from the editor's manual entry.
+         *
+         *     Each entry becomes a `MoniteurEntry` row with empty `raw_text`. The
+         *     next call to `/parse` will OCR the PDF and populate `raw_text` from
+         *     the declared page range — no boundary detection needed.
+         *
+         *     Replaces (not merges) any existing pending entries on the issue;
+         *     promoted entries are kept untouched.
+         */
+        post: operations["set_sommaire_api_v1_moniteur_issues__issue_id__sommaire_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/issues/{issue_id}/parse": {
         parameters: {
             query?: never;
@@ -1932,6 +1959,18 @@ export interface components {
             snippet_ht: string;
         };
         /**
+         * SommaireBulkInput
+         * @description Wrapper for the sommaire endpoint — N entries at once.
+         *
+         *     Replaces (not merges) any existing pending entries on the issue,
+         *     matching the lifecycle of the heuristic parser which also clears
+         *     pending entries before re-running.
+         */
+        SommaireBulkInput: {
+            /** Entries */
+            entries: components["schemas"]["SommaireEntryInput"][];
+        };
+        /**
          * SommaireEntry
          * @description Lightweight summary of an entry for the list-page cards.
          */
@@ -1941,6 +1980,33 @@ export interface components {
             title?: string | null;
             /** Promoted Slug */
             promoted_slug?: string | null;
+        };
+        /**
+         * SommaireEntryInput
+         * @description One pre-filled sommaire entry, supplied by the editor at upload time.
+         *
+         *     The Moniteur's front page always carries a sommaire — the editor knows
+         *     the type, title, and page range of every document before OCR runs.
+         *     Pre-filling these turns the parser's hardest job (boundary detection
+         *     on noisy OCR) into a deterministic page-range slice. Each pre-filled
+         *     entry becomes a `MoniteurEntry` row before parsing; the parser then
+         *     fills `raw_text` from the OCR output for that entry's pages without
+         *     inventing boundaries.
+         *
+         *     All fields except the type and page range are optional — the parser
+         *     will populate `detected_number` / `detected_date` from the OCR if the
+         *     editor leaves them blank.
+         */
+        SommaireEntryInput: {
+            detected_category: components["schemas"]["MoniteurDocumentType"];
+            /** Detected Title */
+            detected_title?: string | null;
+            /** Detected Number */
+            detected_number?: string | null;
+            /** Page From */
+            page_from: number;
+            /** Page To */
+            page_to: number;
         };
         /**
          * ThemeSource
@@ -3040,6 +3106,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoniteurIssueRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_sommaire_api_v1_moniteur_issues__issue_id__sommaire_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SommaireBulkInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurIssueWithEntries"];
                 };
             };
             /** @description Validation Error */

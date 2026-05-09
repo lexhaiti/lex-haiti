@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   FileText,
   Loader2,
+  Plus,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -17,8 +19,10 @@ import {
   createMoniteurIssue,
   extractMoniteurMetadata,
   parseMoniteurIssue,
+  setMoniteurSommaire,
   uploadMoniteurPdf,
   type ExtractedMoniteurMetadata,
+  type SommaireEntryInput,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 
@@ -43,9 +47,23 @@ const COPY = {
     pubDate: 'Date de publication',
     edition: 'Mention spéciale (facultatif)',
     editionHint: 'Ex. Numéro spécial',
+    s3Title: 'Sommaire (facultatif)',
+    s3Help:
+      "Pré-remplissez le sommaire pour donner à l'OCR la structure exacte du numéro. Sinon, l'analyse heuristique tentera de détecter les bornes seule.",
+    addEntry: 'Ajouter un document',
+    skipSommaire: "Sans sommaire — laisser l'OCR détecter",
+    sommaireType: 'Type',
+    sommaireTitle: 'Titre',
+    sommaireNumber: 'N° (facultatif)',
+    sommairePages: 'Pages',
+    sommairePagesHint: 'Ex. 3 → 7',
+    sommairePageFrom: 'De',
+    sommairePageTo: 'À',
+    removeEntry: 'Retirer',
     submit: "Importer et lancer l'analyse",
     submitting: 'Création du numéro…',
     uploading: 'Téléversement du PDF…',
+    sendingSommaire: 'Envoi du sommaire…',
     parsing: 'Analyse en cours…',
     success: 'Import terminé.',
     successWithCandidates: (n: number) =>
@@ -75,9 +93,23 @@ const COPY = {
     pubDate: 'Dat piblikasyon',
     edition: 'Mansyon espesyal (opsyonèl)',
     editionHint: 'Egz. Nimewo espesyal',
+    s3Title: 'Somè (opsyonèl)',
+    s3Help:
+      "Pre-ranpli somè a pou bay OCR a estrikti egzakt nimewo a. Si non, analiz otomatik la ap eseye detekte yo pou kont li.",
+    addEntry: 'Ajoute yon dokiman',
+    skipSommaire: 'San somè — kite OCR a detekte',
+    sommaireType: 'Tip',
+    sommaireTitle: 'Tit',
+    sommaireNumber: 'N° (opsyonèl)',
+    sommairePages: 'Paj',
+    sommairePagesHint: 'Egz. 3 → 7',
+    sommairePageFrom: 'Soti',
+    sommairePageTo: 'Rive',
+    removeEntry: 'Retire',
     submit: 'Enpòte epi analize',
     submitting: 'Ap kreye nimewo a…',
     uploading: 'Ap telechaje PDF la…',
+    sendingSommaire: 'Ap voye somè a…',
     parsing: 'Analiz an kou…',
     success: 'Enpòtasyon fini.',
     successWithCandidates: (n: number) =>
@@ -96,8 +128,46 @@ type Phase =
   | 'review'
   | 'creating'
   | 'uploading'
+  | 'sendingSommaire'
   | 'parsing'
   | 'done'
+
+// Document types the editor can pick from when pre-filling the sommaire.
+// Mirrors backend MoniteurDocumentType. Kept here (not imported) because
+// the OpenAPI types are a frozen string literal union and we need labels
+// alongside the values.
+const SOMMAIRE_DOC_TYPES: ReadonlyArray<{
+  value: SommaireEntryInput['detected_category']
+  fr: string
+  ht: string
+}> = [
+  { value: 'loi', fr: 'Loi', ht: 'Lwa' },
+  { value: 'decret', fr: 'Décret', ht: 'Dekrè' },
+  { value: 'arrete', fr: 'Arrêté', ht: 'Arete' },
+  { value: 'circulaire', fr: 'Circulaire', ht: 'Sirkilè' },
+  { value: 'convention', fr: 'Convention', ht: 'Konvansyon' },
+  { value: 'ordonnance', fr: 'Ordonnance', ht: 'Òdonans' },
+  { value: 'communique', fr: 'Communiqué', ht: 'Kominike' },
+  { value: 'promulgation', fr: 'Promulgation', ht: 'Pwomilgasyon' },
+  { value: 'errata', fr: 'Errata', ht: 'Erata' },
+  { value: 'autre', fr: 'Autre', ht: 'Lòt' },
+]
+
+// One row in the editor-facing sommaire form. Distinguished from the API
+// type by carrying a synthetic uid so React can key list items as the
+// editor adds / removes entries.
+type SommaireRow = SommaireEntryInput & { uid: string }
+
+function emptyRow(): SommaireRow {
+  return {
+    uid: Math.random().toString(36).slice(2),
+    detected_category: 'loi',
+    detected_title: '',
+    detected_number: '',
+    page_from: 1,
+    page_to: 1,
+  }
+}
 
 export default function MoniteurImportPanel() {
   const router = useRouter()
@@ -124,6 +194,23 @@ export default function MoniteurImportPanel() {
   const [err, setErr] = useState<string | null>(null)
   const [issueId, setIssueId] = useState<number | null>(null)
   const [candidatesCount, setCandidatesCount] = useState(0)
+
+  // Sommaire pre-fill — optional. If the editor adds rows, they're sent
+  // to the backend before /parse so the OCR pipeline slices the PDF by
+  // declared page range instead of running heuristic boundary detection.
+  const [sommaireRows, setSommaireRows] = useState<SommaireRow[]>([])
+
+  function addSommaireRow() {
+    setSommaireRows((rows) => [...rows, emptyRow()])
+  }
+  function updateSommaireRow(uid: string, patch: Partial<SommaireRow>) {
+    setSommaireRows((rows) =>
+      rows.map((r) => (r.uid === uid ? { ...r, ...patch } : r)),
+    )
+  }
+  function removeSommaireRow(uid: string) {
+    setSommaireRows((rows) => rows.filter((r) => r.uid !== uid))
+  }
 
   async function handleFileSelected(file: File) {
     setPdfFile(file)
@@ -157,6 +244,7 @@ export default function MoniteurImportPanel() {
     setErr(null)
     setIssueId(null)
     setCandidatesCount(0)
+    setSommaireRows([])
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -175,6 +263,27 @@ export default function MoniteurImportPanel() {
       setIssueId(issue.id)
       setPhase('uploading')
       await uploadMoniteurPdf(issue.id, pdfFile)
+
+      // If the editor pre-filled the sommaire, send it now — the parse
+      // pipeline will detect the pre-existing entries and switch to
+      // page-range slicing instead of heuristic boundary detection.
+      const filledRows = sommaireRows.filter(
+        (r) => r.detected_category && r.page_from && r.page_to,
+      )
+      if (filledRows.length > 0) {
+        setPhase('sendingSommaire')
+        await setMoniteurSommaire(
+          issue.id,
+          filledRows.map((r) => ({
+            detected_category: r.detected_category,
+            detected_title: r.detected_title?.trim() || null,
+            detected_number: r.detected_number?.trim() || null,
+            page_from: r.page_from,
+            page_to: r.page_to,
+          })),
+        )
+      }
+
       // Kick off parsing without blocking. Real Moniteur PDFs can be 200+
       // scanned pages — synchronous OCR takes 10-20 min and would time out
       // any HTTP request. The editor sees the issue land in the dashboard
@@ -275,7 +384,7 @@ export default function MoniteurImportPanel() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} id="moniteur-import-form" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field
               label={copy.number}
               hint={copy.numberHint}
@@ -335,86 +444,152 @@ export default function MoniteurImportPanel() {
               />
             </Field>
 
-            <div className="sm:col-span-2 flex items-center justify-between gap-3 mt-2">
-              {phase === 'creating' && (
-                <span className="inline-flex items-center gap-2 text-sm text-primary">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {copy.submitting}
-                </span>
-              )}
-              {phase === 'uploading' && (
-                <span className="inline-flex items-center gap-2 text-sm text-primary">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {copy.uploading}
-                </span>
-              )}
-              {phase === 'parsing' && (
-                <span className="inline-flex items-center gap-2 text-sm text-primary">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {copy.parsing}
-                </span>
-              )}
-              {phase === 'done' && (
-                <div className="flex flex-col gap-1">
-                  <span className="inline-flex items-center gap-2 text-sm text-emerald-700 font-semibold">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {copy.success}{' '}
-                    {candidatesCount > 0 &&
-                      copy.successWithCandidates(candidatesCount)}
-                  </span>
-                  {candidatesCount === 0 && (
-                    /* Parse may still be running in the background. Tell the
-                       editor to expect candidates progressively, not panic
-                       when the count is 0 right after import. */
-                    <span className="text-xs text-slate-500">
-                      {copy.parsingHint}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="ml-auto flex items-center gap-3">
-                {phase === 'done' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={reset}
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-primary/40"
-                    >
-                      {copy.reset}
-                    </button>
-                    {/* Always show the review CTA — review page handles
-                        in-progress parse with its own status indicator,
-                        so the editor never gets stranded. */}
-                    <button
-                      type="button"
-                      onClick={goReview}
-                      className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90"
-                    >
-                      {copy.review}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={
-                      !pdfFile ||
-                      !number.trim() ||
-                      phase === 'creating' ||
-                      phase === 'uploading' ||
-                      phase === 'parsing' ||
-                      phase === 'extracting'
-                    }
-                    className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Upload className="w-4 h-4" />
-                    {copy.submit}
-                  </button>
-                )}
-              </div>
-            </div>
           </form>
         </StepCard>
+
+        {/* Step 3 — sommaire pre-fill (optional). The form's submit
+            button (in the action panel below) implicitly includes the
+            sommaire rows because handleSubmit reads `sommaireRows` from
+            React state, not from form fields. */}
+        <StepCard
+          n={3}
+          stepLabel={copy.step}
+          title={copy.s3Title}
+          help={copy.s3Help}
+          active={
+            phase === 'review' ||
+            phase === 'creating' ||
+            phase === 'uploading' ||
+            phase === 'sendingSommaire' ||
+            phase === 'parsing'
+          }
+          done={phase === 'done'}
+        >
+          {sommaireRows.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-5 py-6 text-center">
+              <p className="text-sm text-slate-500 mb-3">
+                {copy.skipSommaire}
+              </p>
+              <button
+                type="button"
+                onClick={addSommaireRow}
+                disabled={phase !== 'review' && phase !== 'idle'}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary/40 disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {copy.addEntry}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {sommaireRows.map((row, i) => (
+                <SommaireRowEditor
+                  key={row.uid}
+                  row={row}
+                  index={i}
+                  copy={copy}
+                  lang={lang}
+                  disabled={phase !== 'review' && phase !== 'idle'}
+                  onChange={(patch) => updateSommaireRow(row.uid, patch)}
+                  onRemove={() => removeSommaireRow(row.uid)}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addSommaireRow}
+                disabled={phase !== 'review' && phase !== 'idle'}
+                className="self-start inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary/40 disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {copy.addEntry}
+              </button>
+            </div>
+          )}
+        </StepCard>
+
+        {/* Action panel — submit / done / reset buttons. Outside the
+            StepCards so the action row is always visible at the bottom
+            of the flow regardless of which step is "active". */}
+        <div className="flex items-center justify-between gap-3 px-2">
+          {phase === 'creating' && (
+            <span className="inline-flex items-center gap-2 text-sm text-primary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {copy.submitting}
+            </span>
+          )}
+          {phase === 'uploading' && (
+            <span className="inline-flex items-center gap-2 text-sm text-primary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {copy.uploading}
+            </span>
+          )}
+          {phase === 'sendingSommaire' && (
+            <span className="inline-flex items-center gap-2 text-sm text-primary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {copy.sendingSommaire}
+            </span>
+          )}
+          {phase === 'parsing' && (
+            <span className="inline-flex items-center gap-2 text-sm text-primary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {copy.parsing}
+            </span>
+          )}
+          {phase === 'done' && (
+            <div className="flex flex-col gap-1">
+              <span className="inline-flex items-center gap-2 text-sm text-emerald-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4" />
+                {copy.success}{' '}
+                {candidatesCount > 0 &&
+                  copy.successWithCandidates(candidatesCount)}
+              </span>
+              {candidatesCount === 0 && (
+                <span className="text-xs text-slate-500">
+                  {copy.parsingHint}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            {phase === 'done' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-primary/40"
+                >
+                  {copy.reset}
+                </button>
+                <button
+                  type="button"
+                  onClick={goReview}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90"
+                >
+                  {copy.review}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <button
+                type="submit"
+                form="moniteur-import-form"
+                disabled={
+                  !pdfFile ||
+                  !number.trim() ||
+                  phase === 'creating' ||
+                  phase === 'uploading' ||
+                  phase === 'sendingSommaire' ||
+                  phase === 'parsing' ||
+                  phase === 'extracting'
+                }
+                className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload className="w-4 h-4" />
+                {copy.submit}
+              </button>
+            )}
+          </div>
+        </div>
 
         {err && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
@@ -464,6 +639,131 @@ function Field({
       {children}
       {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
     </label>
+  )
+}
+
+/**
+ * One row of the sommaire pre-fill editor — type, title, optional N°,
+ * and a page range. Visually a card so it stays readable when several
+ * rows stack up. Inline grid keeps fields aligned even on narrow
+ * viewports.
+ */
+function SommaireRowEditor({
+  row,
+  index,
+  copy,
+  lang,
+  disabled,
+  onChange,
+  onRemove,
+}: {
+  row: SommaireRow
+  index: number
+  copy: (typeof COPY)['fr']
+  lang: 'fr' | 'ht'
+  disabled: boolean
+  onChange: (patch: Partial<SommaireRow>) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
+          #{String(index + 1).padStart(2, '0')}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label={copy.removeEntry}
+          className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        {/* Type — 3 columns */}
+        <label className="sm:col-span-3 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+            {copy.sommaireType}
+          </span>
+          <select
+            value={row.detected_category}
+            disabled={disabled}
+            onChange={(e) =>
+              onChange({
+                detected_category:
+                  e.target.value as SommaireEntryInput['detected_category'],
+              })
+            }
+            className={inputCls}
+          >
+            {SOMMAIRE_DOC_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {lang === 'fr' ? t.fr : t.ht}
+              </option>
+            ))}
+          </select>
+        </label>
+        {/* Title — 5 columns */}
+        <label className="sm:col-span-5 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+            {copy.sommaireTitle}
+          </span>
+          <input
+            type="text"
+            value={row.detected_title ?? ''}
+            disabled={disabled}
+            onChange={(e) => onChange({ detected_title: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        {/* N° — 2 columns */}
+        <label className="sm:col-span-2 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+            {copy.sommaireNumber}
+          </span>
+          <input
+            type="text"
+            value={row.detected_number ?? ''}
+            disabled={disabled}
+            onChange={(e) => onChange({ detected_number: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        {/* Pages — 2 columns, two number inputs */}
+        <div className="sm:col-span-2 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+            {copy.sommairePages}
+          </span>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={1}
+              value={row.page_from}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange({ page_from: Number(e.target.value) || 1 })
+              }
+              aria-label={copy.sommairePageFrom}
+              className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
+            />
+            <span className="text-slate-300 text-xs">→</span>
+            <input
+              type="number"
+              min={1}
+              value={row.page_to}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange({ page_to: Number(e.target.value) || 1 })
+              }
+              aria-label={copy.sommairePageTo}
+              className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

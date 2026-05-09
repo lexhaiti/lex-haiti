@@ -31,6 +31,7 @@ from services.corpus.repository import CorpusRepository
 from services.corpus.themes import suggest_themes
 from services.ingestion.article_split import split_into_articles, split_preamble
 from services.ingestion.moniteur.parser import ParsedCandidate, run_pipeline
+from services.ingestion.ocr import extract_text_from_pdf
 
 
 class MoniteurRepository:
@@ -220,12 +221,90 @@ class MoniteurRepository:
         self.session.flush()
         return out
 
+    def set_sommaire_entries(
+        self,
+        issue: MoniteurIssue,
+        sommaire: List[dict],
+    ) -> List[MoniteurEntry]:
+        """Replace pending entries with editor-supplied sommaire stubs.
+
+        Each `sommaire` dict is expected to carry at least
+        `detected_category`, `page_from`, `page_to`, and optionally
+        `detected_title` / `detected_number`. The resulting entries
+        have no `raw_text` yet — the parser will fill that from
+        scoped OCR over the declared page range.
+
+        Promoted entries are kept as-is; only pending entries are
+        cleared, mirroring `replace_entries`.
+        """
+        for old in list(issue.entries):
+            if old.promoted_legal_text_id is None:
+                self.session.delete(old)
+        self.session.flush()
+
+        out: list[MoniteurEntry] = []
+        for i, item in enumerate(sommaire):
+            row = MoniteurEntry(
+                issue_id=issue.id,
+                position=i,
+                detected_category=item.get("detected_category"),
+                detected_title=item.get("detected_title"),
+                detected_number=item.get("detected_number"),
+                page_from=item.get("page_from"),
+                page_to=item.get("page_to"),
+                raw_text="",  # filled by run_parse_for_issue
+            )
+            self.session.add(row)
+            out.append(row)
+        self.session.flush()
+        return out
+
+    def fill_entries_from_pages(
+        self,
+        issue: MoniteurIssue,
+        pages: List[str],
+    ) -> List[MoniteurEntry]:
+        """Populate raw_text + provenance for pre-filled sommaire entries.
+
+        Pages are 1-indexed in the Moniteur's printed numbering, so we
+        translate to the 0-indexed pages array. If page_from / page_to
+        are out of range we silently clamp — the editor will see the
+        anomaly on review.
+        """
+        total = len(pages)
+        for entry in issue.entries:
+            if entry.promoted_legal_text_id is not None:
+                continue  # don't disturb already-promoted entries
+            pf = entry.page_from or 1
+            pt = entry.page_to or pf
+            lo = max(1, min(pf, total))
+            hi = max(lo, min(pt, total))
+            chunk = "\n\n".join(
+                pages[i] for i in range(lo - 1, hi) if pages[i].strip()
+            )
+            entry.raw_text = chunk
+            # Confidence is high — the boundaries were declared, not guessed.
+            entry.confidence = None
+        self.session.flush()
+        return list(issue.entries)
+
     # -------------------------------------------------------------------
     # Pipeline orchestration
     # -------------------------------------------------------------------
 
     def run_parse_for_issue(self, issue: MoniteurIssue) -> MoniteurIssue:
-        """OCR + parse the issue's PDF, write entries, update status."""
+        """OCR + parse the issue's PDF, write entries, update status.
+
+        Two flows depending on whether the editor pre-filled the sommaire:
+
+        - **Pre-filled path** — pending entries already exist with declared
+          `page_from`/`page_to`. We OCR the whole PDF once, then slice the
+          OCR output per entry. No boundary detection.
+
+        - **Heuristic path** — no pending entries. OCR + heuristic
+          boundary detection via `run_pipeline`, then create entries from
+          the parser's candidates.
+        """
         if not issue.file_url:
             issue.processing_status = MoniteurIssueStatus.failed
             issue.processing_error = "No file uploaded for this issue."
@@ -235,9 +314,20 @@ class MoniteurRepository:
         issue.processing_status = MoniteurIssueStatus.ocr_pending
         self.session.flush()
 
+        # Pending = pre-filled by the editor; promoted = already accepted
+        # and turned into a LegalText. We only consider the pending bucket
+        # when deciding which path to take.
+        pending_entries = [
+            e for e in issue.entries if e.promoted_legal_text_id is None
+        ]
+
         try:
-            parsed = run_pipeline(issue.file_url)
-            self.replace_entries(issue, parsed)
+            if pending_entries:
+                pages = extract_text_from_pdf(issue.file_url)
+                self.fill_entries_from_pages(issue, pages)
+            else:
+                parsed = run_pipeline(issue.file_url)
+                self.replace_entries(issue, parsed)
             issue.processing_status = MoniteurIssueStatus.parsed
             issue.processing_error = None
             issue.parsed_at = datetime.now(timezone.utc)

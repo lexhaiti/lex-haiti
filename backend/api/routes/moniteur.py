@@ -36,6 +36,7 @@ from packages.schemas.moniteur import (
     MoniteurIssueRead,
     MoniteurIssueUpdate,
     MoniteurIssueWithEntries,
+    SommaireBulkInput,
     SommaireEntry,
 )
 from services.ingestion.moniteur.repository import MoniteurRepository
@@ -317,6 +318,47 @@ def upload_pdf(
     db.commit()
     db.refresh(issue)
     return _to_read(issue)
+
+
+@router.post(
+    "/issues/{issue_id}/sommaire",
+    response_model=MoniteurIssueWithEntries,
+)
+def set_sommaire(
+    issue_id: int,
+    payload: SommaireBulkInput,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — auth dep
+):
+    """Pre-fill the issue's sommaire from the editor's manual entry.
+
+    Each entry becomes a `MoniteurEntry` row with empty `raw_text`. The
+    next call to `/parse` will OCR the PDF and populate `raw_text` from
+    the declared page range — no boundary detection needed.
+
+    Replaces (not merges) any existing pending entries on the issue;
+    promoted entries are kept untouched.
+    """
+    repo = MoniteurRepository(db)
+    issue = repo.get_issue(issue_id)
+    if not issue:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
+
+    payload_entries = [e.model_dump() for e in payload.entries]
+    repo.set_sommaire_entries(issue, payload_entries)
+    db.commit()
+
+    full = repo.get_issue_with_entries(issue.id)
+    out = MoniteurIssueWithEntries.model_validate(full)
+    out.entries_count = len(full.entries)
+    out.accepted_count = sum(
+        1 for e in full.entries
+        if e.review_status == MoniteurCandidateStatus.accepted
+    )
+    out.entries = [
+        MoniteurEntryRead.model_validate(e) for e in full.entries
+    ]
+    return out
 
 
 @router.post(
