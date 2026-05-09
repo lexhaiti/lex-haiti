@@ -125,6 +125,50 @@ class SearchRepository:
                 WHERE s.tsv @@ plainto_tsquery('french', :q)
                   AND lt.editorial_status = 'published'
             ),
+            identifier_matches AS (
+                -- Fuzzy fallback for loi-number-like queries. Postgres FTS
+                -- requires every token to match, so a single-character typo
+                -- in an identifier like "CL-007-07-09" (vs the real
+                -- "CL-007-09-09") returns nothing. pg_trgm's similarity
+                -- gives us a 0.0–1.0 score we threshold at 0.3 (the
+                -- pg_trgm default) to surface near-misses.
+                --
+                -- Only fires when the query LOOKS like an identifier (has
+                -- a hyphen, or is short and alphanumeric) — otherwise it
+                -- would slow down full-text queries and surface noisy
+                -- matches on substrings of common French words.
+                --
+                -- The ranks here are deliberately small (max 1.0) so a
+                -- clean FTS hit always beats a fuzzy identifier hit when
+                -- both fire.
+                SELECT
+                    lt.id AS legal_text_id,
+                    GREATEST(
+                        similarity(coalesce(lt.slug, ''), :q),
+                        similarity(coalesce(lt.moniteur_ref, ''), :q),
+                        coalesce((
+                            SELECT MAX(similarity(me.detected_number, :q))
+                            FROM public_corpus.moniteur_entries me
+                            WHERE me.promoted_legal_text_id = lt.id
+                              AND me.detected_number IS NOT NULL
+                        ), 0)
+                    ) AS rank
+                FROM public_corpus.legal_texts lt
+                WHERE :q ~ '^[A-Za-z0-9./_-]+$'
+                  AND (length(:q) <= 24 OR strpos(:q, '-') > 0)
+                  AND lt.editorial_status = 'published'
+                  AND (
+                    coalesce(lt.slug, '') % :q
+                    OR coalesce(lt.moniteur_ref, '') % :q
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public_corpus.moniteur_entries me
+                        WHERE me.promoted_legal_text_id = lt.id
+                          AND me.detected_number IS NOT NULL
+                          AND me.detected_number % :q
+                    )
+                  )
+            ),
             scored AS (
                 SELECT
                     legal_text_id,
@@ -138,6 +182,15 @@ class SearchRepository:
                 -- Boost title/description matches; they're more deliberate.
                 SELECT legal_text_id, rank * 1.5 AS rank, 0 AS matched
                 FROM text_matches
+
+                UNION ALL
+
+                -- Fuzzy identifier matches. Trigram similarity is naturally
+                -- in [0,1] and we keep it small so a clean FTS hit (which
+                -- can rank well above 1.0 with the *1.5 boost) always
+                -- outranks a fuzzy near-miss.
+                SELECT legal_text_id, rank, 0 AS matched
+                FROM identifier_matches
             ),
             aggregated AS (
                 SELECT
