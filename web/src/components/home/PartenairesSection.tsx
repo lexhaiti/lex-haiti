@@ -1,10 +1,10 @@
-'use client'
+// Server Component — no client state. Entrance animation handled by
+// tailwindcss-animate utilities instead of framer-motion.
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { ArrowRight, Building2, GraduationCap, Scale } from 'lucide-react'
-import { useT } from '@/i18n/useT'
 import { SectionHeading } from '@/components/shared/SectionHeading'
+import { getT } from '@/i18n/server'
 
 const COPY = {
   fr: {
@@ -33,10 +33,9 @@ const COPY = {
   },
 }
 
-export default function PartenairesSection() {
-  const { language } = useT()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+export default async function PartenairesSection() {
+  const t = await getT()
+  const copy = COPY[t.language]
 
   return (
     <section className="relative w-full bg-slate-50/40 py-16 lg:py-20 border-t border-slate-100">
@@ -48,38 +47,27 @@ export default function PartenairesSection() {
         />
 
         {/* Partner-types grid — dashed border indicates "open to partners",
-            not yet filled with logos. */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-          }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 mb-10"
-        >
-          {copy.types.map((t, i) => {
-            const Icon = t.icon
+            not yet filled with logos. The previous staggered framer-motion
+            reveal is replaced by a single CSS fade-in on mount; on a 3-up
+            grid the stagger nuance was barely visible anyway. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {copy.types.map((type, i) => {
+            const Icon = type.icon
             return (
-              <motion.div
+              <div
                 key={i}
-                variants={{
-                  hidden: { opacity: 0, y: 10 },
-                  visible: { opacity: 1, y: 0 },
-                }}
                 className="flex items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-5 transition-colors hover:border-primary/30 hover:bg-white"
               >
                 <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-primary/5 border border-primary/10 text-primary">
                   <Icon className="w-5 h-5" />
                 </div>
                 <span className="text-sm font-medium text-slate-700 leading-tight">
-                  {t.label}
+                  {type.label}
                 </span>
-              </motion.div>
+              </div>
             )
           })}
-        </motion.div>
+        </div>
 
         <Link
           href="/contact"

@@ -1,16 +1,16 @@
-'use client'
+// Server Component — fetches recent Moniteur issues at request time.
+// Was previously `'use client'` with a useEffect + skeleton fallback;
+// now the cards arrive in the SSR HTML, no first-paint placeholder.
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import { ArrowRight, Newspaper } from 'lucide-react'
-import { useLanguage } from '@/i18n/LanguageContext'
 import { SectionHeading } from '@/components/shared/SectionHeading'
 import { MoniteurIssueCard } from '@/components/shared/MoniteurIssueCard'
 import {
   listMoniteurIssues,
   type MoniteurIssueRead,
 } from '@/lib/api/endpoints'
+import { getT } from '@/i18n/server'
 
 const COPY = {
   fr: {
@@ -31,35 +31,25 @@ const COPY = {
   },
 }
 
-export default function MoniteurRecentSection() {
-  const { language } = useLanguage()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
+export default async function MoniteurRecentSection() {
+  const t = await getT()
+  const lang = t.language
   const copy = COPY[lang]
 
-  const [issues, setIssues] = useState<MoniteurIssueRead[] | null>(null)
-  const [total, setTotal] = useState(0)
+  // Home recents shows up to 4 — enough to feel like a real list,
+  // not so many that the section dominates the homepage. The /moniteur
+  // listing page handles deeper browsing.
+  let issues: MoniteurIssueRead[] = []
+  let total = 0
+  try {
+    const res = await listMoniteurIssues({ only_published: true, limit: 4 })
+    issues = res.items
+    total = res.total
+  } catch {
+    // Soft fail — homepage stays usable even if this section's API is down.
+  }
 
-  // Home recents shows up to 4 — enough to feel like a real list, not so
-  // many that the section dominates the homepage. The /moniteur listing
-  // page handles deeper browsing.
-  useEffect(() => {
-    let cancelled = false
-    listMoniteurIssues({ only_published: true, limit: 4 })
-      .then((res) => {
-        if (cancelled) return
-        setIssues(res.items)
-        setTotal(res.total)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setIssues([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const hasIssues = (issues?.length ?? 0) > 0
+  const hasIssues = issues.length > 0
 
   return (
     <section className="relative w-full bg-slate-50/40 py-16 lg:py-20 border-t border-slate-100">
@@ -77,56 +67,24 @@ export default function MoniteurRecentSection() {
           )}
         </div>
 
-        {!issues ? (
-          // Loading skeleton — three muted card placeholders so the section
-          // doesn't collapse to zero height before the API responds.
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-slate-200/80 bg-white animate-pulse h-44"
-              />
-            ))}
-          </div>
-        ) : !hasIssues ? (
+        {!hasIssues ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-500">
             <Newspaper className="w-8 h-8 mx-auto mb-3 text-slate-300" />
             <p>{copy.empty}</p>
           </div>
         ) : (
-          <motion.div
-            // `key` so the stagger animation re-runs cleanly when the
-            // recents list changes (e.g. on re-fetch); `animate` over
-            // `whileInView` so the section appears even if the user
-            // lands directly with the section already in view.
-            key={`recent-${total}`}
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
-            }}
-            // 4 cards in a 2x2 on tablet, single row on xl.
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5"
-          >
-            {issues!.map((issue) => (
-              <motion.div
-                key={issue.id}
-                variants={{
-                  hidden: { opacity: 0, y: 8 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-                className="h-full"
-              >
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {issues.map((issue) => (
+              <div key={issue.id} className="h-full">
                 <MoniteurIssueCard
                   issue={issue}
                   lang={lang}
                   variant="compact"
                   sommaireLimit={3}
                 />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         )}
 
         {hasIssues && (
@@ -144,4 +102,3 @@ export default function MoniteurRecentSection() {
     </section>
   )
 }
-

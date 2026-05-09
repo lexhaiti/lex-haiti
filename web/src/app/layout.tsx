@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import SiteShell from '@/components/layout/SiteShell'
 import Providers from './providers'
+import { getServerLanguage } from '@/i18n/server'
 
 export const metadata: Metadata = {
   title: {
@@ -23,13 +24,14 @@ export const metadata: Metadata = {
   ],
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const language = await getServerLanguage()
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang={language} suppressHydrationWarning>
       <body>
         {/* Skip-to-content link for keyboard/screen reader users */}
         <a
@@ -38,7 +40,7 @@ export default function RootLayout({
         >
           Aller au contenu principal
         </a>
-        <Providers>
+        <Providers initialLanguage={language}>
           <SiteShell>{children}</SiteShell>
         </Providers>
       </body>

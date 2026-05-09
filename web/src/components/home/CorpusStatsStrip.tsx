@@ -1,10 +1,12 @@
-'use client'
+// Server Component — fetches corpus stats at request time and renders
+// them server-side. Was previously `'use client'` with a useEffect that
+// loaded stats after hydration; that produced a layout flash with "—"
+// dashes for the first ~150 ms on every page load. Now the numbers
+// arrive in the SSR HTML.
 
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import { BookOpen, FileText, Newspaper } from 'lucide-react'
-import { useLanguage } from '@/i18n/LanguageContext'
 import { getCorpusStats, type CorpusStats } from '@/lib/api/endpoints'
+import { getT } from '@/i18n/server'
 import { cn } from '@/lib/utils'
 
 const COPY = {
@@ -26,21 +28,21 @@ const COPY = {
  * real"), and (b) provide a visual rhythm break between the dark hero
  * and the white feature sections.
  */
-export default function CorpusStatsStrip() {
-  const { language } = useLanguage()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
-  const [stats, setStats] = useState<CorpusStats | null>(null)
+export default async function CorpusStatsStrip() {
+  const t = await getT()
+  const copy = COPY[t.language]
 
-  useEffect(() => {
-    let cancelled = false
-    getCorpusStats()
-      .then((s) => !cancelled && setStats(s))
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // Server fetch with a 5-min revalidate window. The /stats endpoint
+  // is itself cached server-side via Cache-Control, so this is a
+  // belt-and-braces guard against re-hitting the API on every render
+  // when many homepage visits land in the same minute.
+  let stats: CorpusStats | null = null
+  try {
+    stats = await getCorpusStats()
+  } catch {
+    // Silently fall back to dashes if the API is down — the homepage
+    // mustn't break because stats failed to load.
+  }
 
   const items: Array<{ key: keyof CorpusStats; label: string; icon: typeof BookOpen }> = [
     { key: 'legal_texts', label: copy.legalTexts, icon: BookOpen },
@@ -51,16 +53,9 @@ export default function CorpusStatsStrip() {
   return (
     <section className="relative w-full bg-white border-b border-slate-100">
       <div className="container py-8 lg:py-10">
-        <div className="grid grid-cols-3 gap-4 lg:gap-6">
-          {items.map(({ key, label, icon: Icon }, i) => (
-            <motion.div
-              key={key}
-              initial={{ opacity: 0, y: 6 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center gap-3 lg:gap-4"
-            >
+        <div className="grid grid-cols-3 gap-4 lg:gap-6 animate-in fade-in slide-in-from-bottom-1 duration-500">
+          {items.map(({ key, label, icon: Icon }) => (
+            <div key={key} className="flex items-center gap-3 lg:gap-4">
               <div className="flex-shrink-0 flex h-10 w-10 lg:h-11 lg:w-11 items-center justify-center rounded-lg bg-primary/5 border border-primary/10 text-primary">
                 <Icon className="w-5 h-5" />
               </div>
@@ -77,7 +72,7 @@ export default function CorpusStatsStrip() {
                   {label}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

@@ -1,7 +1,10 @@
-'use client'
+// Server Component — was previously `'use client'` solely for the
+// framer-motion entrance animation. Switching to tailwindcss-animate's
+// `animate-in` utilities (CSS-only) lets every consumer that uses
+// SectionHeading also be a server component without needing a client
+// boundary.
 
 import React from 'react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -47,13 +50,11 @@ export function SectionHeading({
   className,
 }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.5 }}
+    <div
       className={cn(
         'mb-10 lg:mb-12 flex items-end justify-between gap-6 flex-wrap',
+        // CSS-only entrance animation; runs on mount, no client JS.
+        'animate-in fade-in slide-in-from-bottom-2 duration-500',
         className,
       )}
     >
@@ -80,6 +81,6 @@ export function SectionHeading({
         )}
       </div>
       {action}
-    </motion.div>
+    </div>
   )
 }

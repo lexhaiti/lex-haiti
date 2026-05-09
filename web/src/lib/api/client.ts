@@ -18,10 +18,19 @@ export class ApiError extends Error {
   }
 }
 
+// In the browser we want the same `/api/v1` relative path that the
+// Next.js rewrites proxy to the FastAPI backend (so the dev cookie
+// auth flow works without CORS noise). On the server (RSC fetches,
+// route handlers, Node runtime) relative URLs are invalid — fetch
+// throws "Failed to parse URL" — so we resolve to an absolute
+// internal URL: API_INTERNAL_URL env var if set, else the dev backend
+// at 127.0.0.1:8000.
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_API_BASE ??
-  'http://127.0.0.1:8000/api/v1'
+  typeof window === 'undefined'
+    ? (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000/api/v1')
+    : (process.env.NEXT_PUBLIC_API_URL ??
+        process.env.NEXT_PUBLIC_API_BASE ??
+        'http://127.0.0.1:8000/api/v1')
 
 /** Build a raw URL pointing at an API path. Use for endpoints that return
  *  files (PDF/DOCX exports) where the browser needs an href, not JSON. */

@@ -1,10 +1,12 @@
-'use client'
+// Server Component — no client state. Entrance animation runs on
+// mount via tailwindcss-animate utilities; the previous staggered
+// framer-motion reveal is replaced by a single fade-in (the stagger
+// nuance was barely visible on a 4-card row anyway).
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { useLanguage } from '@/i18n/LanguageContext'
 import { cn } from '@/lib/utils'
 import { SectionHeading } from '@/components/shared/SectionHeading'
+import { getT } from '@/i18n/server'
 
 const COPY = {
   fr: {
@@ -83,10 +85,9 @@ const COPY = {
   },
 }
 
-export default function ExplorerSection() {
-  const { language } = useLanguage()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+export default async function ExplorerSection() {
+  const t = await getT()
+  const copy = COPY[t.language]
 
   return (
     <section className="relative w-full bg-white py-16 lg:py-24 border-t border-slate-100">
@@ -96,24 +97,9 @@ export default function ExplorerSection() {
         {/* Card grid — 4 cards.
             Mobile: 1 col. md/lg (incl. iPad Pro 12.9" portrait at 1024): 2x2.
             xl+ (real desktop): single row of 4. */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
-          }}
-          className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {copy.cards.map((card) => (
-            <motion.div
-              key={card.key}
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: { opacity: 1, y: 0 },
-              }}
-            >
+            <div key={card.key}>
               {/* Whole-card link — entire card is clickable. No underline
                   on hover; the lift + shadow + border shift signal
                   interactivity instead. */}
@@ -161,9 +147,9 @@ export default function ExplorerSection() {
                   </p>
                 </div>
               </Link>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   )

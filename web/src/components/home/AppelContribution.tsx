@@ -1,10 +1,14 @@
-'use client'
+// Server Component — no client state, no event handlers. The entrance
+// animation is handled by tailwindcss-animate's `animate-in` utilities
+// (CSS only, runs on mount), replacing the previous framer-motion
+// `whileInView` reveal. Trade-off: the animation now fires on initial
+// render rather than on scroll-into-view; that's fine since this
+// section is always above-the-fold-ish on the homepage scroll.
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { ArrowRight, MailIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useT } from '@/i18n/useT'
+import { getT } from '@/i18n/server'
 
 const COPY = {
   fr: {
@@ -23,20 +27,14 @@ const COPY = {
   },
 }
 
-export default function AppelContribution() {
-  const { language } = useT()
-  const copy = COPY[(language as 'fr' | 'ht') ?? 'fr']
+export default async function AppelContribution() {
+  const t = await getT()
+  const copy = COPY[t.language]
 
   return (
     <section className="relative w-full bg-white py-16 lg:py-20 border-t border-slate-100">
       <div className="container">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.5 }}
-          className="relative rounded-2xl bg-primary p-8 sm:p-10 lg:p-14 overflow-hidden ring-1 ring-primary/10 shadow-[0_20px_60px_-20px_rgba(13,27,76,0.4)]"
-        >
+        <div className="relative rounded-2xl bg-primary p-8 sm:p-10 lg:p-14 overflow-hidden ring-1 ring-primary/10 shadow-[0_20px_60px_-20px_rgba(13,27,76,0.4)] animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Subtle decorative atmosphere — Haitian flag tones, low intensity. */}
           <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-blue-600/10 rounded-full blur-[110px] translate-x-1/3 -translate-y-1/3 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-[320px] h-[320px] bg-red-600/8 rounded-full blur-[110px] -translate-x-1/3 translate-y-1/3 pointer-events-none" />
@@ -77,7 +75,7 @@ export default function AppelContribution() {
               </Link>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )

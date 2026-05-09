@@ -1,9 +1,10 @@
-'use client'
+// Server Component — no client state, no event handlers. Replaces the
+// previous staggered framer-motion reveals with tailwindcss-animate's
+// fade-in/slide-in utilities, which run on mount via CSS only.
 
 import { Globe2, Languages, LinkIcon } from 'lucide-react'
-import { motion } from 'framer-motion'
-import { useT } from '@/i18n/useT'
 import { SectionHeading } from '@/components/shared/SectionHeading'
+import { getT } from '@/i18n/server'
 
 // Two voices for the same section. Desktop (md+) gets the longer
 // institutional version; mobile gets the punchy minimal version. Both share
@@ -111,9 +112,9 @@ const COPY = {
   },
 } as const
 
-export default function FeaturesSection() {
-  const { language } = useT()
-  const copy = COPY[(language as 'fr' | 'ht') ?? 'fr']
+export default async function FeaturesSection() {
+  const t = await getT()
+  const copy = COPY[t.language]
 
   return (
     <section className="relative w-full bg-white py-16 lg:py-20 border-t border-slate-100">
@@ -139,25 +140,12 @@ export default function FeaturesSection() {
         </div>
 
         {/* Mobile pillars (Version B — minimal) */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
-          }}
-          className="md:hidden grid grid-cols-1 gap-4 mb-10"
-        >
+        <div className="md:hidden grid grid-cols-1 gap-4 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {copy.mobile.pillars.map((pillar, i) => {
             const Icon = pillar.icon
             return (
-              <motion.div
+              <div
                 key={i}
-                variants={{
-                  hidden: { opacity: 0, y: 12 },
-                  visible: { opacity: 1, y: 0 },
-                }}
                 className="group rounded-xl border border-slate-200 bg-white p-5 transition-all duration-200 hover:border-slate-300 hover:shadow-md"
               >
                 <div className="flex items-center gap-3 mb-3">
@@ -171,31 +159,18 @@ export default function FeaturesSection() {
                 <p className="text-sm text-slate-600 leading-relaxed">
                   {pillar.desc}
                 </p>
-              </motion.div>
+              </div>
             )
           })}
-        </motion.div>
+        </div>
 
         {/* Desktop pillars (Version A — institutional, with lead line) */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
-          }}
-          className="hidden md:grid grid-cols-3 gap-6 lg:gap-7 mb-12"
-        >
+        <div className="hidden md:grid grid-cols-3 gap-6 lg:gap-7 mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {copy.desktop.pillars.map((pillar, i) => {
             const Icon = pillar.icon
             return (
-              <motion.div
+              <div
                 key={i}
-                variants={{
-                  hidden: { opacity: 0, y: 12 },
-                  visible: { opacity: 1, y: 0 },
-                }}
                 className="group relative rounded-xl border border-slate-200 bg-white p-6 lg:p-7 transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5"
               >
                 <div className="flex items-center gap-3 mb-4">
@@ -212,10 +187,10 @@ export default function FeaturesSection() {
                 <p className="text-sm lg:text-[15px] text-slate-600 leading-relaxed">
                   {pillar.desc}
                 </p>
-              </motion.div>
+              </div>
             )
           })}
-        </motion.div>
+        </div>
       </div>
     </section>
   )
