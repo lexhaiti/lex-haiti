@@ -1122,17 +1122,33 @@ function DownloadDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="outline"
-          className="group inline-flex items-center gap-2.5 h-11 px-5 rounded-full bg-white/5 hover:bg-white text-white hover:text-slate-900 border border-white/15 hover:border-white backdrop-blur-md transition-all duration-200"
+          aria-label={t('lawDetail.download.label')}
+          className={cn(
+            // Base — solid red fill anchors this as the page's primary action.
+            // Min h-11 (44px) keeps the touch target above the WCAG threshold.
+            'group inline-flex items-center gap-2 h-11 px-5 rounded-full',
+            'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white',
+            'border-0 shadow-lg shadow-red-900/30 transition-all duration-200',
+            // Visible focus ring against the navy header background
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-primary',
+          )}
         >
-          <Download className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
-          <span className="text-sm font-semibold uppercase tracking-wider">
+          <Download
+            aria-hidden
+            className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
+          />
+          <span className="text-sm font-bold uppercase tracking-wider">
             {t('lawDetail.download.label')}
           </span>
-          <span className="text-xs font-medium opacity-60 group-hover:opacity-80">
-            PDF / Word
+          {/* Format hint — hidden on small screens so the button stays
+              compact when the metadata row wraps below 640px. */}
+          <span aria-hidden className="hidden sm:inline text-xs font-medium opacity-80">
+            · PDF / Word
           </span>
-          <ChevronDown className="w-3.5 h-3.5 opacity-60 group-data-[state=open]:rotate-180 transition-transform" />
+          <ChevronDown
+            aria-hidden
+            className="w-3.5 h-3.5 opacity-80 group-data-[state=open]:rotate-180 transition-transform"
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-72">
