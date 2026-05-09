@@ -15,7 +15,6 @@ import {
   Home,
   Loader2,
   Newspaper,
-  Search,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -54,76 +53,89 @@ type DocType = NonNullable<MoniteurEntryRead['detected_category']>
 
 const CATEGORY_META: Record<
   DocType,
-  { label: string; badge: string; bar: string; icon: string }
+  { label: string; plural: string; badge: string; bar: string; icon: string }
 > = {
   constitution: {
     label: 'Constitution',
+    plural: 'Constitutions',
     badge: 'bg-amber-50 text-amber-800 border-amber-200',
     bar: 'bg-amber-500',
     icon: 'text-amber-600',
   },
   code: {
     label: 'Code',
+    plural: 'Codes',
     badge: 'bg-purple-50 text-purple-800 border-purple-200',
     bar: 'bg-purple-500',
     icon: 'text-purple-600',
   },
   loi: {
     label: 'Loi',
+    plural: 'Lois',
     badge: 'bg-blue-50 text-blue-800 border-blue-200',
     bar: 'bg-blue-500',
     icon: 'text-blue-600',
   },
   decret: {
     label: 'Décret',
+    plural: 'Décrets',
     badge: 'bg-indigo-50 text-indigo-800 border-indigo-200',
     bar: 'bg-indigo-500',
     icon: 'text-indigo-600',
   },
   arrete: {
     label: 'Arrêté',
+    plural: 'Arrêtés',
     badge: 'bg-teal-50 text-teal-800 border-teal-200',
     bar: 'bg-teal-500',
     icon: 'text-teal-600',
   },
   circulaire: {
     label: 'Circulaire',
+    plural: 'Circulaires',
     badge: 'bg-slate-50 text-slate-700 border-slate-200',
     bar: 'bg-slate-400',
     icon: 'text-slate-500',
   },
   convention: {
     label: 'Convention',
+    plural: 'Conventions',
     badge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
     bar: 'bg-cyan-500',
     icon: 'text-cyan-600',
   },
   ordonnance: {
     label: 'Ordonnance',
+    plural: 'Ordonnances',
     badge: 'bg-rose-50 text-rose-800 border-rose-200',
     bar: 'bg-rose-500',
     icon: 'text-rose-600',
   },
   communique: {
     label: 'Communiqué',
+    plural: 'Communiqués',
     badge: 'bg-orange-50 text-orange-800 border-orange-200',
     bar: 'bg-orange-500',
     icon: 'text-orange-600',
   },
   promulgation: {
     label: 'Promulgation',
+    plural: 'Promulgations',
     badge: 'bg-gray-50 text-gray-600 border-gray-200',
     bar: 'bg-gray-400',
     icon: 'text-gray-500',
   },
   errata: {
+    // "Errata" is invariable in French (already plural of erratum).
     label: 'Errata',
+    plural: 'Errata',
     badge: 'bg-red-50 text-red-700 border-red-200',
     bar: 'bg-red-500',
     icon: 'text-red-600',
   },
   autre: {
     label: 'Autre',
+    plural: 'Autres',
     badge: 'bg-slate-50 text-slate-600 border-slate-200',
     bar: 'bg-slate-400',
     icon: 'text-slate-500',
@@ -336,7 +348,6 @@ export default function MoniteurDetailPage() {
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!id || Number.isNaN(id)) return
@@ -398,19 +409,6 @@ export default function MoniteurDetailPage() {
       </div>
     )
   }
-
-  const q = searchQuery.trim().toLowerCase()
-  const filteredTopLevel = q
-    ? topLevel.filter((c) => {
-        const title = c.display_title || c.detected_title || ''
-        return (
-          title.toLowerCase().includes(q) ||
-          (c.detected_number ?? '').toLowerCase().includes(q) ||
-          (c.detected_category ?? '').toLowerCase().includes(q) ||
-          (c.raw_text ?? '').toLowerCase().includes(q)
-        )
-      })
-    : topLevel
 
   const formattedDate = formatLongDate(issue.publication_date)
   const numberDisplay = smartIssueNumber(issue.number)
@@ -529,40 +527,23 @@ export default function MoniteurDetailPage() {
             </motion.div>
           </div>
 
-          {/* Search + actions row */}
-          {topLevel.length > 0 && (
+          {/* PDF download — only when a remote URL is present */}
+          {issue.file_url && issue.file_url.startsWith('http') && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="mt-10 flex flex-col sm:flex-row gap-3 max-w-4xl"
+              className="mt-10"
             >
-              <div className="flex-1 flex items-stretch rounded-xl overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Rechercher dans le sommaire…"
-                    aria-label="Rechercher dans le sommaire"
-                    className="w-full h-12 pl-11 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
-                    style={{ fontSize: '16px' }}
-                  />
-                </div>
-              </div>
-
-              {issue.file_url && issue.file_url.startsWith('http') && (
-                <a
-                  href={issue.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
-                >
-                  <Download className="w-4 h-4" />
-                  Télécharger le PDF
-                </a>
-              )}
+              <a
+                href={issue.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                Télécharger le PDF
+              </a>
             </motion.div>
           )}
         </div>
@@ -584,6 +565,7 @@ export default function MoniteurDetailPage() {
             </span>
             {sortedCategoryEntries.map(([cat, n]) => {
               const meta = CATEGORY_META[cat]
+              const word = n === 1 ? meta.label : meta.plural
               return (
                 <span
                   key={cat}
@@ -593,8 +575,8 @@ export default function MoniteurDetailPage() {
                   )}
                 >
                   <span className={cn('w-1.5 h-1.5 rounded-full', meta.bar)} />
-                  {meta.label}
-                  <span className="font-mono tabular-nums opacity-70">×{n}</span>
+                  <span className="font-mono tabular-nums">{n}</span>
+                  {word}
                 </span>
               )
             })}
@@ -610,25 +592,12 @@ export default function MoniteurDetailPage() {
           <div className="flex items-baseline justify-between mb-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
               Sommaire
-              {q && filteredTopLevel.length !== topLevel.length && (
-                <span className="ml-3 text-slate-400 normal-case tracking-normal font-normal">
-                  ({filteredTopLevel.length} sur {topLevel.length})
-                </span>
-              )}
             </h2>
-            {q && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                Effacer le filtre
-              </button>
-            )}
           </div>
 
-          {filteredTopLevel.length > 0 ? (
+          {topLevel.length > 0 ? (
             <div className="space-y-4">
-              {filteredTopLevel.map((candidate, i) => (
+              {topLevel.map((candidate, i) => (
                 <SommaireCard
                   key={candidate.id}
                   candidate={candidate}
@@ -640,7 +609,7 @@ export default function MoniteurDetailPage() {
           ) : (
             <div className="p-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white">
               <FileText className="w-8 h-8 mx-auto mb-3 text-slate-300" />
-              <p>{q ? 'Aucun résultat trouvé.' : 'Aucun document indexé dans ce numéro.'}</p>
+              <p>Aucun document indexé dans ce numéro.</p>
             </div>
           )}
         </motion.section>

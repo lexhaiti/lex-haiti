@@ -108,6 +108,7 @@ export default function AllLaws() {
       onViewModeChange={setViewMode}
       filters={filters}
       onFiltersChange={setFilters}
+      themes={themes}
       isLoading={isLoading}
       laws={items}
       total={total}

@@ -46,6 +46,7 @@ import { TextNotFound } from '@/components/law-details/TextNotFound'
 import { useToast } from '@/components/ui/toast-simple'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { apiUrl } from '@/lib/api/client'
+import { themeLabel } from '@/lib/themes'
 
 type TextStatus =
   | 'in_force'
@@ -142,24 +143,6 @@ const categoryLabels: Record<
   loi: { fr: 'Loi', ht: 'Lwa', color: 'bg-indigo-500' },
 }
 
-// Theme chips — short bilingual labels per LegalTheme enum value. Linking
-// to /lois?theme=<key> turns each chip into a navigational entry into the
-// thematique-filtered listing. Keep in sync with the menu (web/src/i18n/*)
-// and the backend enum (backend/packages/schemas/enums.py).
-const THEME_LABELS: Record<string, { fr: string; ht: string }> = {
-  droit_societes: { fr: 'Droit des Sociétés', ht: 'Dwa sosyete' },
-  droit_fiscal: { fr: 'Droit Fiscal', ht: 'Dwa fiskal' },
-  droit_bancaire: { fr: 'Droit Bancaire', ht: 'Dwa bank' },
-  propriete_intellectuelle: { fr: 'Propriété Intellectuelle', ht: 'Pwopriyete entelektyèl' },
-  droit_travail: { fr: 'Droit du Travail', ht: 'Dwa travay' },
-  protection_sociale: { fr: 'Protection Sociale', ht: 'Pwoteksyon sosyal' },
-  droit_famille: { fr: 'Droit de la Famille', ht: 'Dwa fanmi' },
-  successions: { fr: 'Successions', ht: 'Eritaj' },
-  droit_administratif: { fr: 'Droit Administratif', ht: 'Dwa administratif' },
-  marches_publics: { fr: 'Marchés Publics', ht: 'Mache piblik' },
-  environnement: { fr: 'Environnement', ht: 'Anviwònman' },
-  foncier: { fr: 'Droit Foncier', ht: 'Dwa fonse' },
-}
 
 export default function LawDetail() {
   const { language } = useLanguage()
@@ -571,8 +554,7 @@ export default function LawDetail() {
                     {currentLang === 'fr' ? 'Thématiques' : 'Tèm'}
                   </span>
                   {law.theme_tags.map((tag: any) => {
-                    const label =
-                      THEME_LABELS[tag.theme]?.[currentLang] ?? tag.theme
+                    const label = themeLabel(tag.theme, currentLang) ?? tag.theme
                     const isEditor = tag.source === 'editor'
                     return (
                       <Link

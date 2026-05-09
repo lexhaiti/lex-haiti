@@ -9,6 +9,7 @@ import type { components } from '@/lib/api-types'
 import { CardStyle, LawCard } from '@/components/shared/LawCard'
 import type { DisplayItem } from '@/lib/hooks/useAllTexts'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
+import { themeDescription, themeLabel } from '@/lib/themes'
 
 type LegalTextListItem = components['schemas']['LegalTextListItem']
 
@@ -43,15 +44,22 @@ const SUBCATEGORY_LABELS: Record<string, { fr: string; ht: string }> = {
 }
 
 /**
- * Title shown in the page hero — reflects the active category/subcategory
- * filter so the H1 matches the active nav highlight. Falls back to null
- * (caller renders the generic "Tous les textes juridiques" string) when
- * no filter is applied.
+ * Title shown in the page hero — reflects the active filter (theme >
+ * code subcategory > category) so the H1 matches what the user clicked
+ * to land here. Falls back to null when no filter is applied.
+ *
+ * Theme takes precedence: arriving via /lois?theme=droit_fiscal should
+ * read "Droit Fiscal", not "Tous les textes juridiques".
  */
 function filterTitle(
   filters: { category: string; codeSubcategory: string },
+  themes: string[],
   lang: 'fr' | 'ht',
 ): string | null {
+  if (themes.length === 1) {
+    const label = themeLabel(themes[0], lang)
+    if (label) return label
+  }
   const cat = filters.category && filters.category !== 'all' ? filters.category : null
   const sub =
     filters.codeSubcategory && filters.codeSubcategory !== 'all'
@@ -66,14 +74,44 @@ function filterTitle(
   return null
 }
 
+/**
+ * Subtitle shown under the H1. For a single theme we use the curated
+ * one-liner from `THEME_DESCRIPTIONS` so visitors get a sense of what's
+ * in this domain without clicking through. Falls back to null (caller
+ * renders the generic "Explorez l'ensemble de la législation…").
+ */
+function filterSubtitle(themes: string[], lang: 'fr' | 'ht'): string | null {
+  if (themes.length === 1) {
+    return themeDescription(themes[0], lang)
+  }
+  return null
+}
+
 function buildBreadcrumbs(
   lang: 'fr' | 'ht',
   category: string | undefined,
   codeSubcategory: string | undefined,
+  themes: string[],
 ) {
   const home = { label: lang === 'fr' ? 'Accueil' : 'Akèy', href: '/' }
   const lawsLeaf = { label: lang === 'fr' ? 'Lois' : 'Lwa' }
   const lawsLink = { label: lawsLeaf.label, href: '/lois' }
+
+  // Theme breadcrumb beats category — when both are set, we prioritize the
+  // theme path because that's how the user arrived (megamenu / chip).
+  if (themes.length === 1) {
+    const label = themeLabel(themes[0], lang)
+    if (label) {
+      return [
+        home,
+        {
+          label: lang === 'fr' ? 'Thématiques' : 'Tèm yo',
+          href: '/thematiques',
+        },
+        { label },
+      ]
+    }
+  }
 
   const catKey = category && category !== 'all' ? category : null
   const subKey =
@@ -122,6 +160,13 @@ type Props = {
     sort: string
   }) => void
 
+  /**
+   * Active theme filter values from the URL (`?theme=…`). When exactly one
+   * theme is set, the page title and subtitle switch to the theme's label
+   * and curated description.
+   */
+  themes?: string[]
+
   isLoading: boolean
   laws: DisplayItem[]
   total?: number
@@ -147,6 +192,7 @@ export function AllLawsUI({
   onViewModeChange,
   filters,
   onFiltersChange,
+  themes = [],
   isLoading,
   laws,
   total,
@@ -175,6 +221,7 @@ export function AllLawsUI({
               lang,
               filters.category,
               filters.codeSubcategory,
+              themes,
             )}
           />
 
@@ -192,7 +239,7 @@ export function AllLawsUI({
                   {activeSearchTerm}
                 </span>
               ) : (
-                filterTitle(filters, lang) ??
+                filterTitle(filters, themes, lang) ??
                 (t?.('allLaws.title') ??
                 (lang === 'fr'
                   ? 'Tous les textes juridiques'
@@ -205,7 +252,8 @@ export function AllLawsUI({
               transition={{ delay: 0.1 }}
               className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-2xl border-l-2 border-red-600 pl-6"
             >
-              {t?.('allLaws.subtitle') ??
+              {filterSubtitle(themes, lang) ??
+                t?.('allLaws.subtitle') ??
                 (lang === 'fr'
                   ? "Explorez l'ensemble de la législation haïtienne."
                   : 'Eksplore tout lejislasyon ayisyen an.')}
