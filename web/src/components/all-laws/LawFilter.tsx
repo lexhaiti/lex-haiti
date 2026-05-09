@@ -73,11 +73,28 @@ const statuses = [
   { value: 'abrogated', label: { fr: 'Abrog\u00e9', ht: 'Abroje' } },
 ]
 
+// Two families of sort values exist on this page:
+//
+//   - UI sorts ("newest", "oldest", "alphabetical", "relevance") \u2014 the
+//     historical client-side sorts used inside `useAllTexts`. They sort
+//     the loaded batch in-memory.
+//   - Server sorts ("publication_date", "recently_updated",
+//     "recently_added", "recently_published") \u2014 passed through to the
+//     /legal-texts list endpoint and applied SQL-side.
+//
+// Both flow through `filters.sort`. The dropdown surfaces a curated mix
+// so menu links like `/lois?sort=recently_updated` highlight correctly
+// when the user lands on the page from the megamenu (the previous
+// behavior left the dropdown showing a default value because
+// "recently_updated" wasn't an option).
 const sortOptions = [
   { value: 'newest', label: { fr: 'Plus r\u00e9cents', ht: 'Pi resan' } },
   { value: 'oldest', label: { fr: 'Plus anciens', ht: 'Pi ansyen' } },
   { value: 'alphabetical', label: { fr: 'Alphab\u00e9tique', ht: 'Alfabetik' } },
   { value: 'relevance', label: { fr: 'Pertinence', ht: 'P\u00e8tinans' } },
+  { value: 'recently_updated', label: { fr: 'R\u00e9cemment mis \u00e0 jour', ht: 'Mete aj\u00f2u dey\u00e8 zye' } },
+  { value: 'recently_added', label: { fr: 'R\u00e9cemment ajout\u00e9s', ht: 'Ki sot ajoute' } },
+  { value: 'recently_published', label: { fr: 'R\u00e9cemment publi\u00e9s', ht: 'Ki sot pibliye' } },
 ]
 
 function buildYearOptions() {

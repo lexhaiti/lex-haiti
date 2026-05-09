@@ -3,14 +3,14 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Calendar, Newspaper } from 'lucide-react'
+import { ArrowRight, Newspaper } from 'lucide-react'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { SectionHeading } from '@/components/shared/SectionHeading'
+import { MoniteurIssueCard } from '@/components/shared/MoniteurIssueCard'
 import {
   listMoniteurIssues,
   type MoniteurIssueRead,
 } from '@/lib/api/endpoints'
-import { cn } from '@/lib/utils'
 
 const COPY = {
   fr: {
@@ -31,25 +31,6 @@ const COPY = {
   },
 }
 
-const MONTHS_FR = [
-  '',
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
-
-function formatLongDate(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  const day = Number.parseInt(m[3], 10)
-  const month = Number.parseInt(m[2], 10)
-  return `${day} ${MONTHS_FR[month] ?? ''} ${m[1]}`
-}
-
-function smartIssueNumber(raw: string): string {
-  return /^[0-9]/.test(raw) ? `N° ${raw}` : raw
-}
-
 export default function MoniteurRecentSection() {
   const { language } = useLanguage()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
@@ -58,9 +39,12 @@ export default function MoniteurRecentSection() {
   const [issues, setIssues] = useState<MoniteurIssueRead[] | null>(null)
   const [total, setTotal] = useState(0)
 
+  // Home recents shows up to 4 — enough to feel like a real list, not so
+  // many that the section dominates the homepage. The /moniteur listing
+  // page handles deeper browsing.
   useEffect(() => {
     let cancelled = false
-    listMoniteurIssues({ only_published: true, limit: 6 })
+    listMoniteurIssues({ only_published: true, limit: 4 })
       .then((res) => {
         if (cancelled) return
         setIssues(res.items)
@@ -111,14 +95,19 @@ export default function MoniteurRecentSection() {
           </div>
         ) : (
           <motion.div
+            // `key` so the stagger animation re-runs cleanly when the
+            // recents list changes (e.g. on re-fetch); `animate` over
+            // `whileInView` so the section appears even if the user
+            // lands directly with the section already in view.
+            key={`recent-${total}`}
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
+            animate="visible"
             variants={{
               hidden: { opacity: 0 },
               visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
             }}
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
+            // 4 cards in a 2x2 on tablet, single row on xl.
+            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5"
           >
             {issues!.map((issue) => (
               <motion.div
@@ -127,8 +116,14 @@ export default function MoniteurRecentSection() {
                   hidden: { opacity: 0, y: 8 },
                   visible: { opacity: 1, y: 0 },
                 }}
+                className="h-full"
               >
-                <IssueCard issue={issue} lang={lang} />
+                <MoniteurIssueCard
+                  issue={issue}
+                  lang={lang}
+                  variant="compact"
+                  sommaireLimit={3}
+                />
               </motion.div>
             ))}
           </motion.div>
@@ -150,53 +145,3 @@ export default function MoniteurRecentSection() {
   )
 }
 
-function IssueCard({
-  issue,
-  lang,
-}: {
-  issue: MoniteurIssueRead
-  lang: 'fr' | 'ht'
-}) {
-  const numberDisplay = smartIssueNumber(issue.number)
-  return (
-    <Link
-      href={`/moniteur/${issue.id}`}
-      className={cn(
-        'group flex flex-col rounded-2xl bg-white border border-slate-200/80',
-        'hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)] transition-all duration-200',
-        'overflow-hidden h-full',
-      )}
-    >
-      {/* Navy header band — same masthead language used on the Moniteur
-          listing page so visitors form a consistent visual mapping. */}
-      <div className="bg-primary px-5 py-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55 mb-0.5">
-          Le Moniteur
-        </p>
-        <p className="text-lg font-black text-white leading-tight tracking-tight">
-          {numberDisplay}
-        </p>
-        <div className="flex items-center gap-1.5 mt-2 text-white/65 text-xs">
-          <Calendar className="w-3 h-3" />
-          {formatLongDate(issue.publication_date)}
-        </div>
-      </div>
-
-      <div className="flex-1 p-5 flex items-center justify-between gap-3">
-        <div className="text-xs text-slate-500">
-          {issue.edition_label ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold uppercase tracking-wider text-[10px]">
-              {issue.edition_label}
-            </span>
-          ) : (
-            <span className="text-slate-400">{issue.year}</span>
-          )}
-        </div>
-        <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary group-hover:gap-1.5 transition-all">
-          {lang === 'fr' ? 'Ouvrir' : 'Louvri'}
-          <ArrowRight className="w-3.5 h-3.5" />
-        </span>
-      </div>
-    </Link>
-  )
-}

@@ -263,16 +263,12 @@ export function AllLawsUI({
                   ? "Explorez l'ensemble de la législation haïtienne."
                   : 'Eksplore tout lejislasyon ayisyen an.')}
             </motion.p>
-            {typeof total === 'number' && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="mt-6 text-sm font-bold uppercase tracking-widest text-slate-400"
-              >
-                {lang === 'fr' ? `${total} résultats` : `${total} rezilta`}
-              </motion.p>
-            )}
+            {/* No header-level result count — the count lives in the
+                filter bar below, next to the filter controls where it
+                actually responds to filter changes. Keeping both led
+                to two mismatched numbers ("35 RÉSULTATS" / "24 textes
+                trouvés") because one was the API total and the other
+                was the paginated batch size. */}
           </div>
 
           {/* Search — matches the home hero design: solid white pill input
@@ -331,7 +327,10 @@ export function AllLawsUI({
                 filters={filters}
                 onFilterChange={onFiltersChange}
                 currentLang={lang}
-                resultsCount={laws.length}
+                // Use the API total (post-filter, pre-pagination) so the
+                // count reflects "how many texts match my filters",
+                // not "how many cards are loaded so far".
+                resultsCount={typeof total === 'number' ? total : laws.length}
               />
               {editorialSlot}
             </div>

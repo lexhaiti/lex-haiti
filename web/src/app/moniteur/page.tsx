@@ -7,8 +7,6 @@ import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
 import {
   AlertTriangle,
   ArrowRight,
-  BookOpen,
-  Calendar,
   CheckCircle2,
   Clock,
   FileText,
@@ -28,27 +26,7 @@ import {
   EditorialFilter,
   type EditorialStatusFilter,
 } from '@/components/shared/EditorialFilter'
-
-const MONTHS_FR = [
-  '',
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
-const MONTHS_HT = [
-  '',
-  'janvye', 'fevriye', 'mas', 'avril', 'me', 'jen',
-  'jiyè', 'out', 'septanm', 'oktòb', 'novanm', 'desanm',
-]
-
-function formatLongDate(iso: string | null, lang: 'fr' | 'ht'): string {
-  if (!iso) return '—'
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  const day = Number.parseInt(m[3], 10)
-  const month = Number.parseInt(m[2], 10)
-  const months = lang === 'ht' ? MONTHS_HT : MONTHS_FR
-  return `${day} ${months[month] ?? ''} ${m[1]}`
-}
+import { MoniteurIssueCard } from '@/components/shared/MoniteurIssueCard'
 
 const STATUS_LABEL: Record<
   MoniteurIssueRead['processing_status'],
@@ -78,26 +56,6 @@ const STATUS_LABEL: Record<
     fr: 'Échec', ht: 'Echèk',
     cls: 'bg-red-50 text-red-700 border-red-200', Icon: AlertTriangle,
   },
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  constitution: 'Constitution',
-  code: 'Code',
-  loi: 'Loi',
-  decret: 'Décret',
-  arrete: 'Arrêté',
-  circulaire: 'Circulaire',
-  convention: 'Convention',
-  ordonnance: 'Ordonnance',
-  communique: 'Communiqué',
-  promulgation: 'Promulgation',
-  errata: 'Errata',
-  autre: 'Autre',
-}
-
-function titleCase(s: string): string {
-  if (!s) return s
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
 }
 
 export default function Page() {
@@ -242,10 +200,6 @@ export default function Page() {
                 ? `/editorial/moniteur/${issue.id}/review`
                 : `/moniteur/${issue.id}`
 
-              const numberDisplay = /^[0-9]/.test(issue.number)
-                ? `N° ${issue.number}`
-                : issue.number
-
               return (
                 <motion.div
                   key={issue.id}
@@ -253,117 +207,39 @@ export default function Page() {
                     hidden: { opacity: 0, y: 8 },
                     visible: { opacity: 1, y: 0 },
                   }}
+                  className="relative h-full"
                 >
-                  <Link
+                  <MoniteurIssueCard
+                    issue={issue}
                     href={href}
-                    className={cn(
-                      'group flex flex-col rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 hover:shadow-xl transition-all duration-300 overflow-hidden h-full',
+                    lang={lang}
+                    sommaireLimit={4}
+                    className={
                       isEditor && isDraft
                         ? 'border-l-4 border-l-amber-500'
-                        : '',
-                    )}
-                  >
-                    {/* Header band */}
-                    <div className="bg-primary px-6 py-5 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_40%,rgba(255,255,255,0.05)_100%)]" />
-                      <div className="relative">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 mb-1">
-                              Le Moniteur
-                            </p>
-                            <p className="text-xl font-black text-white leading-tight tracking-tight">
-                              {numberDisplay}
-                            </p>
-                          </div>
-                          <div className="p-2 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors flex-shrink-0">
-                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-3 text-white/60 text-xs">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span className="font-medium">
-                            {formatLongDate(issue.publication_date, lang)}
-                          </span>
-                          {issue.edition_label && (
-                            <>
-                              <span className="text-white/30">·</span>
-                              <span>{issue.edition_label}</span>
-                            </>
-                          )}
-                        </div>
-
-                        {isEditor && status && (
-                          <span
-                            className={cn(
-                              'mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md',
-                              'bg-white/15 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm',
-                            )}
-                          >
-                            <Icon
-                              className={cn(
-                                'w-3 h-3',
-                                issue.processing_status === 'ocr_pending' && 'animate-spin',
-                              )}
-                            />
-                            {status[lang]}
-                          </span>
+                        : undefined
+                    }
+                  />
+                  {/* Editor-only status pill, overlaid on top-right of the
+                      card. Kept out of the shared component because only
+                      editors see this and it'd otherwise clutter the
+                      public surface's API. */}
+                  {isEditor && status && Icon && (
+                    <span
+                      className={cn(
+                        'absolute top-3 right-12 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md',
+                        'bg-white/15 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm',
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'w-3 h-3',
+                          issue.processing_status === 'ocr_pending' && 'animate-spin',
                         )}
-                      </div>
-                    </div>
-
-                    {/* Sommaire */}
-                    {issue.sommaire.length > 0 && (
-                      <div className="px-6 py-4 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 mb-3">
-                          Sommaire
-                        </p>
-                        <ul className="space-y-2">
-                          {issue.sommaire.map((s, idx) => (
-                            <li
-                              key={idx}
-                              className="flex items-baseline gap-2.5 text-sm leading-snug"
-                            >
-                              <span className="w-1 h-1 rounded-full bg-red-500 flex-shrink-0 mt-[0.45em]" />
-                              <span>
-                                {s.category && (
-                                  <span className="font-bold text-slate-800 text-xs uppercase tracking-wide">
-                                    {CATEGORY_LABEL[s.category] ?? s.category}
-                                  </span>
-                                )}
-                                {s.category && s.title && (
-                                  <span className="text-slate-300"> — </span>
-                                )}
-                                <span className="text-slate-500">
-                                  {titleCase(s.title ?? 'Sans titre')}
-                                </span>
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="px-6 py-3 bg-slate-50/60 border-t border-slate-100 flex items-center gap-5 text-xs text-slate-400 mt-auto">
-                      {issue.sommaire.length > 0 && (
-                        <span className="inline-flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5" />
-                          {issue.sommaire.length}{' '}
-                          {issue.sommaire.length === 1
-                            ? (isFr ? 'texte' : 'tèks')
-                            : (isFr ? 'textes' : 'tèks')}
-                        </span>
-                      )}
-                      {issue.page_count && (
-                        <span className="inline-flex items-center gap-1.5">
-                          <BookOpen className="w-3.5 h-3.5" />
-                          {issue.page_count} pages
-                        </span>
-                      )}
-                    </div>
-                  </Link>
+                      />
+                      {status[lang]}
+                    </span>
+                  )}
                 </motion.div>
               )
             })}

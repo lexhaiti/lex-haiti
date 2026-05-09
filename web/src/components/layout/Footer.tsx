@@ -153,7 +153,7 @@ export default function Footer() {
                 href="/sign-in"
                 className="text-slate-300 hover:text-white transition-colors"
               >
-                Connexion éditeur
+                {t('nav.editorSignIn')}
               </Link>
             </div>
 
