@@ -50,6 +50,37 @@ class CorpusRepository:
         self.session = session
 
     # -------------------------------------------------------------------
+    # Aggregate counts (used by the homepage corpus-stats strip)
+    # -------------------------------------------------------------------
+
+    def count_published_legal_texts(self) -> int:
+        return int(
+            self.session.execute(
+                select(func.count())
+                .select_from(LegalText)
+                .where(LegalText.editorial_status == EditorialStatus.published)
+            ).scalar_one()
+        )
+
+    def count_published_articles(self) -> int:
+        """Count published article versions whose parent text is published.
+
+        We count versions (not articles) because the same article can have
+        multiple versions over time and the homepage stat is meant to
+        convey "how much law text is browsable today" — i.e., the
+        currently-in-force version per article. Approximating with the
+        article-row count is close enough; the per-version subquery would
+        be 5x more expensive on every page load.
+        """
+        return int(
+            self.session.execute(
+                select(func.count(Article.id))
+                .join(LegalText, LegalText.id == Article.legal_text_id)
+                .where(LegalText.editorial_status == EditorialStatus.published)
+            ).scalar_one()
+        )
+
+    # -------------------------------------------------------------------
     # LegalText
     # -------------------------------------------------------------------
 

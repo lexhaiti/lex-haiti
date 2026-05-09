@@ -9,6 +9,7 @@ from api.routes import (
     legal_texts,
     moniteur,
     search,
+    stats,
 )
 
 api_router = APIRouter()
@@ -19,3 +20,4 @@ api_router.include_router(citations.router)
 api_router.include_router(editorial.router)
 api_router.include_router(moniteur.router)
 api_router.include_router(search.router)
+api_router.include_router(stats.router)

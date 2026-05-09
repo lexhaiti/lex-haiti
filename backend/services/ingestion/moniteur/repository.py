@@ -143,6 +143,19 @@ class MoniteurRepository:
         rows = list(self.session.execute(stmt).scalars().all())
         return rows, total
 
+    def count_published_issues(self) -> int:
+        """Count Moniteur issues whose processing pipeline finished and
+        whose status is published — i.e., what the public site shows."""
+        return int(
+            self.session.execute(
+                select(func.count())
+                .select_from(MoniteurIssue)
+                .where(
+                    MoniteurIssue.processing_status == MoniteurIssueStatus.published
+                )
+            ).scalar_one()
+        )
+
     def update_issue(
         self, issue: MoniteurIssue, **fields
     ) -> MoniteurIssue:

@@ -533,6 +533,31 @@ export interface paths {
         patch: operations["update_issue_api_v1_moniteur_issues__issue_id__patch"];
         trace?: never;
     };
+    "/api/v1/moniteur/issues/{issue_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Issue Pdf
+         * @description LexHaïti-branded PDF of the Moniteur issue.
+         *
+         *     Cover page → sommaire → one section per top-level entry. The PDF
+         *     carries the lexhaiti.ht permalink so a printed copy is always
+         *     traceable back to the canonical web version. Public read — no
+         *     auth needed; the page is also publicly browsable.
+         */
+        get: operations["export_issue_pdf_api_v1_moniteur_issues__issue_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/extract-metadata": {
         parameters: {
             query?: never;
@@ -724,6 +749,27 @@ export interface paths {
          *     without having to know in advance which kind of result they want.
          */
         get: operations["global_search_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Corpus Stats
+         * @description Aggregated corpus counts: published legal texts, articles, and
+         *     Moniteur issues. Cached 5 min via Cache-Control.
+         */
+        get: operations["get_corpus_stats_api_v1_stats_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1086,6 +1132,23 @@ export interface components {
         CommentRequest: {
             /** Comment */
             comment: string;
+        };
+        /**
+         * CorpusStats
+         * @description Public-facing corpus aggregates — drives the homepage stats strip.
+         *
+         *     All counts are restricted to what the public site renders (i.e.,
+         *     `editorial_status='published'` for legal texts and articles, and
+         *     `processing_status='published'` for Moniteur issues), so the numbers
+         *     a visitor sees on the homepage match what they'd find when browsing.
+         */
+        CorpusStats: {
+            /** Legal Texts */
+            legal_texts: number;
+            /** Articles */
+            articles: number;
+            /** Moniteur Issues */
+            moniteur_issues: number;
         };
         /**
          * CourtType
@@ -3120,6 +3183,35 @@ export interface operations {
             };
         };
     };
+    export_issue_pdf_api_v1_moniteur_issues__issue_id__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post: {
         parameters: {
             query?: never;
@@ -3385,6 +3477,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_corpus_stats_api_v1_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusStats"];
                 };
             };
         };

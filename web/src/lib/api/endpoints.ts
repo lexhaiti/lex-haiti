@@ -38,6 +38,16 @@ export type PaginatedCitationsResponse =
 export type CourtType = components['schemas']['CourtType']
 
 // -----------------------------------------------------------------------
+// Corpus stats — drives the homepage stats strip
+// -----------------------------------------------------------------------
+
+export type CorpusStats = components['schemas']['CorpusStats']
+
+export async function getCorpusStats(): Promise<CorpusStats> {
+  return apiGet<CorpusStats>('/stats')
+}
+
+// -----------------------------------------------------------------------
 // Legal texts
 // -----------------------------------------------------------------------
 

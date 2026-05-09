@@ -25,6 +25,13 @@ import {
   type SommaireEntryInput,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const COPY = {
   fr: {
@@ -683,28 +690,35 @@ function SommaireRowEditor({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
         {/* Type — 3 columns */}
-        <label className="sm:col-span-3 flex flex-col gap-1.5">
+        <div className="sm:col-span-3 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
             {copy.sommaireType}
           </span>
-          <select
+          <Select
             value={row.detected_category}
             disabled={disabled}
-            onChange={(e) =>
+            onValueChange={(v) =>
               onChange({
                 detected_category:
-                  e.target.value as SommaireEntryInput['detected_category'],
+                  v as SommaireEntryInput['detected_category'],
               })
             }
-            className={inputCls}
           >
-            {SOMMAIRE_DOC_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {lang === 'fr' ? t.fr : t.ht}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger
+              size="default"
+              className="w-full h-11 bg-white border-slate-300 hover:border-slate-400 focus-visible:border-primary focus-visible:ring-primary/30 data-[state=open]:border-primary"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
+              {SOMMAIRE_DOC_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {lang === 'fr' ? t.fr : t.ht}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {/* Title — 5 columns */}
         <label className="sm:col-span-5 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">

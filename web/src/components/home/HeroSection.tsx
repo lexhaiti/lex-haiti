@@ -15,20 +15,34 @@ const COPY = {
     description:
       "Bienvenue sur LexHaïti, le portail public de référence regroupant les ressources en ligne du droit haïtien — Constitutions, codes, lois, décrets et arrêtés. Les textes sont consultables en français et en kreyòl ayisyen, deux langues officielles de la République, à partir de sources publiques vérifiées.",
     findLabel: 'Trouver un texte',
-    placeholder: 'Ex. : Article 1382, Code Civil',
+    placeholder: 'Ex. : Article 1382, Code Civil, CL-007-09-09',
     searchButton: 'Rechercher',
     advanced: 'Recherche avancée',
     browse: 'Tous les textes',
+    suggestionsLabel: 'Populaires',
+    suggestions: [
+      { label: 'Constitution 1987', q: 'Constitution 1987' },
+      { label: 'Code Civil', q: 'Code Civil' },
+      { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
+      { label: 'Le Moniteur', href: '/moniteur' },
+    ],
   },
   ht: {
     title: "Pòtal jiridik Repiblik d'Ayiti",
     description:
       "Byenveni sou LexHaïti, pòtal piblik referans ki rasanble resous an liy sou dwa ayisyen an — Konstitisyon, kòd, lwa, dekrè ak arete. Tèks yo disponib an fransè ak an kreyòl ayisyen, de lang ofisyèl Repiblik la, ki sòti nan sous piblik verifye.",
     findLabel: 'Jwenn yon tèks',
-    placeholder: 'Egz. : Atik 1382, Kòd Sivil',
+    placeholder: 'Egz. : Atik 1382, Kòd Sivil, CL-007-09-09',
     searchButton: 'Chèche',
     advanced: 'Rechèch avanse',
     browse: 'Tout tèks yo',
+    suggestionsLabel: 'Popilè',
+    suggestions: [
+      { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
+      { label: 'Kòd Sivil', q: 'Code Civil' },
+      { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
+      { label: 'Le Moniteur', href: '/moniteur' },
+    ],
   },
 }
 
@@ -176,6 +190,46 @@ export default function HeroSection() {
                 <span className="hidden sm:inline">{copy.searchButton}</span>
               </button>
             </form>
+
+            {/* Quick-pick chips — most-likely entry points for visitors
+                who land without a query in mind. Mix of search shortcuts
+                and direct navigation, each routed to whichever surface
+                makes sense. Sits above the advanced/browse links so it's
+                the first discoverable affordance after the search bar. */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="mt-4 flex flex-wrap items-center gap-2"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mr-1">
+                {copy.suggestionsLabel}
+              </span>
+              {copy.suggestions.map((s) => {
+                const cls =
+                  'inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-white/35 transition-colors backdrop-blur-sm'
+                if ('href' in s && s.href) {
+                  return (
+                    <Link key={s.label} href={s.href} className={cls}>
+                      {s.label}
+                    </Link>
+                  )
+                }
+                if ('q' in s && s.q) {
+                  return (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => goSearch(s.q!)}
+                      className={cls}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                }
+                return null
+              })}
+            </motion.div>
 
             <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
               <Link
