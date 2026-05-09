@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
 from api.deps import DbSession, EditorialUser
@@ -42,7 +44,9 @@ from packages.schemas.moniteur import (
     TranscriptPreview,
     TranscriptPreviewInput,
 )
+from api.config import get_settings
 from services.ingestion.article_split import split_into_articles, split_preamble
+from services.ingestion.moniteur.export import render_issue_pdf
 from services.ingestion.moniteur.repository import MoniteurRepository
 
 router = APIRouter(prefix="/moniteur", tags=["moniteur"])
@@ -166,6 +170,40 @@ def get_issue(issue_id: int, db: DbSession):
         MoniteurEntryRead.model_validate(e) for e in issue.entries
     ]
     return payload
+
+
+@router.get(
+    "/issues/{issue_id}/export",
+    response_class=Response,
+)
+def export_issue_pdf(issue_id: int, db: DbSession):
+    """LexHaïti-branded PDF of the Moniteur issue.
+
+    Cover page → sommaire → one section per top-level entry. The PDF
+    carries the lexhaiti.ht permalink so a printed copy is always
+    traceable back to the canonical web version. Public read — no
+    auth needed; the page is also publicly browsable.
+    """
+    repo = MoniteurRepository(db)
+    issue = repo.get_issue_with_entries(issue_id)
+    if not issue:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
+
+    payload = render_issue_pdf(
+        issue, base_url=get_settings().public_site_url
+    )
+    safe_number = "".join(
+        c if c.isalnum() else "-" for c in (issue.number or "")
+    ).strip("-") or str(issue.id)
+    filename = f"lexhaiti-moniteur-{safe_number}-{issue.year}.pdf"
+    return Response(
+        content=payload,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "public, max-age=300",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

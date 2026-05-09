@@ -529,14 +529,25 @@ export default function MoniteurDetailPage() {
             </motion.div>
           </div>
 
-          {/* PDF download — only when a remote URL is present */}
-          {issue.file_url && issue.file_url.startsWith('http') && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-10"
+          {/* Download row — branded LexHaïti version is always available
+              (server-rendered from the structured corpus); the original
+              scan stays as an "advanced" link only when a remote URL
+              is present. */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-10 flex flex-wrap items-center gap-3"
+          >
+            <a
+              href={`/api/v1/moniteur/issues/${issue.id}/export`}
+              download
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-primary text-sm font-bold border border-white shadow-lg shadow-blue-900/20 hover:bg-amber-50 transition-all"
             >
+              <Download className="w-4 h-4" />
+              Télécharger (PDF LexHaïti)
+            </a>
+            {issue.file_url && issue.file_url.startsWith('http') && (
               <a
                 href={issue.file_url}
                 target="_blank"
@@ -544,10 +555,10 @@ export default function MoniteurDetailPage() {
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
               >
                 <Download className="w-4 h-4" />
-                Télécharger le PDF
+                Scan original
               </a>
-            </motion.div>
-          )}
+            )}
+          </motion.div>
         </div>
       </div>
 

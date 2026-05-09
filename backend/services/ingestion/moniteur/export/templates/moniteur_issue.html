@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Le Moniteur — {{ number_display }} ({{ issue.year }})</title>
+  <style>{{ css_inline | safe }}</style>
+</head>
+<body>
+
+  {# ────────────────────────────────────────────────────────────── #}
+  {# Cover page — masthead, big issue number, edition + date pills #}
+  {# ────────────────────────────────────────────────────────────── #}
+  <section class="cover">
+    <div class="cover-band-top"></div>
+    <div class="cover-inner">
+      <div class="cover-brand">
+        <span class="brand-mark">Lex<span class="brand-accent">Haïti</span></span>
+        <span class="brand-tag">Portail Juridique</span>
+      </div>
+
+      <div class="cover-eyebrow">Le Moniteur · Journal Officiel</div>
+      <h1 class="cover-number">{{ number_display }}</h1>
+
+      <div class="cover-meta">
+        <span class="cover-date">{{ publication_date }}</span>
+        {% if issue.edition_label %}
+        <span class="pill pill-amber">{{ issue.edition_label }}</span>
+        {% endif %}
+        <span class="pill pill-ghost">{{ annee }}<sup>e</sup>&nbsp;année</span>
+      </div>
+
+      <div class="cover-stats">
+        <div class="stat">
+          <div class="stat-num">{{ entries | length }}</div>
+          <div class="stat-label">{% if entries|length == 1 %}Document{% else %}Documents{% endif %}</div>
+        </div>
+        {% if issue.page_count %}
+        <div class="stat">
+          <div class="stat-num">{{ issue.page_count }}</div>
+          <div class="stat-label">Pages d'origine</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="cover-source">
+        Téléchargé depuis <strong>{{ permalink }}</strong>
+        <span class="cover-gen">· {{ generated_at.strftime('%Y-%m-%d') }}</span>
+      </div>
+    </div>
+    <div class="cover-band-bottom"></div>
+  </section>
+
+  {# ────────────────────────────────────────────────────────────── #}
+  {# Sommaire — table of contents, links to each entry              #}
+  {# ────────────────────────────────────────────────────────────── #}
+  {% if entries %}
+  <section class="toc-page">
+    <h2 class="section-title">Sommaire</h2>
+    <ol class="toc">
+      {% for e in entries %}
+      <li class="toc-row">
+        <span class="toc-num">{{ "%02d" | format(loop.index) }}</span>
+        <span class="toc-cat">{{ entry_label(e) }}</span>
+        <span class="toc-title">
+          {{ e.display_title or e.detected_title or 'Sans titre' }}
+        </span>
+        {% if e.detected_number %}
+        <span class="toc-meta">N° {{ e.detected_number }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  {# ────────────────────────────────────────────────────────────── #}
+  {# Body — one section per entry, in order                         #}
+  {# ────────────────────────────────────────────────────────────── #}
+  {% for e in entries %}
+  <section class="entry">
+    <header class="entry-header">
+      <span class="entry-cat">{{ entry_label(e) }}</span>
+      {% if e.detected_number %}
+      <span class="entry-number">N° {{ e.detected_number }}</span>
+      {% endif %}
+    </header>
+    <h3 class="entry-title">
+      {{ e.display_title or e.detected_title or 'Sans titre' }}
+    </h3>
+    {% if e.raw_text %}
+    <div class="entry-body">{{ e.raw_text }}</div>
+    {% else %}
+    <p class="entry-empty"><em>Texte non disponible.</em></p>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+</body>
+</html>

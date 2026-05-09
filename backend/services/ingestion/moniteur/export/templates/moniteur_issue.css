@@ -1,0 +1,337 @@
+/* LexHaïti — print stylesheet for the branded Moniteur PDF.
+ *
+ * Visual identity:
+ *   - Primary navy: #0D1B4C (cover, masthead, accents)
+ *   - Brand red:    #DC2626 (cover band, accents)
+ *   - Border blue:  #1E3A8A (page border on body pages)
+ *   - Sans body:    DM Sans → fallback to system sans
+ */
+
+@page {
+  size: A4;
+  margin: 22mm 18mm 22mm 18mm;
+
+  /* Blue side border on body pages — sits across the left margin. */
+  background: white;
+
+  @top-left {
+    content: "Le Moniteur · " string(issueNumber);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 8pt;
+    font-weight: 700;
+    color: #0D1B4C;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-top: 6mm;
+  }
+  @top-right {
+    content: string(issueDate);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 8pt;
+    color: #475569;
+    padding-top: 6mm;
+    text-align: right;
+  }
+  @bottom-left {
+    content: string(footerSource);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 7.5pt;
+    color: #475569;
+    padding-bottom: 8mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: "DM Sans", "Helvetica Neue", sans-serif;
+    font-size: 7.5pt;
+    color: #475569;
+    padding-bottom: 8mm;
+  }
+}
+
+/* Cover page — borderless, full-bleed top/bottom red bands. */
+@page :first {
+  margin: 0;
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+/* Carry the issue number / date / source into @page strings so the
+ * running header and footer can reference them on every body page. */
+.issue-meta-source {
+  string-set:
+    issueNumber attr(data-number),
+    issueDate attr(data-date),
+    footerSource attr(data-source);
+  display: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  color: #0F172A;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+
+/* ─── Cover page ────────────────────────────────────────────────── */
+
+.cover {
+  page: first;
+  page-break-after: always;
+  height: 297mm;
+  width: 210mm;
+  display: flex;
+  flex-direction: column;
+  background: #0D1B4C;
+  color: white;
+  position: relative;
+}
+
+.cover-band-top,
+.cover-band-bottom {
+  background: #DC2626;
+  flex-shrink: 0;
+  height: 16mm;
+}
+
+.cover-inner {
+  flex: 1;
+  padding: 22mm 22mm 18mm 22mm;
+  display: flex;
+  flex-direction: column;
+  gap: 8mm;
+}
+
+.cover-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  margin-bottom: 6mm;
+}
+
+.brand-mark {
+  font-family: "DM Sans", "Helvetica Neue", sans-serif;
+  font-size: 18pt;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: white;
+}
+.brand-accent {
+  color: #DC2626;
+}
+.brand-tag {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cover-eyebrow {
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cover-number {
+  font-size: 56pt;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin: 4mm 0 2mm 0;
+  color: white;
+}
+
+.cover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4mm;
+  border-left: 2mm solid #DC2626;
+  padding-left: 4mm;
+}
+
+.cover-date {
+  font-size: 13pt;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pill {
+  display: inline-block;
+  padding: 1.5mm 4mm;
+  border-radius: 12mm;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pill-amber {
+  background: rgba(251, 191, 36, 0.18);
+  color: #FCD34D;
+  border: 0.5pt solid rgba(252, 211, 77, 0.4);
+}
+.pill-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
+  border: 0.5pt solid rgba(255, 255, 255, 0.15);
+}
+
+.cover-stats {
+  display: flex;
+  gap: 6mm;
+  margin-top: auto;
+  margin-bottom: 6mm;
+}
+
+.stat {
+  flex: 0 0 auto;
+  border: 0.5pt solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4mm;
+  padding: 4mm 8mm;
+  min-width: 30mm;
+}
+.stat-num {
+  font-size: 28pt;
+  font-weight: 900;
+  line-height: 1;
+  color: white;
+}
+.stat-label {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 1.5mm;
+}
+
+.cover-source {
+  font-size: 8pt;
+  color: rgba(255, 255, 255, 0.55);
+  border-top: 0.5pt solid rgba(255, 255, 255, 0.12);
+  padding-top: 4mm;
+}
+.cover-source strong {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+.cover-gen {
+  margin-left: 1mm;
+  font-style: italic;
+}
+
+/* ─── Sommaire ──────────────────────────────────────────────────── */
+
+.toc-page {
+  page-break-after: always;
+  border-left: 1.5mm solid #1E3A8A;
+  padding-left: 6mm;
+}
+
+.section-title {
+  font-size: 10pt;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #475569;
+  margin: 0 0 8mm 0;
+}
+
+.toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc-row {
+  display: grid;
+  grid-template-columns: 12mm 24mm 1fr auto;
+  gap: 4mm;
+  padding: 3mm 0;
+  border-bottom: 0.3pt solid #E2E8F0;
+  align-items: baseline;
+}
+.toc-num {
+  font-family: "Source Code Pro", "Menlo", monospace;
+  font-size: 8.5pt;
+  color: #94A3B8;
+  font-weight: 600;
+}
+.toc-cat {
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #DC2626;
+}
+.toc-title {
+  font-size: 10pt;
+  color: #0F172A;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.toc-meta {
+  font-family: "Source Code Pro", "Menlo", monospace;
+  font-size: 8pt;
+  color: #475569;
+}
+
+/* ─── Entry body ────────────────────────────────────────────────── */
+
+.entry {
+  border-left: 1.5mm solid #1E3A8A;
+  padding-left: 6mm;
+  margin-bottom: 14mm;
+  page-break-inside: avoid;
+}
+/* Allow page breaks inside very long entries — the avoid above is best
+ * effort and WeasyPrint will break at body-paragraph boundaries when
+ * the section can't fit on one page anyway. */
+.entry .entry-body {
+  page-break-inside: auto;
+}
+
+.entry-header {
+  display: flex;
+  gap: 4mm;
+  align-items: center;
+  margin-bottom: 3mm;
+}
+.entry-cat {
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: white;
+  background: #DC2626;
+  padding: 1mm 3mm;
+  border-radius: 1.5mm;
+}
+.entry-number {
+  font-family: "Source Code Pro", "Menlo", monospace;
+  font-size: 8.5pt;
+  color: #475569;
+}
+.entry-title {
+  font-size: 14pt;
+  font-weight: 800;
+  color: #0D1B4C;
+  margin: 0 0 5mm 0;
+  line-height: 1.25;
+}
+.entry-body {
+  white-space: pre-wrap;
+  font-size: 10pt;
+  line-height: 1.6;
+  color: #1E293B;
+}
+.entry-empty {
+  color: #94A3B8;
+  font-size: 10pt;
+}
