@@ -394,7 +394,7 @@ export default function LawDetail() {
           />
 
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
-            <div className="flex-1 max-w-5xl">
+            <div className="flex-1 min-w-0">
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -431,7 +431,7 @@ export default function LawDetail() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-slate-300 text-lg lg:text-xl leading-relaxed mb-10 border-l-2 border-red-600 pl-6 max-w-4xl"
+                className="text-slate-300 text-lg lg:text-xl leading-relaxed mb-10 border-l-2 border-red-600 pl-6"
               >
                 {description}
               </motion.p>
