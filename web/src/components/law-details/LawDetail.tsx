@@ -1122,7 +1122,14 @@ function DownloadDropdown({
   const buttonLabel = `${t('lawDetail.download.label')} — PDF / Word`
 
   return (
-    <DropdownMenu>
+    // `modal={false}` prevents Radix from locking body scroll when the
+    // menu opens. The default behavior adds `padding-right` to the body
+    // to compensate for the removed scrollbar — but the fixed page
+    // header doesn't get the same compensation, so it visibly shifts to
+    // the right as the dropdown opens. The menu is small and
+    // non-blocking (just two file-format choices); we don't need to
+    // trap focus or block the page.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         {/* Styled as a metadata item so it sits seamlessly inline with
             année / contenu / référence: same icon circle, same small
