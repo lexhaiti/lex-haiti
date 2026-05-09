@@ -30,6 +30,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  listTexts,
+  type LegalCategory,
+  type LegalStatus,
+  type LegalTextQField,
+  type LegalTextQMode,
+} from '@/lib/api/endpoints'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -129,11 +136,14 @@ const COPY = {
     addCriterion: 'Ajouter un groupe de critères',
     refineTitle: 'Affiner la recherche',
     statusLabel: 'Statut juridique',
+    // Mirror the backend `LegalStatus` enum exactly. The previous
+    // 'historical' / 'suspended' values weren't backend-valid and
+    // produced HTTP 422s when applied as a filter.
     statusOptions: {
       all: 'Tous',
       in_force: 'En vigueur',
       abrogated: 'Abrogée',
-      historical: 'Historique',
+      partially_abrogated: 'Partiellement abrogée',
     },
     yearLabel: 'Année de publication',
     yearFrom: 'De',
@@ -202,7 +212,7 @@ const COPY = {
       all: 'Tout',
       in_force: 'An vigè',
       abrogated: 'Abwoje',
-      historical: 'Istorik',
+      partially_abrogated: 'Pasyèlman abwoje',
     },
     yearLabel: 'Ane piblikasyon',
     yearFrom: 'Soti',
@@ -250,11 +260,14 @@ const CATEGORY_PILL: Record<string, { fr: string; ht: string; cls: string }> = {
   arrete: { fr: 'Arrêté', ht: 'Arète', cls: 'bg-purple-100 text-purple-800' },
 }
 
+// Display chips for each `LegalStatus` enum value. The backend only
+// emits `in_force / abrogated / partially_abrogated`; the previous
+// 'historical' / 'suspended' entries were dead chrome that no row
+// could ever match.
 const STATUS_PILL: Record<string, { fr: string; ht: string; cls: string }> = {
   in_force: { fr: 'En vigueur', ht: 'An vigè', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   abrogated: { fr: 'Abrogée', ht: 'Abwoje', cls: 'bg-red-50 text-red-700 border-red-200' },
-  historical: { fr: 'Historique', ht: 'Istorik', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
-  suspended: { fr: 'Suspendue', ht: 'Sispann', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  partially_abrogated: { fr: 'Partiellement abrogée', ht: 'Pasyèlman abwoje', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
 }
 
 // =============================================================================
@@ -367,52 +380,54 @@ export default function AdvancedSearchPage() {
   const [hasSearched, setHasSearched] = useState(false)
 
   // Refetch from the backend whenever the applied filters change AFTER the
-  // user has clicked "Lancer la recherche" at least once. The backend handles:
-  // category, status, year range, and the first criterion's text query (q +
-  // q_field + q_mode). Multi-criteria boolean composition (OR / SAUF rows)
-  // is then applied client-side — proper backend support for boolean groups
-  // is a separate ticket.
+  // user has clicked "Lancer la recherche" at least once. The backend
+  // handles category, status, year range, and the first criterion's text
+  // query (q + q_field + q_mode). Multi-criteria boolean composition
+  // (OR / SAUF rows) is then applied client-side — proper backend
+  // support for boolean groups is a separate ticket.
+  //
+  // Uses the typed `listTexts()` client so schema drift surfaces as a
+  // TS error and the server-side base URL handling kicks in if this
+  // page ever migrates to RSC.
   useEffect(() => {
     if (!hasSearched) return
     let cancelled = false
     setLoading(true)
 
-    const params = new URLSearchParams()
-    params.set('limit', '100')
-    params.set('offset', '0')
-    if (applied.fonds !== 'all') params.set('category', applied.fonds)
-    if (applied.status !== 'all') params.set('status', applied.status)
-    if (applied.yearFrom) params.set('year_from', applied.yearFrom)
-    if (applied.yearTo) params.set('year_to', applied.yearTo)
     // Use the first non-empty ET criterion as the backend's text filter.
-    // The backend matches across title + description + article body (when
-    // q_field=all), so we trust its result for that row and skip re-applying
-    // it on the client. Additional OR/SAUF rows are still applied below.
     const baseIdx = applied.rows.findIndex(
       (r, i) => (i === 0 || r.operator === 'ET') && r.text.trim().length > 0,
     )
-    if (baseIdx >= 0) {
-      const baseRow = applied.rows[baseIdx]
-      params.set('q', baseRow.text.trim())
-      params.set('q_field', baseRow.field)
-      params.set('q_mode', baseRow.mode)
-      // Ask the backend to return highlighted snippets when searching all fields.
-      if (baseRow.field === 'all') {
-        params.set('with_snippets', 'true')
-      }
-    }
+    const baseRow = baseIdx >= 0 ? applied.rows[baseIdx] : null
 
-    fetch(`/api/v1/legal-texts?${params.toString()}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('fetch failed')
-        return r.json()
-      })
-      .then((data) => {
+    listTexts({
+      limit: 100,
+      offset: 0,
+      // Empty -> 'all' to filter narrows; rest of code expects them.
+      category:
+        applied.fonds !== 'all' ? (applied.fonds as LegalCategory) : undefined,
+      status:
+        applied.status !== 'all'
+          ? (applied.status as LegalStatus)
+          : undefined,
+      year_from: applied.yearFrom ? Number(applied.yearFrom) : undefined,
+      year_to: applied.yearTo ? Number(applied.yearTo) : undefined,
+      ...(baseRow && {
+        q: baseRow.text.trim(),
+        q_field: baseRow.field as LegalTextQField,
+        q_mode: baseRow.mode as LegalTextQMode,
+        // Backend computes snippets only when q_field=all (the only mode
+        // that walks article bodies); skip the param for narrower fields
+        // so the response stays smaller.
+        with_snippets: baseRow.field === 'all',
+      }),
+    })
+      .then((res) => {
         if (cancelled) return
-        const arr = Array.isArray(data)
-          ? data
-          : (data.items ?? data.results ?? [])
-        setAllTexts(arr)
+        // Cast through unknown — the typed listTexts() returns the
+        // shared LegalTextListItem schema, which is structurally a
+        // superset of LegalTextRow + match_snippets at runtime.
+        setAllTexts(res.items as unknown as LegalTextRow[])
         setErrored(false)
       })
       .catch(() => {
@@ -626,7 +641,9 @@ export default function AdvancedSearchPage() {
                           <SelectItem value="all">{copy.statusOptions.all}</SelectItem>
                           <SelectItem value="in_force">{copy.statusOptions.in_force}</SelectItem>
                           <SelectItem value="abrogated">{copy.statusOptions.abrogated}</SelectItem>
-                          <SelectItem value="historical">{copy.statusOptions.historical}</SelectItem>
+                          <SelectItem value="partially_abrogated">
+                            {copy.statusOptions.partially_abrogated}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

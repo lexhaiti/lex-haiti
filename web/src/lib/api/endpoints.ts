@@ -89,9 +89,32 @@ export type LegalTextSort = NonNullable<
   >['sort']
 >
 
+/**
+ * Where the `q` text is matched. Mirrors the backend Literal in
+ * api/routes/legal_texts.py — pulled from the OpenAPI spec.
+ */
+export type LegalTextQField = NonNullable<
+  NonNullable<
+    paths['/api/v1/legal-texts']['get']['parameters']['query']
+  >['q_field']
+>
+
+/**
+ * How the `q` text is matched (all words / exact / any / exclude).
+ */
+export type LegalTextQMode = NonNullable<
+  NonNullable<
+    paths['/api/v1/legal-texts']['get']['parameters']['query']
+  >['q_mode']
+>
+
 /** Paginated list of legal texts with optional filters and free-text query. */
 export async function listTexts(params?: {
   q?: string
+  /** Where to match `q` — defaults to 'all' (titles + descriptions + Moniteur ref). */
+  q_field?: LegalTextQField
+  /** How to match `q` — all words / exact / any / exclude. Defaults to 'all'. */
+  q_mode?: LegalTextQMode
   category?: LegalCategory
   code_subcategory?: CodeSubcategory
   status?: LegalStatus
@@ -101,6 +124,12 @@ export async function listTexts(params?: {
   year_from?: number
   year_to?: number
   sort?: LegalTextSort
+  /**
+   * When true and q is set with q_field=all, each item gets up to 2
+   * highlighted article snippets (`<mark>...</mark>`) showing where the
+   * query matched in the article body.
+   */
+  with_snippets?: boolean
   limit?: number
   offset?: number
 }) {
