@@ -451,14 +451,15 @@ export default function LawDetail() {
               </motion.p>
             </div>
 
-            {/* ── 3. Metadata row + download button ──────────────────── */}
+            {/* ── 3. Metadata row (download icon sits next to the
+                reference at the end) ───────────────────────────────── */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="flex flex-wrap items-center justify-between gap-6"
+              className="flex flex-wrap items-center gap-x-8 gap-y-5"
             >
-              <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
+              <div className="contents">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-white/5 rounded-full border border-white/10">
                     <Calendar className="w-5 h-5 text-slate-400" />
@@ -1118,36 +1119,29 @@ function DownloadDropdown({
       lang,
     })
 
+  const buttonLabel = `${t('lawDetail.download.label')} — PDF / Word`
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          aria-label={t('lawDetail.download.label')}
+          aria-label={buttonLabel}
+          title={buttonLabel}
           className={cn(
-            // Base — solid red fill anchors this as the page's primary action.
-            // Min h-11 (44px) keeps the touch target above the WCAG threshold.
-            'group inline-flex items-center gap-2 h-11 px-5 rounded-full',
-            'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white',
-            'border-0 shadow-lg shadow-red-900/30 transition-all duration-200',
-            // Visible focus ring against the navy header background
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-primary',
+            // Icon-only round button — sits inline with the metadata row,
+            // visually anchored next to the Moniteur reference. The
+            // download icon + dropdown convention carry the meaning;
+            // the title attribute supplies a hover tooltip.
+            'group inline-flex items-center justify-center w-11 h-11 rounded-full',
+            'bg-white/5 hover:bg-white/15 active:bg-white/20 text-white',
+            'border border-white/10 hover:border-white/30',
+            'transition-all duration-200',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-primary',
           )}
         >
           <Download
             aria-hidden
             className="w-4 h-4 transition-transform group-hover:-translate-y-0.5"
-          />
-          <span className="text-sm font-bold uppercase tracking-wider">
-            {t('lawDetail.download.label')}
-          </span>
-          {/* Format hint — hidden on small screens so the button stays
-              compact when the metadata row wraps below 640px. */}
-          <span aria-hidden className="hidden sm:inline text-xs font-medium opacity-80">
-            · PDF / Word
-          </span>
-          <ChevronDown
-            aria-hidden
-            className="w-3.5 h-3.5 opacity-80 group-data-[state=open]:rotate-180 transition-transform"
           />
         </Button>
       </DropdownMenuTrigger>
