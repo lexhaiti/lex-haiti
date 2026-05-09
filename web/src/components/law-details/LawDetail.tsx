@@ -381,7 +381,7 @@ export default function LawDetail() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
         </div>
 
-        <div className="relative z-10 container py-10 lg:py-16 pt-28 lg:pt-36">
+        <div className="relative z-10 container pt-28 lg:pt-36 pb-28 lg:pb-36">
           <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[600px] h-[300px] bg-white/5 blur-[100px] rounded-full pointer-events-none" />
 
           <Breadcrumb

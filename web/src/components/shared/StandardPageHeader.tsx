@@ -33,7 +33,7 @@ export function StandardPageHeader({
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
       </div>
 
-      <div className="relative z-10 container py-16 lg:py-24 pt-28 lg:pt-36">
+      <div className="relative z-10 container pt-28 lg:pt-36 pb-28 lg:pb-36">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <Breadcrumb className="mb-6" items={breadcrumbs} />
         )}
