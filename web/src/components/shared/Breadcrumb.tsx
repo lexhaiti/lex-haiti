@@ -53,7 +53,7 @@ export function Breadcrumb({ items, variant = 'dark', className }: Props) {
     <nav
       aria-label="Fil d'ariane"
       className={cn(
-        'flex items-center gap-2 text-xs font-medium',
+        'flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium',
         className,
       )}
     >

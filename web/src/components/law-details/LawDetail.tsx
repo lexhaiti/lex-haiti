@@ -444,7 +444,7 @@ export default function LawDetail() {
                     return (
                       <Link
                         href={`/moniteur/${law.moniteur_issue_id}`}
-                        className="flex items-center gap-4 group/moniteur"
+                        className="flex items-center gap-4 min-w-0 max-w-full group/moniteur"
                       >
                         <div className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/moniteur:bg-white/10 transition-colors">
                           <Newspaper className="w-5 h-5 text-slate-400" />
@@ -473,7 +473,7 @@ export default function LawDetail() {
                     ? raw.replace(/^(?:le\s+)?moniteur\b\s*/i, '')
                     : raw
                   return (
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-0 max-w-full">
                       <div className="p-3 bg-white/5 rounded-full border border-white/10">
                         <Newspaper className="w-5 h-5 text-slate-400" />
                       </div>
