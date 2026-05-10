@@ -788,7 +788,7 @@ export default function LawDetail() {
                 composition stays compact even on wide viewports. */}
             {law.issuing_authority && (
               <div className="my-12 lg:my-16 flex justify-center">
-                <div className="flex flex-col items-center gap-8 lg:gap-10 text-slate-700 max-w-2xl">
+                <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
                   <DeviseBanner />
                   <IssuingAuthorityHeader value={law.issuing_authority} />
                 </div>

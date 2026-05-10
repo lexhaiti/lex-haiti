@@ -33,7 +33,7 @@ export function IssuingAuthorityHeader({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-3 lg:gap-4 text-center',
+        'flex flex-col items-center gap-2 lg:gap-3 text-center',
         className,
       )}
     >
