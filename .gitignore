@@ -50,5 +50,12 @@ backend/exports/
 # Claude Code
 .claude/
 
+# Internal — DO NOT commit. Strategy/business/AI-collab docs kept local only.
+# These were scrubbed from public history via `git filter-repo` — see the
+# README of the local backup at ~/lex-haiti-private-backup-*/ for the
+# pre-scrub copies.
+CLAUDE.md
+docs/
+
 # OS
 Thumbs.db
