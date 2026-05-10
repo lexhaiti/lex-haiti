@@ -533,7 +533,7 @@ export default function LawDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="relative container">
+      <div className="relative container pt-6 lg:pt-10">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
           {/* Table of Contents - Mobile Accordion / Desktop Sidebar */}
           {law.articles && law.articles.length > 0 && (
@@ -566,7 +566,11 @@ export default function LawDetail() {
                     exit={{ opacity: 0, height: 0, marginTop: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="h-[500px]">
+                    {/* Cap the panel at 60vh so a long corpus doesn't
+                        eat the whole screen, but no min-height — a
+                        short TOC (e.g. a 2-article loi) hugs its
+                        content and doesn't leave dead space below. */}
+                    <div className="max-h-[60vh]">
                       <TableOfContents
                         articles={law.articles}
                         headings={law.headings}
