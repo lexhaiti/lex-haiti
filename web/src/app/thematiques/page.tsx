@@ -132,7 +132,6 @@ export default async function Page() {
             ? 'Explorez le droit haïtien classé par domaines d’application. 12 thématiques transversales — un même texte peut en porter plusieurs.'
             : 'Eksplore dwa ayisyen an klase pa domèn aplikasyon. 12 tèm transvèsal — yon menm tèks ka pote plizyè ladan yo.'
         }
-        icon={LayoutGrid}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
           { label: isFr ? 'Thématiques' : 'Tèm yo' },

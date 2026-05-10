@@ -63,7 +63,6 @@ export default async function Page() {
             ? 'Comment nous protégeons vos informations et respectons votre vie privée.'
             : 'Kijan nou pwoteje enfòmasyon ou yo ak respekte vi prive ou.',
         })}
-        icon={Lock}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
           {

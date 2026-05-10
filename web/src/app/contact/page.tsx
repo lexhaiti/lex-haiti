@@ -51,7 +51,6 @@ export default async function Page() {
             ? 'Une question ou une suggestion ? Notre équipe est à votre écoute.'
             : 'Ou gen yon keksyon oswa yon sijesyon ? Ekip nou an la pou koute ou.',
         })}
-        icon={MessageCircle}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
           { label: isFr ? 'Contact' : 'Kontak' },

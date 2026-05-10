@@ -120,7 +120,6 @@ export default function MoniteurListClient() {
             ? "Journal Officiel de la République d'Haïti."
             : 'Jounal Ofisyèl Repiblik Ayiti.',
         })}
-        icon={Newspaper}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
           { label: 'Le Moniteur' },

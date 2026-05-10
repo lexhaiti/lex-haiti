@@ -59,7 +59,6 @@ export default async function Page() {
             ? "Informations légales concernant l'utilisation de la plateforme LexHaïti."
             : 'Enfòmasyon legal konsènan itilizasyon platfòm LexHaïti a.',
         })}
-        icon={ShieldAlert}
         breadcrumbs={[
           { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
           { label: isFr ? 'Mentions légales' : 'Mansyon legal' },

@@ -1,14 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import type { LucideIcon } from 'lucide-react'
 
 import { Breadcrumb, type BreadcrumbItem } from '@/components/shared/Breadcrumb'
 
 interface StandardPageHeaderProps {
   title: string
   subtitle?: string
-  icon?: LucideIcon
   /**
    * Optional breadcrumb path. When provided, rendered above the h1 in the
    * dark variant. The last item should be the current page (no href).
@@ -17,10 +15,16 @@ interface StandardPageHeaderProps {
   children?: React.ReactNode
 }
 
+// Note on the dropped `icon` prop: it was accepted but never rendered.
+// The dead prop also broke RSC ↔ Client serialization (LucideIcon
+// components can't cross the server/client boundary as plain values),
+// so server-component pages — /thematiques, /legal, /privacy,
+// /a-propos, /contact — would crash at hydration. Removing the prop
+// fixes both the dead code AND the cross-boundary error.
+
 export function StandardPageHeader({
   title,
   subtitle,
-  icon: Icon,
   breadcrumbs,
   children,
 }: StandardPageHeaderProps) {

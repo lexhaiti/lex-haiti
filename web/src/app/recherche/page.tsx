@@ -230,7 +230,6 @@ function SearchPageInner() {
       <StandardPageHeader
         title={headerTitle}
         subtitle={headerSubtitle}
-        icon={Search}
         breadcrumbs={[
           { label: lang === 'fr' ? 'Accueil' : 'Akèy', href: '/' },
           { label: lang === 'fr' ? 'Recherche' : 'Rechèch' },
