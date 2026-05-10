@@ -57,6 +57,7 @@ import { DownloadDropdown } from './_panels/DownloadDropdown'
 import { DeviseBanner } from './_panels/DeviseBanner'
 import { IssuingAuthorityHeader } from './_panels/IssuingAuthorityHeader'
 import { OfficialNumberTab } from './_panels/OfficialNumberTab'
+import { buildSignatureLeadCaption } from './_helpers/signatureCaption'
 
 
 const categoryLabels: Record<
@@ -939,9 +940,26 @@ export default function LawDetail() {
               )}
             </div>
 
-            {/* Signataires */}
+            {/* Signataires + a short context-aware lead sentence above
+                the list ("Adoptée par … Promulguée le …" for laws,
+                "Donnée le …" for décrets, "Faite le …" for arrêtés,
+                etc.). Derived from the structured signatories so it
+                writes itself; hidden when there's nothing useful to
+                say. */}
             {law.signers && law.signers.length > 0 && (
               <div className="mb-12 pt-8 border-t border-slate-200">
+                {(() => {
+                  const lead = buildSignatureLeadCaption(
+                    law.signers,
+                    law.category,
+                    currentLang,
+                  )
+                  return lead ? (
+                    <p className="text-sm italic text-slate-600 leading-relaxed mb-6 border-l-2 border-amber-300 pl-4">
+                      {lead}
+                    </p>
+                  ) : null
+                })()}
                 <div className="flex items-center gap-2 mb-6">
                   <PenLine className="w-4 h-4 text-slate-400" />
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
