@@ -70,19 +70,13 @@ _REPUBLIQUE_RE = re.compile(
     re.MULTILINE,
 )
 
-# Default authority per category — the canonical organ for each
-# Haitian act type. Used when the parser doesn't find an explicit
-# authority block (most older documents, or ones with mangled OCR
-# at the top).
-_DEFAULT_AUTHORITY: dict[LegalCategory, str] = {
-    LegalCategory.loi: "CORPS LÉGISLATIF",
-    LegalCategory.decret: "LE PRÉSIDENT DE LA RÉPUBLIQUE",
-    LegalCategory.arrete: "LE MINISTRE",  # often joint — parser tries to read the explicit lines first
-    LegalCategory.circulaire: "LE MINISTRE",
-    LegalCategory.constitution: "LE PEUPLE HAÏTIEN",
-    # Convention has no canonical default — left to the editor.
-    # Code is composite — built from many laws, no single authority.
-}
+# NO category-based default for issuing_authority. If the parser
+# can't lift an explicit authority block from the source PDF, leave
+# it null. Showing "CORPS LÉGISLATIF" on every loi (regardless of
+# whether the source actually carries that header) misled visitors
+# into thinking we'd verified the institutional origin when we
+# hadn't. Editor sets it manually via the MetadataEditor for older
+# documents that lack the modern header.
 
 
 def split_header(
@@ -107,7 +101,7 @@ def split_header(
     if not body or not body.strip():
         return HeaderParts(
             official_number=None,
-            issuing_authority=_DEFAULT_AUTHORITY.get(category) if category else None,
+            issuing_authority=None,
             title_line=None,
             body_without_header=body,
         )
@@ -154,9 +148,9 @@ def split_header(
             title_line = cleaned
             break
 
-    # Fallback to category default if no explicit authority was found.
-    if issuing_authority is None and category is not None:
-        issuing_authority = _DEFAULT_AUTHORITY.get(category)
+    # No category-default fallback — leave issuing_authority as None
+    # when the parser didn't find an explicit block. The editor can
+    # set it manually for documents that lack the modern header.
 
     # Strip the matched header lines from the body so the downstream
     # article splitter doesn't re-encounter them. We slice at the

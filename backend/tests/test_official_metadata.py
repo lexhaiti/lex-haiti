@@ -74,14 +74,18 @@ def test_header_split_lifts_number_authority_and_title() -> None:
     assert h.title_line.startswith("LOI PORTANT MODIFICATION")
 
 
-def test_header_split_falls_back_to_category_default() -> None:
+def test_header_split_no_default_when_authority_block_absent() -> None:
+    """No category-based default — when the source PDF doesn't carry an
+    explicit authority block, `issuing_authority` stays None.
+    Otherwise we'd be advertising "CORPS LÉGISLATIF" on every loi
+    regardless of what the actual source said."""
     body = "Article 1.- Quelque chose."
     h = split_header(body, category=LegalCategory.loi)
     assert h.official_number is None
-    assert h.issuing_authority == "CORPS LÉGISLATIF"
+    assert h.issuing_authority is None
 
     h_decret = split_header(body, category=LegalCategory.decret)
-    assert h_decret.issuing_authority == "LE PRÉSIDENT DE LA RÉPUBLIQUE"
+    assert h_decret.issuing_authority is None
 
 
 def test_split_into_articles_slices_official_formula() -> None:

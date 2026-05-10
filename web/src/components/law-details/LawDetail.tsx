@@ -57,8 +57,6 @@ import { DownloadDropdown } from './_panels/DownloadDropdown'
 import { DeviseBanner } from './_panels/DeviseBanner'
 import { IssuingAuthorityHeader } from './_panels/IssuingAuthorityHeader'
 import { OfficialNumberTab } from './_panels/OfficialNumberTab'
-import { OfficialFormula } from './_panels/OfficialFormula'
-import { SignatureGrid } from './_panels/SignatureGrid'
 
 
 const categoryLabels: Record<
@@ -999,31 +997,11 @@ export default function LawDetail() {
               />
             )}
 
-            {/* Closing band — official_formula then signature grid.
-                Both auto-hide when their data is null/empty so old
-                laws and decree-style acts (Donné only, no Votée)
-                degrade gracefully. */}
-            {(law.official_formula ||
-              (law.signers && law.signers.length > 0)) && (
-              <div className="mt-16 space-y-10">
-                {law.official_formula && (
-                  <OfficialFormula
-                    value={law.official_formula}
-                    caption={
-                      currentLang === 'fr'
-                        ? 'Adoption et promulgation'
-                        : 'Adopsyon ak pwomilgasyon'
-                    }
-                  />
-                )}
-                {law.signers && law.signers.length > 0 && (
-                  <SignatureGrid
-                    signatories={law.signers}
-                    lang={currentLang}
-                  />
-                )}
-              </div>
-            )}
+            {/* The OfficialFormula box and the SignatureGrid that
+                used to live here have been removed — the existing
+                "Signataires" 2-column list above (line 944) is the
+                canonical signers display, and the verbatim formula
+                duplicated the devise that opens the body. */}
 
             {/* Related Laws */}
             {relatedLaws.length > 0 && (
