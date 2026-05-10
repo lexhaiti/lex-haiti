@@ -51,17 +51,33 @@ export function DeviseBanner({
         className={cn(
           'font-bold uppercase',
           // Wide tracking on each letter — this is how the printed
-          // Moniteur draws out the devise. Adjusted slightly tighter
-          // on the bullets so the dots stay visually anchored.
+          // Moniteur draws out the devise. The bullet separators get
+          // generous horizontal margin so the three words breathe
+          // apart from each other without forcing extra letter-
+          // spacing inside each word.
           isCompact
             ? 'text-[9px] tracking-[0.3em]'
             : 'text-[11px] sm:text-xs tracking-[0.42em]',
         )}
       >
-        Liberté{' '}
-        <span className="opacity-40 mx-0.5">•</span>{' '}
-        Égalité{' '}
-        <span className="opacity-40 mx-0.5">•</span>{' '}
+        Liberté
+        <span
+          className={cn(
+            'opacity-40',
+            isCompact ? 'mx-2' : 'mx-4 sm:mx-5',
+          )}
+        >
+          •
+        </span>
+        Égalité
+        <span
+          className={cn(
+            'opacity-40',
+            isCompact ? 'mx-2' : 'mx-4 sm:mx-5',
+          )}
+        >
+          •
+        </span>
         Fraternité
       </p>
 
