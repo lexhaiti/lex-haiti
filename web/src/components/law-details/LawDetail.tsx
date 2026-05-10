@@ -781,11 +781,17 @@ export default function LawDetail() {
                 rendered HERE (in the document body) rather than in the
                 hero. Mirrors how a printed legal act lays out: identity
                 opens the document, not the masthead. Hidden when there's
-                no issuing_authority on the row. */}
+                no issuing_authority on the row.
+
+                Generous vertical padding so the block reads as a formal
+                opening emblem, with a max-width cap so the centered
+                composition stays compact even on wide viewports. */}
             {law.issuing_authority && (
-              <div className="mb-8 flex flex-col items-center gap-3 text-slate-700">
-                <DeviseBanner />
-                <IssuingAuthorityHeader value={law.issuing_authority} />
+              <div className="my-12 lg:my-16 flex justify-center">
+                <div className="flex flex-col items-center gap-8 lg:gap-10 text-slate-700 max-w-2xl">
+                  <DeviseBanner />
+                  <IssuingAuthorityHeader value={law.issuing_authority} />
+                </div>
               </div>
             )}
 
