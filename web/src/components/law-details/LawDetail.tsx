@@ -47,86 +47,14 @@ import { useToast } from '@/components/ui/toast-simple'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { apiUrl } from '@/lib/api/client'
 import { themeLabel } from '@/lib/themes'
+import { formatLongDate } from '@/lib/format/date'
+import {
+  TEXT_STATUS_PILL,
+  mapTextStatusToArticleStatus,
+  type TextStatus,
+} from './_helpers/textStatus'
+import { DownloadDropdown } from './_panels/DownloadDropdown'
 
-type TextStatus =
-  | 'in_force'
-  | 'abrogated'
-  | 'suspended'
-  | 'partially_abrogated'
-  | 'historical'
-  | 'draft'
-
-const TEXT_STATUS_PILL: Record<
-  TextStatus,
-  {
-    label: { fr: string; ht: string }
-    cls: string
-    icon: React.ComponentType<{ className?: string }>
-  }
-> = {
-  in_force: {
-    label: { fr: 'En vigueur', ht: 'An vigè' },
-    cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    icon: CheckCircle,
-  },
-  abrogated: {
-    label: { fr: 'Abrogée', ht: 'Abwoje' },
-    cls: 'bg-red-500/10 text-red-400 border-red-500/20',
-    icon: XCircle,
-  },
-  suspended: {
-    label: { fr: 'Suspendue', ht: 'Sispann' },
-    cls: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    icon: PauseCircle,
-  },
-  partially_abrogated: {
-    label: { fr: 'Partiellement abrogée', ht: 'Pasyèlman abwoje' },
-    cls: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    icon: AlertTriangle,
-  },
-  historical: {
-    label: { fr: 'Historique', ht: 'Istorik' },
-    cls: 'bg-slate-500/15 text-slate-300 border-slate-400/30',
-    icon: Archive,
-  },
-  draft: {
-    label: { fr: 'Brouillon', ht: 'Bwouyon' },
-    cls: 'bg-slate-500/15 text-slate-300 border-slate-400/30',
-    icon: FileText,
-  },
-}
-
-/**
- * Map a legal-text status to the equivalent article-level status.
- * Used so individual articles inherit the parent text's status when no
- * per-article override is set in the data.
- */
-function mapTextStatusToArticleStatus(
-  textStatus: string | null | undefined,
-):
-  | 'in_force'
-  | 'abrogated'
-  | 'suspended'
-  | 'transferred'
-  | 'obsolete'
-  | undefined {
-  if (!textStatus) return undefined
-  switch (textStatus) {
-    case 'in_force':
-      return 'in_force'
-    case 'abrogated':
-      return 'abrogated'
-    case 'suspended':
-      return 'suspended'
-    case 'historical':
-      return 'obsolete'
-    case 'partially_abrogated':
-      // Default to in_force; per-article status overrides for the abrogated ones.
-      return 'in_force'
-    default:
-      return undefined
-  }
-}
 
 const categoryLabels: Record<
   string,
@@ -494,16 +422,8 @@ export default function LawDetail() {
                   // takes precedence over the legacy free-text field.
                   if (law.moniteur_issue_id) {
                     const pubDate = law.moniteur_issue_publication_date
-                    const dateStr = pubDate
-                      ? (() => {
-                          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(pubDate)
-                          if (!m) return pubDate
-                          const MONTHS_FR = ['','janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
-                          const day = Number.parseInt(m[3], 10)
-                          const month = Number.parseInt(m[2], 10)
-                          return `du ${day} ${MONTHS_FR[month] ?? ''} ${m[1]}`
-                        })()
-                      : ''
+                    const formatted = formatLongDate(pubDate, 'fr')
+                    const dateStr = formatted ? `du ${formatted}` : ''
                     return (
                       <Link
                         href={`/moniteur/${law.moniteur_issue_id}`}
@@ -1095,103 +1015,3 @@ export default function LawDetail() {
   )
 }
 
-/**
- * Download dropdown — PDF / DOCX export of the legal text.
- *
- * Uses native <a download> via DropdownMenuItem(asChild) so the browser
- * handles the file save (no JS download orchestration). The backend's
- * Content-Disposition header sets the filename; we keep `download`
- * attribute as a fallback for cross-origin proxy edge cases.
- */
-function DownloadDropdown({
-  slug,
-  language,
-}: {
-  slug: string
-  language: string
-}) {
-  const { t } = useT()
-  const lang = (language as 'fr' | 'ht') ?? 'fr'
-
-  const hrefFor = (format: 'pdf' | 'docx') =>
-    apiUrl(`/legal-texts/${encodeURIComponent(slug)}/export`, {
-      format,
-      lang,
-    })
-
-  const buttonLabel = `${t('lawDetail.download.label')} — PDF / Word`
-
-  return (
-    // `modal={false}` prevents Radix from locking body scroll when the
-    // menu opens. The default behavior adds `padding-right` to the body
-    // to compensate for the removed scrollbar — but the fixed page
-    // header doesn't get the same compensation, so it visibly shifts to
-    // the right as the dropdown opens. The menu is small and
-    // non-blocking (just two file-format choices); we don't need to
-    // trap focus or block the page.
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        {/* Styled as a metadata item so it sits seamlessly inline with
-            année / contenu / référence: same icon circle, same small
-            uppercase label, value below. The whole tile is the dropdown
-            trigger; the chevron next to the value telegraphs that. */}
-        <button
-          type="button"
-          aria-label={buttonLabel}
-          className={cn(
-            'group/dl flex items-center gap-4 text-left',
-            'rounded-xl -m-2 p-2 hover:bg-white/5 transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
-          )}
-        >
-          <div
-            aria-hidden
-            className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/dl:bg-white/10 group-hover/dl:border-white/20 transition-colors"
-          >
-            <Download className="w-5 h-5 text-slate-400 group-hover/dl:text-white transition-colors" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
-              {t('lawDetail.download.label')}
-            </p>
-            <p className="text-white font-bold flex items-center gap-1.5">
-              PDF · Word
-              <ChevronDown
-                aria-hidden
-                className="w-3.5 h-3.5 opacity-70 group-data-[state=open]:rotate-180 transition-transform"
-              />
-            </p>
-          </div>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-72">
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <a href={hrefFor('pdf')} download>
-            <FileText className="mr-3 h-4 w-4 text-red-600 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-900">
-                {t('lawDetail.download.pdf')}
-              </div>
-              <div className="text-xs text-slate-500 leading-snug mt-0.5">
-                {t('lawDetail.download.pdfDesc')}
-              </div>
-            </div>
-          </a>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <a href={hrefFor('docx')} download>
-            <FileText className="mr-3 h-4 w-4 text-primary flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-slate-900">
-                {t('lawDetail.download.docx')}
-              </div>
-              <div className="text-xs text-slate-500 leading-snug mt-0.5">
-                {t('lawDetail.download.docxDesc')}
-              </div>
-            </div>
-          </a>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}

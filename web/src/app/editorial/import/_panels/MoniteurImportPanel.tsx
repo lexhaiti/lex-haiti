@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import {
   createMoniteurIssue,
   extractMoniteurMetadata,
@@ -32,102 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Field } from '@/components/forms/Field'
+import { Dropzone } from '@/components/forms/Dropzone'
+import { ErrorBanner } from '@/components/shared/ErrorBanner'
 
-const COPY = {
-  fr: {
-    step: 'Étape',
-    s1Title: 'Téléverser le PDF',
-    s1Help:
-      "Glissez le PDF du Moniteur ici. La page de couverture est lue automatiquement pour pré-remplir les métadonnées.",
-    s2Title: 'Vérifier les métadonnées',
-    s2Help:
-      "Corrigez les champs détectés automatiquement, puis lancez l'import.",
-    dropPrompt: 'Déposez le PDF ou cliquez pour parcourir',
-    dropHint: 'PDF uniquement',
-    extracting: 'Lecture de la page de couverture…',
-    extractFailed: 'Extraction impossible — saisissez les champs manuellement.',
-    autoFilled: 'Métadonnées détectées automatiquement',
-    lowConfidence: 'Faible confiance — vérifiez',
-    number: 'Numéro',
-    numberHint: 'Ex. 47, 47-bis',
-    year: 'Année',
-    pubDate: 'Date de publication',
-    edition: 'Mention spéciale (facultatif)',
-    editionHint: 'Ex. Numéro spécial',
-    s3Title: 'Sommaire (facultatif)',
-    s3Help:
-      "Pré-remplissez le sommaire pour donner à l'OCR la structure exacte du numéro. Sinon, l'analyse heuristique tentera de détecter les bornes seule.",
-    addEntry: 'Ajouter un document',
-    skipSommaire: "Sans sommaire — laisser l'OCR détecter",
-    sommaireType: 'Type',
-    sommaireTitle: 'Titre',
-    sommaireNumber: 'N° (facultatif)',
-    sommairePages: 'Pages',
-    sommairePagesHint: 'Ex. 3 → 7',
-    sommairePageFrom: 'De',
-    sommairePageTo: 'À',
-    removeEntry: 'Retirer',
-    submit: "Importer et lancer l'analyse",
-    submitting: 'Création du numéro…',
-    uploading: 'Téléversement du PDF…',
-    sendingSommaire: 'Envoi du sommaire…',
-    parsing: 'Analyse en cours…',
-    success: 'Import terminé.',
-    successWithCandidates: (n: number) =>
-      `${n} candidat${n > 1 ? 's' : ''} détecté${n > 1 ? 's' : ''}.`,
-    parsingHint:
-      "L'analyse OCR continue en arrière-plan. Les candidats apparaîtront sur la page de revue dès qu'ils seront détectés.",
-    review: 'Voir les candidats',
-    reset: 'Importer un autre numéro',
-    chooseDifferent: 'Choisir un autre fichier',
-  },
-  ht: {
-    step: 'Etap',
-    s1Title: 'Telechaje PDF la',
-    s1Help:
-      'Glise PDF Moniteur a la a. Paj kouvèti a li otomatikman pou pre-ranpli metadòn yo.',
-    s2Title: 'Verifye metadòn yo',
-    s2Help: 'Korije chan yo, epi lanse enpòtasyon an.',
-    dropPrompt: 'Depoze PDF la oswa klike pou navige',
-    dropHint: 'PDF sèlman',
-    extracting: 'Ap li paj kouvèti a…',
-    extractFailed: 'Pa ka ekstrè — antre chan yo nan men.',
-    autoFilled: 'Metadòn detekte otomatikman',
-    lowConfidence: 'Konfyans fèb — verifye',
-    number: 'Nimewo',
-    numberHint: 'Egz. 47, 47-bis',
-    year: 'Ane',
-    pubDate: 'Dat piblikasyon',
-    edition: 'Mansyon espesyal (opsyonèl)',
-    editionHint: 'Egz. Nimewo espesyal',
-    s3Title: 'Somè (opsyonèl)',
-    s3Help:
-      "Pre-ranpli somè a pou bay OCR a estrikti egzakt nimewo a. Si non, analiz otomatik la ap eseye detekte yo pou kont li.",
-    addEntry: 'Ajoute yon dokiman',
-    skipSommaire: 'San somè — kite OCR a detekte',
-    sommaireType: 'Tip',
-    sommaireTitle: 'Tit',
-    sommaireNumber: 'N° (opsyonèl)',
-    sommairePages: 'Paj',
-    sommairePagesHint: 'Egz. 3 → 7',
-    sommairePageFrom: 'Soti',
-    sommairePageTo: 'Rive',
-    removeEntry: 'Retire',
-    submit: 'Enpòte epi analize',
-    submitting: 'Ap kreye nimewo a…',
-    uploading: 'Ap telechaje PDF la…',
-    sendingSommaire: 'Ap voye somè a…',
-    parsing: 'Analiz an kou…',
-    success: 'Enpòtasyon fini.',
-    successWithCandidates: (n: number) =>
-      `${n} kandida detekte.`,
-    parsingHint:
-      "Analiz OCR la kontinye nan background. Kandida yo ap parèt sou paj revizyon an lè yo detekte.",
-    review: 'Wè kandida yo',
-    reset: 'Enpòte yon lòt nimewo',
-    chooseDifferent: 'Chwazi yon lòt fichye',
-  },
-}
+// Copy lives at `editorial.import.moniteur.*` in i18n/{fr,ht}.ts.
 
 type Phase =
   | 'idle'
@@ -139,25 +48,25 @@ type Phase =
   | 'parsing'
   | 'done'
 
+type T = (key: string, opts?: { fallback?: string }) => string
+
 // Document types the editor can pick from when pre-filling the sommaire.
 // Mirrors backend MoniteurDocumentType. Kept here (not imported) because
 // the OpenAPI types are a frozen string literal union and we need labels
 // alongside the values.
-const SOMMAIRE_DOC_TYPES: ReadonlyArray<{
-  value: SommaireEntryInput['detected_category']
-  fr: string
-  ht: string
-}> = [
-  { value: 'loi', fr: 'Loi', ht: 'Lwa' },
-  { value: 'decret', fr: 'Décret', ht: 'Dekrè' },
-  { value: 'arrete', fr: 'Arrêté', ht: 'Arete' },
-  { value: 'circulaire', fr: 'Circulaire', ht: 'Sirkilè' },
-  { value: 'convention', fr: 'Convention', ht: 'Konvansyon' },
-  { value: 'ordonnance', fr: 'Ordonnance', ht: 'Òdonans' },
-  { value: 'communique', fr: 'Communiqué', ht: 'Kominike' },
-  { value: 'promulgation', fr: 'Promulgation', ht: 'Pwomilgasyon' },
-  { value: 'errata', fr: 'Errata', ht: 'Erata' },
-  { value: 'autre', fr: 'Autre', ht: 'Lòt' },
+const SOMMAIRE_DOC_TYPE_VALUES: ReadonlyArray<
+  SommaireEntryInput['detected_category']
+> = [
+  'loi',
+  'decret',
+  'arrete',
+  'circulaire',
+  'convention',
+  'ordonnance',
+  'communique',
+  'promulgation',
+  'errata',
+  'autre',
 ]
 
 // One row in the editor-facing sommaire form. Distinguished from the API
@@ -178,9 +87,16 @@ function emptyRow(): SommaireRow {
 
 export default function MoniteurImportPanel() {
   const router = useRouter()
-  const { language } = useLanguage()
+  const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+
+  // Local helper — successWithCandidates interpolates a runtime value
+  // (the candidate count), so it stays a function rather than going into
+  // the i18n catalogue (which only carries strings).
+  const successWithCandidates = (n: number): string =>
+    lang === 'ht'
+      ? `${n} kandida detekte.`
+      : `${n} candidat${n > 1 ? 's' : ''} détecté${n > 1 ? 's' : ''}.`
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const today = new Date().toISOString().slice(0, 10)
@@ -235,7 +151,7 @@ export default function MoniteurImportPanel() {
       setPhase('review')
     } catch (e: any) {
       // Extractor failure isn't fatal — let the editor enter values manually.
-      setErr(copy.extractFailed)
+      setErr(t('editorial.import.moniteur.extractFailed'))
       setPhase('review')
     }
   }
@@ -328,17 +244,23 @@ export default function MoniteurImportPanel() {
         {/* Step 1 — drop PDF */}
         <StepCard
           n={1}
-          stepLabel={copy.step}
-          title={copy.s1Title}
-          help={copy.s1Help}
+          stepLabel={t('editorial.import.moniteur.step')}
+          title={t('editorial.import.moniteur.s1Title')}
+          help={t('editorial.import.moniteur.s1Help')}
           active={phase === 'idle' || phase === 'extracting'}
           done={phase !== 'idle' && phase !== 'extracting'}
         >
           {!pdfFile ? (
             <Dropzone
-              prompt={copy.dropPrompt}
-              hint={copy.dropHint}
-              onFile={handleFileSelected}
+              file={null}
+              onSelect={(f) => {
+                // Preserve the legacy MIME-filter behaviour: PDF only.
+                if (f && f.type === 'application/pdf') handleFileSelected(f)
+              }}
+              accept="application/pdf"
+              prompt={t('editorial.import.moniteur.dropPrompt')}
+              formatsLabel={t('editorial.import.moniteur.dropHint')}
+              showFileSummary={false}
               inputRef={fileInputRef}
             />
           ) : (
@@ -361,7 +283,7 @@ export default function MoniteurImportPanel() {
                   className="text-xs font-semibold text-slate-500 hover:text-red-600 inline-flex items-center gap-1"
                 >
                   <X className="w-3.5 h-3.5" />
-                  {copy.chooseDifferent}
+                  {t('editorial.import.moniteur.chooseDifferent')}
                 </button>
               )}
             </div>
@@ -370,7 +292,7 @@ export default function MoniteurImportPanel() {
           {phase === 'extracting' && (
             <p className="mt-3 inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {copy.extracting}
+              {t('editorial.import.moniteur.extracting')}
             </p>
           )}
         </StepCard>
@@ -378,25 +300,25 @@ export default function MoniteurImportPanel() {
         {/* Step 2 — review/correct metadata + submit */}
         <StepCard
           n={2}
-          stepLabel={copy.step}
-          title={copy.s2Title}
-          help={copy.s2Help}
+          stepLabel={t('editorial.import.moniteur.step')}
+          title={t('editorial.import.moniteur.s2Title')}
+          help={t('editorial.import.moniteur.s2Help')}
           active={phase === 'review' || phase === 'creating' || phase === 'uploading' || phase === 'parsing'}
           done={phase === 'done'}
         >
           {metadata && (
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-800">
               <Sparkles className="w-3.5 h-3.5" />
-              {copy.autoFilled}
+              {t('editorial.import.moniteur.autoFilled')}
             </div>
           )}
 
           <form onSubmit={handleSubmit} id="moniteur-import-form" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field
-              label={copy.number}
-              hint={copy.numberHint}
+              label={t('editorial.import.moniteur.number')}
+              hint={t('editorial.import.moniteur.numberHint')}
               autoFilled={metadata?.confidence?.number}
-              lowConfidenceLabel={copy.lowConfidence}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
             >
               <input
                 required
@@ -408,9 +330,9 @@ export default function MoniteurImportPanel() {
               />
             </Field>
             <Field
-              label={copy.year}
+              label={t('editorial.import.moniteur.year')}
               autoFilled={metadata?.confidence?.year}
-              lowConfidenceLabel={copy.lowConfidence}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
             >
               <input
                 required
@@ -424,9 +346,9 @@ export default function MoniteurImportPanel() {
               />
             </Field>
             <Field
-              label={copy.pubDate}
+              label={t('editorial.import.moniteur.pubDate')}
               autoFilled={metadata?.confidence?.publication_date}
-              lowConfidenceLabel={copy.lowConfidence}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
             >
               <input
                 type="date"
@@ -437,10 +359,10 @@ export default function MoniteurImportPanel() {
               />
             </Field>
             <Field
-              label={copy.edition}
-              hint={copy.editionHint}
+              label={t('editorial.import.moniteur.edition')}
+              hint={t('editorial.import.moniteur.editionHint')}
               autoFilled={metadata?.confidence?.edition_label}
-              lowConfidenceLabel={copy.lowConfidence}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
             >
               <input
                 type="text"
@@ -460,9 +382,9 @@ export default function MoniteurImportPanel() {
             React state, not from form fields. */}
         <StepCard
           n={3}
-          stepLabel={copy.step}
-          title={copy.s3Title}
-          help={copy.s3Help}
+          stepLabel={t('editorial.import.moniteur.step')}
+          title={t('editorial.import.moniteur.s3Title')}
+          help={t('editorial.import.moniteur.s3Help')}
           active={
             phase === 'review' ||
             phase === 'creating' ||
@@ -475,7 +397,7 @@ export default function MoniteurImportPanel() {
           {sommaireRows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-5 py-6 text-center">
               <p className="text-sm text-slate-500 mb-3">
-                {copy.skipSommaire}
+                {t('editorial.import.moniteur.skipSommaire')}
               </p>
               <button
                 type="button"
@@ -484,7 +406,7 @@ export default function MoniteurImportPanel() {
                 className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary/40 disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5" />
-                {copy.addEntry}
+                {t('editorial.import.moniteur.addEntry')}
               </button>
             </div>
           ) : (
@@ -494,8 +416,7 @@ export default function MoniteurImportPanel() {
                   key={row.uid}
                   row={row}
                   index={i}
-                  copy={copy}
-                  lang={lang}
+                  t={t}
                   disabled={phase !== 'review' && phase !== 'idle'}
                   onChange={(patch) => updateSommaireRow(row.uid, patch)}
                   onRemove={() => removeSommaireRow(row.uid)}
@@ -508,7 +429,7 @@ export default function MoniteurImportPanel() {
                 className="self-start inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-primary/40 disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5" />
-                {copy.addEntry}
+                {t('editorial.import.moniteur.addEntry')}
               </button>
             </div>
           )}
@@ -521,38 +442,38 @@ export default function MoniteurImportPanel() {
           {phase === 'creating' && (
             <span className="inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {copy.submitting}
+              {t('editorial.import.moniteur.submitting')}
             </span>
           )}
           {phase === 'uploading' && (
             <span className="inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {copy.uploading}
+              {t('editorial.import.moniteur.uploading')}
             </span>
           )}
           {phase === 'sendingSommaire' && (
             <span className="inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {copy.sendingSommaire}
+              {t('editorial.import.moniteur.sendingSommaire')}
             </span>
           )}
           {phase === 'parsing' && (
             <span className="inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
-              {copy.parsing}
+              {t('editorial.import.moniteur.parsing')}
             </span>
           )}
           {phase === 'done' && (
             <div className="flex flex-col gap-1">
               <span className="inline-flex items-center gap-2 text-sm text-emerald-700 font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
-                {copy.success}{' '}
+                {t('editorial.import.moniteur.success')}{' '}
                 {candidatesCount > 0 &&
-                  copy.successWithCandidates(candidatesCount)}
+                  successWithCandidates(candidatesCount)}
               </span>
               {candidatesCount === 0 && (
                 <span className="text-xs text-slate-500">
-                  {copy.parsingHint}
+                  {t('editorial.import.moniteur.parsingHint')}
                 </span>
               )}
             </div>
@@ -565,14 +486,14 @@ export default function MoniteurImportPanel() {
                   onClick={reset}
                   className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-primary/40"
                 >
-                  {copy.reset}
+                  {t('editorial.import.moniteur.reset')}
                 </button>
                 <button
                   type="button"
                   onClick={goReview}
                   className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90"
                 >
-                  {copy.review}
+                  {t('editorial.import.moniteur.review')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </>
@@ -592,17 +513,13 @@ export default function MoniteurImportPanel() {
                 className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload className="w-4 h-4" />
-                {copy.submit}
+                {t('editorial.import.moniteur.submit')}
               </button>
             )}
           </div>
         </div>
 
-        {err && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-            {err}
-          </div>
-        )}
+        {err && <ErrorBanner density="compact">{err}</ErrorBanner>}
       </div>
     </div>
   )
@@ -610,44 +527,6 @@ export default function MoniteurImportPanel() {
 
 const inputCls =
   'w-full h-11 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:bg-slate-50 disabled:text-slate-400'
-
-function Field({
-  label,
-  hint,
-  autoFilled,
-  lowConfidenceLabel,
-  children,
-}: {
-  label: string
-  hint?: string
-  /** Confidence score from the extractor, 0-1. Undefined = field wasn't
-   *  auto-filled (manual input). <0.6 = flagged as low-confidence. */
-  autoFilled?: number
-  lowConfidenceLabel?: string
-  children: React.ReactNode
-}) {
-  const lowConfidence = autoFilled !== undefined && autoFilled < 0.6
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-bold uppercase tracking-widest text-primary/65 inline-flex items-center gap-2">
-        {label}
-        {autoFilled !== undefined && !lowConfidence && (
-          <Sparkles
-            className="w-3 h-3 text-amber-500"
-            aria-label="Auto-filled"
-          />
-        )}
-        {lowConfidence && lowConfidenceLabel && (
-          <span className="ml-1 inline-flex items-center gap-1 text-[9px] font-bold normal-case tracking-normal text-amber-700">
-            ⚠ {lowConfidenceLabel}
-          </span>
-        )}
-      </span>
-      {children}
-      {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
-    </label>
-  )
-}
 
 /**
  * One row of the sommaire pre-fill editor — type, title, optional N°,
@@ -658,16 +537,14 @@ function Field({
 function SommaireRowEditor({
   row,
   index,
-  copy,
-  lang,
+  t,
   disabled,
   onChange,
   onRemove,
 }: {
   row: SommaireRow
   index: number
-  copy: (typeof COPY)['fr']
-  lang: 'fr' | 'ht'
+  t: T
   disabled: boolean
   onChange: (patch: Partial<SommaireRow>) => void
   onRemove: () => void
@@ -682,7 +559,7 @@ function SommaireRowEditor({
           type="button"
           onClick={onRemove}
           disabled={disabled}
-          aria-label={copy.removeEntry}
+          aria-label={t('editorial.import.moniteur.removeEntry')}
           className="text-slate-400 hover:text-red-600 disabled:opacity-50"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -692,7 +569,7 @@ function SommaireRowEditor({
         {/* Type — 3 columns */}
         <div className="sm:col-span-3 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {copy.sommaireType}
+            {t('editorial.import.moniteur.sommaireType')}
           </span>
           <Select
             value={row.detected_category}
@@ -711,9 +588,9 @@ function SommaireRowEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="min-w-[var(--radix-select-trigger-width)]">
-              {SOMMAIRE_DOC_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {lang === 'fr' ? t.fr : t.ht}
+              {SOMMAIRE_DOC_TYPE_VALUES.map((v) => (
+                <SelectItem key={v} value={v}>
+                  {t(`editorial.import.moniteur.docTypes.${v}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -722,7 +599,7 @@ function SommaireRowEditor({
         {/* Title — 5 columns */}
         <label className="sm:col-span-5 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {copy.sommaireTitle}
+            {t('editorial.import.moniteur.sommaireTitle')}
           </span>
           <input
             type="text"
@@ -735,7 +612,7 @@ function SommaireRowEditor({
         {/* N° — 2 columns */}
         <label className="sm:col-span-2 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {copy.sommaireNumber}
+            {t('editorial.import.moniteur.sommaireNumber')}
           </span>
           <input
             type="text"
@@ -748,7 +625,7 @@ function SommaireRowEditor({
         {/* Pages — 2 columns, two number inputs */}
         <div className="sm:col-span-2 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {copy.sommairePages}
+            {t('editorial.import.moniteur.sommairePages')}
           </span>
           <div className="flex items-center gap-1">
             <input
@@ -759,7 +636,7 @@ function SommaireRowEditor({
               onChange={(e) =>
                 onChange({ page_from: Number(e.target.value) || 1 })
               }
-              aria-label={copy.sommairePageFrom}
+              aria-label={t('editorial.import.moniteur.sommairePageFrom')}
               className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
             />
             <span className="text-slate-300 text-xs">→</span>
@@ -771,63 +648,13 @@ function SommaireRowEditor({
               onChange={(e) =>
                 onChange({ page_to: Number(e.target.value) || 1 })
               }
-              aria-label={copy.sommairePageTo}
+              aria-label={t('editorial.import.moniteur.sommairePageTo')}
               className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
             />
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function Dropzone({
-  prompt,
-  hint,
-  onFile,
-  inputRef,
-}: {
-  prompt: string
-  hint: string
-  onFile: (f: File) => void
-  inputRef: React.RefObject<HTMLInputElement | null>
-}) {
-  const [isDragging, setIsDragging] = useState(false)
-
-  return (
-    <label
-      onDragOver={(e) => {
-        e.preventDefault()
-        setIsDragging(true)
-      }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setIsDragging(false)
-        const f = e.dataTransfer.files?.[0]
-        if (f && f.type === 'application/pdf') onFile(f)
-      }}
-      className={cn(
-        'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-12 cursor-pointer transition-colors',
-        isDragging
-          ? 'border-primary bg-primary/5'
-          : 'border-slate-300 bg-slate-50/50 hover:border-primary/40 hover:bg-slate-50',
-      )}
-    >
-      <Upload className="w-8 h-8 text-slate-400" />
-      <span className="text-sm font-semibold text-slate-700">{prompt}</span>
-      <span className="text-xs text-slate-500">{hint}</span>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onFile(f)
-        }}
-      />
-    </label>
   )
 }
 

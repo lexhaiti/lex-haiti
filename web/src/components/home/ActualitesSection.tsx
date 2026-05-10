@@ -8,44 +8,9 @@ import { ArrowRight, Calendar, FileText } from 'lucide-react'
 import { SectionHeading } from '@/components/shared/SectionHeading'
 import { listTexts, type LegalTextListItem } from '@/lib/api/endpoints'
 import { getT } from '@/i18n/server'
+import { categoryLabel, categoryBadgeClass } from '@/lib/legal/labels'
 
-const COPY = {
-  fr: {
-    eyebrow: 'Actualités',
-    title: 'Récemment ajouté ou modifié',
-    subtitle:
-      'Le corpus est vivant : nouveaux textes intégrés, articles révisés par les éditeurs, sources mises à jour.',
-    seeAll: 'Voir tous les textes',
-    empty: 'Pas de mise à jour récente.',
-  },
-  ht: {
-    eyebrow: 'Aktyalite',
-    title: 'Sa ki ajoute oswa modifye dènyèman',
-    subtitle:
-      'Kòpis la vivan : nouvo tèks entegre, atik revize pa editè yo, sous mete ajou.',
-    seeAll: 'Wè tout tèks yo',
-    empty: 'Pa gen mizajou resan.',
-  },
-}
-
-const CATEGORY_LABEL: Record<
-  string,
-  { fr: string; ht: string; cls: string }
-> = {
-  constitution: {
-    fr: 'Constitution',
-    ht: 'Konstitisyon',
-    cls: 'bg-amber-100 text-amber-800',
-  },
-  code: { fr: 'Code', ht: 'Kòd', cls: 'bg-blue-100 text-blue-800' },
-  loi: { fr: 'Loi', ht: 'Lwa', cls: 'bg-indigo-100 text-indigo-800' },
-  decret: { fr: 'Décret', ht: 'Dekrè', cls: 'bg-emerald-100 text-emerald-800' },
-  arrete: {
-    fr: 'Arrêté',
-    ht: 'Arète',
-    cls: 'bg-purple-100 text-purple-800',
-  },
-}
+// Copy centralised under `home.actualites.*` in i18n/{fr,ht}.ts.
 
 function formatDate(iso: string | null | undefined, lang: 'fr' | 'ht'): string {
   if (!iso) return ''
@@ -61,7 +26,6 @@ function formatDate(iso: string | null | undefined, lang: 'fr' | 'ht'): string {
 export default async function ActualitesSection() {
   const t = await getT()
   const lang = t.language
-  const copy = COPY[lang]
 
   let items: LegalTextListItem[] = []
   try {
@@ -79,22 +43,22 @@ export default async function ActualitesSection() {
     <section className="relative w-full bg-slate-50/40 py-16 lg:py-20 border-t border-slate-100">
       <div className="container">
         <SectionHeading
-          eyebrow={copy.eyebrow}
-          title={copy.title}
-          subtitle={copy.subtitle}
+          eyebrow={t('home.actualites.eyebrow')}
+          title={t('home.actualites.title')}
+          subtitle={t('home.actualites.subtitle')}
           action={
             <Link
               href="/lois"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors group"
             >
-              {copy.seeAll}
+              {t('home.actualites.seeAll')}
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           }
         />
 
         {items.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">{copy.empty}</p>
+          <p className="text-sm text-slate-400 italic">{t('home.actualites.empty')}</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {items.map((it) => {
@@ -104,7 +68,6 @@ export default async function ActualitesSection() {
                 lang === 'ht' && it.description_ht
                   ? it.description_ht
                   : it.description_fr
-              const cat = CATEGORY_LABEL[it.category] ?? CATEGORY_LABEL.loi
               return (
                 <Link
                   key={it.slug}
@@ -113,9 +76,9 @@ export default async function ActualitesSection() {
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${cat.cls}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${categoryBadgeClass(it.category)}`}
                     >
-                      {cat[lang]}
+                      {categoryLabel(it.category, lang)}
                     </span>
                     <FileText className="w-3.5 h-3.5 text-slate-300" />
                   </div>
@@ -148,7 +111,7 @@ export default async function ActualitesSection() {
             href="/lois"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
           >
-            {copy.seeAll}
+            {t('home.actualites.seeAll')}
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

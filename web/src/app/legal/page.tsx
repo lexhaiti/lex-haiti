@@ -1,13 +1,25 @@
-'use client'
+// RSC — pure content page with cookie-based i18n + per-route metadata.
+// Entrance animations are pure CSS (tailwindcss-animate `animate-in`)
+// so no client component is needed.
 
-import { useT } from '@/i18n/useT'
-import { motion } from 'framer-motion'
+import type { Metadata } from 'next'
 import { ShieldAlert } from 'lucide-react'
 import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
+import { getServerLanguage, getT } from '@/i18n/server'
 
-export default function Page() {
-  const { t, language } = useT()
-  const isFr = language === 'fr'
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getServerLanguage()
+  const t = await getT(language)
+  return {
+    title: t('legal.title', {
+      fallback: language === 'fr' ? 'Mentions légales' : 'Mansyon legal',
+    }),
+  }
+}
+
+export default async function Page() {
+  const t = await getT()
+  const isFr = t.language === 'fr'
 
   const sections = [
     {
@@ -57,13 +69,9 @@ export default function Page() {
       <div className="container py-16 lg:py-20">
         <div className="space-y-10 lg:space-y-12">
           {sections.map((section, idx) => (
-            <motion.section
+            <section
               key={idx}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-80px' }}
-              transition={{ delay: idx * 0.06, duration: 0.5 }}
-              className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8"
+              className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500"
             >
               <h2 className="flex items-start gap-4 text-xl lg:text-2xl font-bold text-primary leading-tight mb-4">
                 <span className="flex-shrink-0 inline-flex h-9 w-9 lg:h-10 lg:w-10 items-center justify-center rounded-lg bg-primary/5 border border-primary/10 text-primary text-xs font-bold tabular-nums">
@@ -75,7 +83,7 @@ export default function Page() {
               <p className="text-base lg:text-lg text-slate-600 leading-relaxed">
                 {section.content}
               </p>
-            </motion.section>
+            </section>
           ))}
         </div>
       </div>

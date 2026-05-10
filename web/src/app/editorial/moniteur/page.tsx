@@ -15,7 +15,8 @@ import {
 } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { ErrorBanner } from '@/components/shared/ErrorBanner'
+import { useT } from '@/i18n/useT'
 import {
   deleteMoniteurIssue,
   listMoniteurIssues,
@@ -24,76 +25,43 @@ import {
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 
-const COPY = {
-  fr: {
-    crumbs: { home: 'Accueil', editor: 'Éditorial', moniteur: 'Le Moniteur' },
-    title: 'Pipeline Le Moniteur',
-    subtitle:
-      "Tableau de bord de l'ingestion : créez un numéro, téléversez le PDF, exécutez l'analyse, puis promouvez les textes détectés vers le corpus public.",
-    newIssue: 'Nouveau numéro',
-    columns: { issue: 'Numéro', date: 'Date', status: 'État', candidates: 'Candidats', actions: '' },
-    review: 'Revue',
-    empty: 'Aucun numéro encore. Démarrez avec « Nouveau numéro ».',
-    loading: 'Chargement…',
-    delete: 'Supprimer',
-    confirmDelete: (n: string) =>
-      `Supprimer définitivement le numéro ${n} et tous ses candidats ?`,
-    rerunParse: "Relancer l'analyse",
-    parseStarted: 'Analyse lancée',
-  },
-  ht: {
-    crumbs: { home: 'Akèy', editor: 'Editoryal', moniteur: 'Le Moniteur' },
-    title: 'Pipeline Le Moniteur',
-    subtitle:
-      "Tablo enjesyon : kreye yon nimewo, telechaje PDF la, lanse analiz la, epi pwomouvwa tèks yo nan kòpis piblik la.",
-    newIssue: 'Nouvo nimewo',
-    columns: { issue: 'Nimewo', date: 'Dat', status: 'Estati', candidates: 'Kandida', actions: '' },
-    review: 'Revize',
-    empty: 'Pa gen nimewo ankò. Kòmanse ak « Nouvo nimewo ».',
-    loading: 'Ap chaje…',
-    delete: 'Efase',
-    confirmDelete: (n: string) =>
-      `Efase nimewo ${n} ak tout kandida l yo nèt ?`,
-    rerunParse: 'Relanse analiz la',
-    parseStarted: 'Analiz lanse',
-  },
-}
+// Copy lives at `editorial.moniteur.list.*` in i18n/{fr,ht}.ts.
 
 const STATUS_PILL: Record<
   MoniteurIssueRead['processing_status'],
   {
-    label: { fr: string; ht: string }
+    labelKey: string
     cls: string
     icon: React.ComponentType<{ className?: string }>
   }
 > = {
   uploaded: {
-    label: { fr: 'Téléversé', ht: 'Telechaje' },
+    labelKey: 'editorial.moniteur.list.statusUploaded',
     cls: 'bg-slate-100 text-slate-700 border-slate-200',
     icon: FileText,
   },
   ocr_pending: {
-    label: { fr: 'OCR en cours', ht: 'OCR ap mache' },
+    labelKey: 'editorial.moniteur.list.statusOcrPending',
     cls: 'bg-blue-50 text-blue-700 border-blue-200',
     icon: Loader2,
   },
   parsed: {
-    label: { fr: 'Analysé', ht: 'Analize' },
+    labelKey: 'editorial.moniteur.list.statusParsed',
     cls: 'bg-amber-50 text-amber-800 border-amber-200',
     icon: Clock,
   },
   reviewed: {
-    label: { fr: 'Revu', ht: 'Revize' },
+    labelKey: 'editorial.moniteur.list.statusReviewed',
     cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     icon: CheckCircle2,
   },
   published: {
-    label: { fr: 'Publié', ht: 'Pibliye' },
+    labelKey: 'editorial.moniteur.list.statusPublished',
     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     icon: CheckCircle2,
   },
   failed: {
-    label: { fr: 'Échec', ht: 'Echèk' },
+    labelKey: 'editorial.moniteur.list.statusFailed',
     cls: 'bg-red-50 text-red-700 border-red-200',
     icon: AlertTriangle,
   },
@@ -111,9 +79,16 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 export default function MoniteurDashboardPage() {
-  const { language } = useLanguage()
+  const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+
+  // Local helper — confirmDelete interpolates a runtime value (the
+  // issue number) so it stays a function rather than going into the
+  // i18n catalogue (which only carries strings).
+  const confirmDelete = (n: string): string =>
+    lang === 'ht'
+      ? `Efase nimewo ${n} ak tout kandida l yo nèt ?`
+      : `Supprimer définitivement le numéro ${n} et tous ses candidats ?`
 
   const [issues, setIssues] = useState<MoniteurIssueRead[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -149,8 +124,8 @@ export default function MoniteurDashboardPage() {
       (i) => i.processing_status === 'ocr_pending',
     )
     if (!hasInFlight) return
-    const t = setInterval(() => void refetchIssues(), 5000)
-    return () => clearInterval(t)
+    const tick = setInterval(() => void refetchIssues(), 5000)
+    return () => clearInterval(tick)
   }, [issues, refetchIssues])
 
   return (
@@ -165,9 +140,9 @@ export default function MoniteurDashboardPage() {
           <Breadcrumb
             className="mb-6"
             items={[
-              { label: copy.crumbs.home, href: '/' },
-              { label: copy.crumbs.editor, href: '/profile' },
-              { label: copy.crumbs.moniteur },
+              { label: t('editorial.moniteur.list.crumbs.home'), href: '/' },
+              { label: t('editorial.moniteur.list.crumbs.editor'), href: '/profile' },
+              { label: t('editorial.moniteur.list.crumbs.moniteur') },
             ]}
           />
 
@@ -177,7 +152,7 @@ export default function MoniteurDashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
             >
-              {copy.title}
+              {t('editorial.moniteur.list.title')}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
@@ -185,7 +160,7 @@ export default function MoniteurDashboardPage() {
               transition={{ delay: 0.1 }}
               className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
             >
-              {copy.subtitle}
+              {t('editorial.moniteur.list.subtitle')}
             </motion.p>
           </div>
         </div>
@@ -198,26 +173,22 @@ export default function MoniteurDashboardPage() {
             className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors group"
           >
             <Plus className="w-4 h-4" />
-            {copy.newIssue}
+            {t('editorial.moniteur.list.newIssue')}
           </Link>
         </div>
 
         {!issues && !error && (
           <div className="flex items-center gap-2 text-slate-400">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">{copy.loading}</span>
+            <span className="text-sm">{t('editorial.moniteur.list.loading')}</span>
           </div>
         )}
 
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner density="compact">{error}</ErrorBanner>}
 
         {issues && issues.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-6 py-10 text-center text-sm text-slate-600">
-            {copy.empty}
+            {t('editorial.moniteur.list.empty')}
           </div>
         )}
 
@@ -226,11 +197,11 @@ export default function MoniteurDashboardPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50/70 border-b border-slate-200 text-left text-[11px] font-bold uppercase tracking-widest text-slate-500">
                 <tr>
-                  <th className="px-5 py-3">{copy.columns.issue}</th>
-                  <th className="px-5 py-3">{copy.columns.date}</th>
-                  <th className="px-5 py-3">{copy.columns.status}</th>
-                  <th className="px-5 py-3 text-right">{copy.columns.candidates}</th>
-                  <th className="px-5 py-3 text-right">{copy.columns.actions}</th>
+                  <th className="px-5 py-3">{t('editorial.moniteur.list.columns.issue')}</th>
+                  <th className="px-5 py-3">{t('editorial.moniteur.list.columns.date')}</th>
+                  <th className="px-5 py-3">{t('editorial.moniteur.list.columns.status')}</th>
+                  <th className="px-5 py-3 text-right">{t('editorial.moniteur.list.columns.candidates')}</th>
+                  <th className="px-5 py-3 text-right">{t('editorial.moniteur.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -264,7 +235,7 @@ export default function MoniteurDashboardPage() {
                               it.processing_status === 'ocr_pending' && 'animate-spin',
                             )}
                           />
-                          {pill.label[lang]}
+                          {t(pill.labelKey)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right tabular-nums text-slate-600">
@@ -287,8 +258,8 @@ export default function MoniteurDashboardPage() {
                             it.processing_status === 'failed') && (
                             <button
                               type="button"
-                              title={copy.rerunParse}
-                              aria-label={copy.rerunParse}
+                              title={t('editorial.moniteur.list.rerunParse')}
+                              aria-label={t('editorial.moniteur.list.rerunParse')}
                               disabled={parsing.has(it.id)}
                               onClick={() => {
                                 setParsing((s) => new Set(s).add(it.id))
@@ -335,13 +306,13 @@ export default function MoniteurDashboardPage() {
                             href={`/editorial/moniteur/${it.id}/review`}
                             className="text-sm font-semibold text-primary hover:underline"
                           >
-                            {copy.review} →
+                            {t('editorial.moniteur.list.review')} →
                           </Link>
                           <button
                             type="button"
-                            aria-label={copy.delete}
+                            aria-label={t('editorial.moniteur.list.delete')}
                             onClick={async () => {
-                              if (!confirm(copy.confirmDelete(it.number))) return
+                              if (!confirm(confirmDelete(it.number))) return
                               try {
                                 await deleteMoniteurIssue(it.id)
                                 setIssues(

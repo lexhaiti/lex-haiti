@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useT } from '@/i18n/useT'
-import { AllLawsUI } from '@/components/all-laws/ALlLawUI'
+import { AllLawsUI } from '@/components/all-laws/AllLawsUI'
 import { EditorialFilter } from '@/components/shared/EditorialFilter'
 import {
   useAllTexts,

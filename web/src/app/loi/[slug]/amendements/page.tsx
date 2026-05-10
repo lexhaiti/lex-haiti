@@ -15,7 +15,9 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
+import { ErrorBanner } from '@/components/shared/ErrorBanner'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { getAmendmentsForText } from '@/lib/api/endpoints'
 import type { ArticleWithHistoryRead } from '@/lib/api/endpoints'
 import type { components } from '@/lib/api-types'
@@ -24,89 +26,38 @@ import { Breadcrumb } from '@/components/shared/Breadcrumb'
 
 type ArticleStatus = components['schemas']['ArticleStatus']
 
-const COPY = {
-  fr: {
-    crumbs: { home: 'Accueil', laws: 'Lois', constitution: 'Constitution', amendments: 'Amendements' },
-    title: 'Articles amendés',
-    subtitle:
-      "Tous les articles de ce texte qui ont fait l'objet d'au moins une modification depuis leur version originale. Les versions sont présentées de la plus récente à la plus ancienne.",
-    countSingular: 'article amendé',
-    countPlural: 'articles amendés',
-    versionLabel: 'Version',
-    of: 'sur',
-    empty: {
-      title: 'Aucun amendement enregistré',
-      desc: "Ce texte ne possède pas encore d'articles avec plusieurs versions dans le corpus. Les amendements apparaîtront ici à mesure que les éditeurs ajoutent les versions historiques.",
-    },
-    error: 'Impossible de charger les amendements.',
-    loading: 'Chargement…',
-    inForceFromTo: (from: string | null, to: string | null) =>
-      from && to
-        ? `En vigueur du ${from} au ${to}`
-        : from
-          ? `En vigueur depuis le ${from}`
-          : to
-            ? `Jusqu'au ${to}`
-            : '',
-    noText: '(Texte non disponible)',
-  },
-  ht: {
-    crumbs: { home: 'Akèy', laws: 'Lwa', constitution: 'Konstitisyon', amendments: 'Amandman' },
-    title: 'Atik amande yo',
-    subtitle:
-      "Tout atik nan tèks sa a ki te modifye omwen yon fwa depi vèsyon orijinal yo. Vèsyon yo prezante depi pi resan jiska pi ansyen.",
-    countSingular: 'atik amande',
-    countPlural: 'atik amande',
-    versionLabel: 'Vèsyon',
-    of: 'sou',
-    empty: {
-      title: 'Pa gen amandman anrejistre',
-      desc: 'Tèks sa a poko gen atik ak plizyè vèsyon nan kòpis la. Amandman yo ap parèt isit la lè editè yo ajoute vèsyon istorik yo.',
-    },
-    error: 'Pa kapab chaje amandman yo.',
-    loading: 'Ap chaje…',
-    inForceFromTo: (from: string | null, to: string | null) =>
-      from && to
-        ? `An vigè soti ${from} pou rive ${to}`
-        : from
-          ? `An vigè depi ${from}`
-          : to
-            ? `Jiska ${to}`
-            : '',
-    noText: '(Tèks pa disponib)',
-  },
-}
+// Copy lives at `amendments.*` in i18n/{fr,ht}.ts.
 
 const STATUS_PILL: Record<
   ArticleStatus,
   {
-    label: { fr: string; ht: string }
+    labelKey: string
     cls: string
     icon: React.ComponentType<{ className?: string }>
   }
 > = {
   in_force: {
-    label: { fr: 'En vigueur', ht: 'An vigè' },
+    labelKey: 'amendments.statusInForce',
     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     icon: CheckCircle,
   },
   abrogated: {
-    label: { fr: 'Abrogée', ht: 'Abwoje' },
+    labelKey: 'amendments.statusAbrogated',
     cls: 'bg-red-50 text-red-700 border-red-200',
     icon: XCircle,
   },
   suspended: {
-    label: { fr: 'Suspendue', ht: 'Sispann' },
+    labelKey: 'amendments.statusSuspended',
     cls: 'bg-amber-50 text-amber-800 border-amber-200',
     icon: PauseCircle,
   },
   transferred: {
-    label: { fr: 'Transférée', ht: 'Transfere' },
+    labelKey: 'amendments.statusTransferred',
     cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     icon: AlertTriangle,
   },
   obsolete: {
-    label: { fr: 'Obsolète', ht: 'Obsolè' },
+    labelKey: 'amendments.statusObsolete',
     cls: 'bg-slate-50 text-slate-600 border-slate-200',
     icon: Archive,
   },
@@ -123,12 +74,31 @@ function formatDate(iso: string | null | undefined): string | null {
   })
 }
 
+// Local helper — date phrase mixes copy with control flow (depending
+// on which of `from` / `to` is present), so it stays a function rather
+// than going into the i18n catalogue (which only carries strings).
+function inForceFromTo(
+  from: string | null,
+  to: string | null,
+  lang: 'fr' | 'ht',
+): string {
+  if (lang === 'ht') {
+    if (from && to) return `An vigè soti ${from} pou rive ${to}`
+    if (from) return `An vigè depi ${from}`
+    if (to) return `Jiska ${to}`
+    return ''
+  }
+  if (from && to) return `En vigueur du ${from} au ${to}`
+  if (from) return `En vigueur depuis le ${from}`
+  if (to) return `Jusqu'au ${to}`
+  return ''
+}
+
 export default function AmendementsPage() {
   const params = useParams()
   const slug = (params?.slug as string) ?? ''
-  const { language } = useLanguage()
+  const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
 
   const [articles, setArticles] = useState<ArticleWithHistoryRead[] | null>(
     null,
@@ -148,7 +118,7 @@ export default function AmendementsPage() {
       })
       .catch(() => {
         if (cancelled) return
-        setError(copy.error)
+        setError(t('amendments.error'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -156,7 +126,7 @@ export default function AmendementsPage() {
     return () => {
       cancelled = true
     }
-  }, [slug, copy.error])
+  }, [slug, t])
 
   return (
     <div className="min-h-screen bg-white">
@@ -173,13 +143,13 @@ export default function AmendementsPage() {
           <Breadcrumb
             className="mb-6"
             items={[
-              { label: copy.crumbs.home, href: '/' },
-              { label: copy.crumbs.laws, href: '/lois' },
+              { label: t('amendments.crumbs.home'), href: '/' },
+              { label: t('amendments.crumbs.laws'), href: '/lois' },
               {
-                label: copy.crumbs.constitution,
+                label: t('amendments.crumbs.constitution'),
                 href: '/lois?category=constitution',
               },
-              { label: copy.crumbs.amendments },
+              { label: t('amendments.crumbs.amendments') },
             ]}
           />
 
@@ -189,7 +159,7 @@ export default function AmendementsPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
             >
-              {copy.title}
+              {t('amendments.title')}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
@@ -197,7 +167,7 @@ export default function AmendementsPage() {
               transition={{ delay: 0.1 }}
               className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
             >
-              {copy.subtitle}
+              {t('amendments.subtitle')}
             </motion.p>
             {articles && articles.length > 0 && (
               <motion.p
@@ -208,8 +178,8 @@ export default function AmendementsPage() {
               >
                 {articles.length}{' '}
                 {articles.length === 1
-                  ? copy.countSingular
-                  : copy.countPlural}
+                  ? t('amendments.countSingular')
+                  : t('amendments.countPlural')}
               </motion.p>
             )}
           </div>
@@ -221,26 +191,21 @@ export default function AmendementsPage() {
         {loading && (
           <div className="flex items-center gap-3 text-slate-400">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm">{copy.loading}</span>
+            <span className="text-sm">{t('amendments.loading')}</span>
           </div>
         )}
 
         {!loading && error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
-            {error}
-          </div>
+          <ErrorBanner density="compact">{error}</ErrorBanner>
         )}
 
         {!loading && !error && articles && articles.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-6 py-10 text-center">
-            <History className="w-10 h-10 mx-auto text-slate-300 mb-4" />
-            <p className="text-base font-bold text-primary mb-2">
-              {copy.empty.title}
-            </p>
-            <p className="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
-              {copy.empty.desc}
-            </p>
-          </div>
+          <EmptyState
+            icon={History}
+            title={t('amendments.empty.title')}
+            description={t('amendments.empty.desc')}
+            density="compact"
+          />
         )}
 
         {!loading && !error && articles && articles.length > 0 && (
@@ -261,7 +226,7 @@ export default function AmendementsPage() {
                 key={article.id}
                 article={article}
                 lang={lang}
-                copy={copy}
+                t={t}
               />
             ))}
           </motion.div>
@@ -279,11 +244,11 @@ export default function AmendementsPage() {
 function AmendedArticleCard({
   article,
   lang,
-  copy,
+  t,
 }: {
   article: ArticleWithHistoryRead
   lang: 'fr' | 'ht'
-  copy: (typeof COPY)['fr']
+  t: (key: string, opts?: { fallback?: string }) => string
 }) {
   // Sort versions newest first — version_number ASC in the DB; we want DESC
   // so the current version is on top.
@@ -314,7 +279,7 @@ function AmendedArticleCard({
           </Link>
         </h2>
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 tabular-nums">
-          {versions.length} {copy.versionLabel}
+          {versions.length} {t('amendments.versionLabel')}
           {versions.length > 1 ? 's' : ''}
         </p>
       </header>
@@ -325,7 +290,7 @@ function AmendedArticleCard({
           const Icon = pill.icon
           const fromLabel = formatDate(v.effective_from)
           const toLabel = formatDate(v.effective_to)
-          const dateLabel = copy.inForceFromTo(fromLabel, toLabel)
+          const dateLabel = inForceFromTo(fromLabel, toLabel, lang)
 
           const text = lang === 'ht' && v.text_ht ? v.text_ht : v.text_fr
           const title =
@@ -342,12 +307,12 @@ function AmendedArticleCard({
                   )}
                 >
                   <Icon className="w-3 h-3" />
-                  {pill.label[lang]}
+                  {t(pill.labelKey)}
                 </span>
 
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 tabular-nums">
-                  {copy.versionLabel} {v.version_number}{' '}
-                  <span className="text-slate-300">{copy.of}</span>{' '}
+                  {t('amendments.versionLabel')} {v.version_number}{' '}
+                  <span className="text-slate-300">{t('amendments.of')}</span>{' '}
                   {versions.length}
                 </span>
 
@@ -368,14 +333,12 @@ function AmendedArticleCard({
                   {text}
                 </p>
               ) : (
-                <p className="text-sm text-slate-400 italic">{copy.noText}</p>
+                <p className="text-sm text-slate-400 italic">{t('amendments.noText')}</p>
               )}
               {idx === 0 && versions.length > 1 && (
                 <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-slate-400">
                   <FileText className="w-3 h-3" />
-                  {lang === 'fr'
-                    ? 'Version actuellement applicable'
-                    : 'Vèsyon ki aplikab kounye a'}
+                  {t('amendments.currentlyApplicable')}
                 </div>
               )}
             </li>

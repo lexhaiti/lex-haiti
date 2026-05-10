@@ -6,48 +6,17 @@ import { motion } from 'framer-motion'
 import { ArrowRight, FileText, LayoutDashboard, Newspaper } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 import LegalTextImportPanel from './_panels/LegalTextImportPanel'
 import MoniteurImportPanel from './_panels/MoniteurImportPanel'
 
 type Tab = 'legal' | 'moniteur'
 
-const COPY = {
-  fr: {
-    crumbs: { home: 'Accueil', editor: 'Éditorial', import: 'Importer' },
-    title: 'Importer dans le corpus',
-    subtitle:
-      "Choisissez le type de contenu à ingérer. Les champs s'affichent ci-dessous selon votre sélection.",
-    chooseType: 'Type de contenu',
-    legalTab: 'Texte légal',
-    legalDesc:
-      'Constitution, code, loi, décret, arrêté — un texte unique avec ses articles.',
-    moniteurTab: 'Le Moniteur',
-    moniteurDesc:
-      "Numéro complet du journal officiel — analyse + extraction des lois contenues.",
-    moniteurDashboard: 'Tableau de bord Le Moniteur',
-  },
-  ht: {
-    crumbs: { home: 'Akèy', editor: 'Editoryal', import: 'Enpòte' },
-    title: 'Enpòte nan kòpis la',
-    subtitle:
-      "Chwazi tip kontni an. Jan w chwazi a ap detèmine kisa ki parèt anba a.",
-    chooseType: 'Tip kontni',
-    legalTab: 'Tèks legal',
-    legalDesc:
-      'Konstitisyon, kòd, lwa, dekrè, arete — yon sèl tèks ak atik li yo.',
-    moniteurTab: 'Le Moniteur',
-    moniteurDesc:
-      "Yon nimewo konplè jounal ofisyèl la — analiz + ekstraksyon lwa yo.",
-    moniteurDashboard: 'Tablo Le Moniteur',
-  },
-}
+// Copy lives at `editorial.import.chooser.*` in i18n/{fr,ht}.ts.
 
 export default function EditorialImportPage() {
-  const { language } = useLanguage()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+  const { t } = useT()
   const [tab, setTab] = useState<Tab>('legal')
 
   return (
@@ -63,9 +32,9 @@ export default function EditorialImportPage() {
           <Breadcrumb
             className="mb-6"
             items={[
-              { label: copy.crumbs.home, href: '/' },
-              { label: copy.crumbs.editor, href: '/profile' },
-              { label: copy.crumbs.import },
+              { label: t('editorial.import.chooser.crumbs.home'), href: '/' },
+              { label: t('editorial.import.chooser.crumbs.editor'), href: '/profile' },
+              { label: t('editorial.import.chooser.crumbs.import') },
             ]}
           />
 
@@ -75,7 +44,7 @@ export default function EditorialImportPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
             >
-              {copy.title}
+              {t('editorial.import.chooser.title')}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
@@ -83,7 +52,7 @@ export default function EditorialImportPage() {
               transition={{ delay: 0.1 }}
               className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
             >
-              {copy.subtitle}
+              {t('editorial.import.chooser.subtitle')}
             </motion.p>
           </div>
         </div>
@@ -94,22 +63,22 @@ export default function EditorialImportPage() {
             content below in-place (no navigation). */}
         <div className="mb-8">
           <p className="text-xs font-bold uppercase tracking-widest text-primary/65 mb-4">
-            {copy.chooseType}
+            {t('editorial.import.chooser.chooseType')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
             <ChooserButton
               active={tab === 'legal'}
               onClick={() => setTab('legal')}
               icon={FileText}
-              label={copy.legalTab}
-              desc={copy.legalDesc}
+              label={t('editorial.import.chooser.legalTab')}
+              desc={t('editorial.import.chooser.legalDesc')}
             />
             <ChooserButton
               active={tab === 'moniteur'}
               onClick={() => setTab('moniteur')}
               icon={Newspaper}
-              label={copy.moniteurTab}
-              desc={copy.moniteurDesc}
+              label={t('editorial.import.chooser.moniteurTab')}
+              desc={t('editorial.import.chooser.moniteurDesc')}
             />
           </div>
         </div>
@@ -130,7 +99,7 @@ export default function EditorialImportPage() {
               className="group inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/40 hover:text-primary transition-colors"
             >
               <LayoutDashboard className="w-4 h-4" />
-              {copy.moniteurDashboard}
+              {t('editorial.import.chooser.moniteurDashboard')}
               <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>

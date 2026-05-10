@@ -9,18 +9,7 @@ import { getCorpusStats, type CorpusStats } from '@/lib/api/endpoints'
 import { getT } from '@/i18n/server'
 import { cn } from '@/lib/utils'
 
-const COPY = {
-  fr: {
-    legalTexts: 'Textes juridiques',
-    articles: 'Articles indexés',
-    moniteurIssues: 'Numéros du Moniteur',
-  },
-  ht: {
-    legalTexts: 'Tèks jiridik',
-    articles: 'Atik endekse',
-    moniteurIssues: 'Nimewo Moniteur',
-  },
-}
+// Copy lives at `home.corpusStats.*` in i18n/{fr,ht}.ts.
 
 /**
  * Three-up corpus stats strip. Sits between the hero and the rest of
@@ -30,7 +19,6 @@ const COPY = {
  */
 export default async function CorpusStatsStrip() {
   const t = await getT()
-  const copy = COPY[t.language]
 
   // Server fetch with a 5-min revalidate window. The /stats endpoint
   // is itself cached server-side via Cache-Control, so this is a
@@ -45,9 +33,9 @@ export default async function CorpusStatsStrip() {
   }
 
   const items: Array<{ key: keyof CorpusStats; label: string; icon: typeof BookOpen }> = [
-    { key: 'legal_texts', label: copy.legalTexts, icon: BookOpen },
-    { key: 'articles', label: copy.articles, icon: FileText },
-    { key: 'moniteur_issues', label: copy.moniteurIssues, icon: Newspaper },
+    { key: 'legal_texts', label: t('home.corpusStats.legalTexts'), icon: BookOpen },
+    { key: 'articles', label: t('home.corpusStats.articles'), icon: FileText },
+    { key: 'moniteur_issues', label: t('home.corpusStats.moniteurIssues'), icon: Newspaper },
   ]
 
   return (

@@ -1,106 +1,13 @@
 'use client'
 
-import React from 'react'
 import Link from 'next/link'
 import { ArrowRight, BookOpen, Calendar, FileText } from 'lucide-react'
 import type { MoniteurIssueRead } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
-
-function stripAccents(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-}
-
-/**
- * Wrap query matches inside `text` in `<mark>`. Case- and accent-
- * insensitive. Mirrors the helper in LawCard so result-card visuals
- * stay consistent across surfaces. Multi-word queries are tokenized
- * on whitespace; tokens shorter than 2 characters are dropped.
- */
-function HighlightText({ text, query }: { text: string; query?: string }) {
-  if (!text || !query || !query.trim()) return <>{text}</>
-  const stripped = stripAccents(text)
-  const tokens = stripAccents(query.trim())
-    .split(/\s+/)
-    .filter((t) => t.length >= 2)
-  if (tokens.length === 0) return <>{text}</>
-
-  const ranges: Array<[number, number]> = []
-  for (const tok of tokens) {
-    let idx = 0
-    while (idx < stripped.length) {
-      const found = stripped.indexOf(tok, idx)
-      if (found < 0) break
-      ranges.push([found, found + tok.length])
-      idx = found + tok.length
-    }
-  }
-  if (ranges.length === 0) return <>{text}</>
-  ranges.sort((a, b) => a[0] - b[0])
-  const merged: Array<[number, number]> = []
-  for (const r of ranges) {
-    const last = merged[merged.length - 1]
-    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
-    else merged.push([r[0], r[1]])
-  }
-
-  const out: React.ReactNode[] = []
-  let cursor = 0
-  for (const [start, end] of merged) {
-    if (cursor < start) out.push(text.slice(cursor, start))
-    out.push(
-      <mark
-        key={`${start}-${end}`}
-        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
-      >
-        {text.slice(start, end)}
-      </mark>,
-    )
-    cursor = end
-  }
-  if (cursor < text.length) out.push(text.slice(cursor))
-  return <>{out}</>
-}
-
-const MONTHS = {
-  fr: [
-    '',
-    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-  ],
-  ht: [
-    '',
-    'janvye', 'fevriye', 'mas', 'avril', 'me', 'jen',
-    'jiyè', 'out', 'septanm', 'oktòb', 'novanm', 'desanm',
-  ],
-}
-
-function formatLongDate(iso: string | null | undefined, lang: 'fr' | 'ht'): string {
-  if (!iso) return '—'
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  const day = Number.parseInt(m[3], 10)
-  const month = Number.parseInt(m[2], 10)
-  return `${day} ${MONTHS[lang][month] ?? ''} ${m[1]}`
-}
-
-function smartIssueNumber(raw: string): string {
-  return /^[0-9]/.test(raw) ? `N° ${raw}` : raw
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  constitution: 'Constitution',
-  code: 'Code',
-  loi: 'Loi',
-  decret: 'Décret',
-  arrete: 'Arrêté',
-  circulaire: 'Circulaire',
-  convention: 'Convention',
-  ordonnance: 'Ordonnance',
-  communique: 'Communiqué',
-  promulgation: 'Promulgation',
-  errata: 'Errata',
-  autre: 'Autre',
-}
+import { HighlightText } from '@/lib/text/highlight'
+import { formatLongDate } from '@/lib/format/date'
+import { smartIssueNumber } from '@/lib/format/moniteur'
+import { categoryLabel } from '@/lib/legal/labels'
 
 function titleCase(s: string): string {
   if (!s) return s
@@ -196,7 +103,7 @@ export function MoniteurIssueCard({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-white/60 text-xs">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {formatLongDate(issue.publication_date, lang)}
+                {formatLongDate(issue.publication_date, lang, '—')}
               </span>
               {issue.edition_label && (
                 <>
@@ -237,7 +144,7 @@ export function MoniteurIssueCard({
                 <span className="line-clamp-2">
                   {s.category && (
                     <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wide mr-1">
-                      {CATEGORY_LABEL[s.category] ?? s.category}
+                      {categoryLabel(s.category, lang)}
                     </span>
                   )}
                   {s.number && (

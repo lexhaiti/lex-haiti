@@ -6,115 +6,21 @@ import { Globe2, Languages, LinkIcon } from 'lucide-react'
 import { SectionHeading } from '@/components/shared/SectionHeading'
 import { getT } from '@/i18n/server'
 
+// Copy lives at `home.features.*` in i18n/{fr,ht}.ts.
 // Two voices for the same section. Desktop (md+) gets the longer
 // institutional version; mobile gets the punchy minimal version. Both share
 // the same icons, numbering and amber-accent rhythm.
-const COPY = {
-  fr: {
-    eyebrow: 'Principes',
-    desktop: {
-      title: 'Une infrastructure juridique publique. Pas un produit.',
-      subtitle:
-        "LexHaïti est conçu comme un socle numérique du droit haïtien. Pas d’abonnement, pas de logique commerciale — uniquement une exigence : rendre le droit accessible, fiable et citable dans le temps.",
-      pillars: [
-        {
-          icon: Globe2,
-          label: 'Accès universel',
-          lead: 'Ouvert. Gratuit. Permanent.',
-          desc: "Aucun compte. Aucun paywall. Chaque texte possède une adresse stable, conçue pour être citée et conservée.",
-        },
-        {
-          icon: LinkIcon,
-          label: 'Source vérifiable',
-          lead: 'Chaque contenu a une origine.',
-          desc: "Textes reliés à leur source primaire : Le Moniteur, lois, décisions. Rien n’est publié sans ancrage documentaire clair.",
-        },
-        {
-          icon: Languages,
-          label: 'Bilingue natif',
-          lead: 'Deux langues. Une même autorité.',
-          desc: "Français et kreyòl ayisyen sont présentés côte à côte, à égalité. Pas une adaptation — une coexistence complète.",
-        },
-      ],
-    },
-    mobile: {
-      title: 'Le droit haïtien, comme infrastructure publique.',
-      subtitle:
-        "Accès libre. Données fiables. Structure durable. LexHaïti n’est pas un service — c’est un standard.",
-      pillars: [
-        {
-          icon: Globe2,
-          label: 'Ouvert',
-          desc: 'Gratuit. Sans compte. Accès immédiat à tous les textes.',
-        },
-        {
-          icon: LinkIcon,
-          label: 'Traçable',
-          desc: "Chaque contenu est relié à sa source officielle. Aucune ambiguïté sur l’origine.",
-        },
-        {
-          icon: Languages,
-          label: 'Bilingue',
-          desc: 'Français et kreyòl, côte à côte. Pas de traduction. Deux langues complètes.',
-        },
-      ],
-    },
-  },
-  ht: {
-    eyebrow: 'Prensip',
-    desktop: {
-      title: 'Yon enfrastrikti jiridik piblik. Pa yon pwodwi.',
-      subtitle:
-        "LexHaïti se yon sòk nimerik pou dwa ayisyen an. Pa gen abònman, pa gen lojik komèsyal — sèlman yon egzijans : rann dwa a aksesib, fyab, epi sitable nan tan.",
-      pillars: [
-        {
-          icon: Globe2,
-          label: 'Aksè inivèsèl',
-          lead: 'Ouvè. Gratis. Pèmanan.',
-          desc: 'Pa gen kont. Pa gen peman. Chak tèks gen yon adrès estab, fèt pou sit ak konsève.',
-        },
-        {
-          icon: LinkIcon,
-          label: 'Sous verifyab',
-          lead: 'Chak kontni gen yon orijin.',
-          desc: 'Tèks yo lye dirèk ak sous prensipal yo : Le Moniteur, lwa, desizyon. Anyen pa pibliye san yon ankraj dokimantè klè.',
-        },
-        {
-          icon: Languages,
-          label: 'Bileng natif',
-          lead: 'De lang. Menm otorite.',
-          desc: 'Fransè ak kreyòl ayisyen prezante kòt a kòt, a egalite. Se pa yon adaptasyon — se yon ko-egzistans konplè.',
-        },
-      ],
-    },
-    mobile: {
-      title: 'Dwa ayisyen an, kòm enfrastrikti piblik.',
-      subtitle:
-        "Aksè lib. Done fyab. Estrikti dirab. LexHaïti se pa yon sèvis — se yon estanda.",
-      pillars: [
-        {
-          icon: Globe2,
-          label: 'Ouvè',
-          desc: 'Gratis. San kont. Aksè imedya pou tout tèks yo.',
-        },
-        {
-          icon: LinkIcon,
-          label: 'Traseyab',
-          desc: 'Chak kontni lye ak sous ofisyèl li. Pa gen anbigwite sou orijin.',
-        },
-        {
-          icon: Languages,
-          label: 'Bileng',
-          desc: 'Fransè ak kreyòl, kòt a kòt. Pa gen tradiksyon. De lang konplè.',
-        },
-      ],
-    },
-  },
-} as const
+//
+// Pillar icons stay here because they are component references, not
+// translatable strings.
+const PILLARS = [
+  { key: 'access' as const, icon: Globe2 },
+  { key: 'source' as const, icon: LinkIcon },
+  { key: 'bilingual' as const, icon: Languages },
+]
 
 export default async function FeaturesSection() {
   const t = await getT()
-  const copy = COPY[t.language]
 
   return (
     <section className="relative w-full bg-white py-16 lg:py-20 border-t border-slate-100">
@@ -124,24 +30,24 @@ export default async function FeaturesSection() {
             reads on mobile where attention is scarce. */}
         <div className="md:hidden">
           <SectionHeading
-            eyebrow={copy.eyebrow}
-            title={copy.mobile.title}
-            subtitle={copy.mobile.subtitle}
+            eyebrow={t('home.features.eyebrow')}
+            title={t('home.features.mobile.title')}
+            subtitle={t('home.features.mobile.subtitle')}
             titleMaxWidth="max-w-full"
           />
         </div>
         <div className="hidden md:block">
           <SectionHeading
-            eyebrow={copy.eyebrow}
-            title={copy.desktop.title}
-            subtitle={copy.desktop.subtitle}
+            eyebrow={t('home.features.eyebrow')}
+            title={t('home.features.desktop.title')}
+            subtitle={t('home.features.desktop.subtitle')}
             titleMaxWidth="max-w-full"
           />
         </div>
 
         {/* Mobile pillars (Version B — minimal) */}
         <div className="md:hidden grid grid-cols-1 gap-4 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {copy.mobile.pillars.map((pillar, i) => {
+          {PILLARS.map((pillar, i) => {
             const Icon = pillar.icon
             return (
               <div
@@ -153,11 +59,11 @@ export default async function FeaturesSection() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
-                    {String(i + 1).padStart(2, '0')} — {pillar.label}
+                    {String(i + 1).padStart(2, '0')} — {t(`home.features.mobile.pillars.${pillar.key}.label`)}
                   </span>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  {pillar.desc}
+                  {t(`home.features.mobile.pillars.${pillar.key}.desc`)}
                 </p>
               </div>
             )
@@ -166,7 +72,7 @@ export default async function FeaturesSection() {
 
         {/* Desktop pillars (Version A — institutional, with lead line) */}
         <div className="hidden md:grid grid-cols-3 gap-6 lg:gap-7 mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {copy.desktop.pillars.map((pillar, i) => {
+          {PILLARS.map((pillar, i) => {
             const Icon = pillar.icon
             return (
               <div
@@ -178,14 +84,14 @@ export default async function FeaturesSection() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
-                    {String(i + 1).padStart(2, '0')} — {pillar.label}
+                    {String(i + 1).padStart(2, '0')} — {t(`home.features.desktop.pillars.${pillar.key}.label`)}
                   </span>
                 </div>
                 <h3 className="text-lg lg:text-xl font-bold text-primary mb-2 leading-tight">
-                  {pillar.lead}
+                  {t(`home.features.desktop.pillars.${pillar.key}.lead`)}
                 </h3>
                 <p className="text-sm lg:text-[15px] text-slate-600 leading-relaxed">
-                  {pillar.desc}
+                  {t(`home.features.desktop.pillars.${pillar.key}.desc`)}
                 </p>
               </div>
             )

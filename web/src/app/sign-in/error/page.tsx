@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 
 type AuthErrorCode =
   | 'NotAuthorized' // our custom code from auth.ts signIn callback
@@ -13,72 +13,20 @@ type AuthErrorCode =
   | 'AccessDenied'
   | 'Default'
 
-const COPY: Record<'fr' | 'ht', Record<AuthErrorCode, { title: string; body: string }>> = {
-  fr: {
-    NotAuthorized: {
-      title: 'Adresse non autorisée',
-      body:
-        "Cette adresse e-mail n’est pas reconnue comme un compte éditeur. " +
-        "L’accès est réservé aux personnes pré-autorisées par l’administrateur.",
-    },
-    Verification: {
-      title: 'Lien expiré',
-      body:
-        'Ce lien magique a expiré ou a déjà été utilisé. Demandez-en un nouveau.',
-    },
-    Configuration: {
-      title: 'Configuration incorrecte',
-      body:
-        'Une erreur de configuration empêche la connexion. Contactez l’administrateur.',
-    },
-    AccessDenied: {
-      title: 'Accès refusé',
-      body: 'L’accès a été refusé.',
-    },
-    Default: {
-      title: 'Erreur de connexion',
-      body: 'Une erreur s’est produite. Réessayez plus tard.',
-    },
-  },
-  ht: {
-    NotAuthorized: {
-      title: 'Adrès pa otorize',
-      body:
-        "Adrès imèl sa a pa rekonèt kòm yon kont editè. " +
-        "Aksè a se pou moun ki gen pèmisyon davans nan men administratè a.",
-    },
-    Verification: {
-      title: 'Lyen ekspire',
-      body: 'Lyen majik sa a ekspire oswa li deja itilize. Mande yon lòt.',
-    },
-    Configuration: {
-      title: 'Konfigirasyon enkòrèk',
-      body:
-        'Yon erè konfigirasyon anpeche koneksyon an. Kontakte administratè a.',
-    },
-    AccessDenied: {
-      title: 'Aksè refize',
-      body: 'Aksè refize.',
-    },
-    Default: {
-      title: 'Erè koneksyon',
-      body: 'Yon erè rive. Eseye ankò pita.',
-    },
-  },
-}
-
-const CONTACT = {
-  fr: 'Contacter un administrateur',
-  ht: 'Kontakte yon administratè',
-}
-const TRY_AGAIN = { fr: 'Réessayer', ht: 'Eseye ankò' }
+// Copy lives at `signIn.error.*` in i18n/{fr,ht}.ts.
 
 export default function SignInError() {
-  const { language } = useLanguage()
-  const lang = (language as 'fr' | 'ht') ?? 'fr'
+  const { t } = useT()
   const params = useSearchParams()
-  const code = (params?.get('error') ?? 'Default') as AuthErrorCode
-  const m = COPY[lang][code] ?? COPY[lang].Default
+  const rawCode = (params?.get('error') ?? 'Default') as AuthErrorCode
+  const validCodes: AuthErrorCode[] = [
+    'NotAuthorized',
+    'Verification',
+    'Configuration',
+    'AccessDenied',
+    'Default',
+  ]
+  const code: AuthErrorCode = validCodes.includes(rawCode) ? rawCode : 'Default'
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-white">
@@ -87,17 +35,17 @@ export default function SignInError() {
           <AlertCircle className="w-6 h-6 text-amber-700" />
         </div>
         <h1 className="text-center text-2xl font-bold text-slate-900 tracking-tight">
-          {m.title}
+          {t(`signIn.error.${code}.title`)}
         </h1>
         <p className="mt-2 text-center text-sm text-slate-500 leading-relaxed">
-          {m.body}
+          {t(`signIn.error.${code}.body`)}
         </p>
 
         <div className="mt-8 space-y-3">
           <Button asChild variant="outline" className="w-full h-11">
             <Link href="/sign-in">
               <ArrowLeft className="mr-1.5 h-4 w-4" />
-              {TRY_AGAIN[lang]}
+              {t('signIn.error.tryAgain')}
             </Link>
           </Button>
           <a
@@ -105,7 +53,7 @@ export default function SignInError() {
             className="flex h-11 w-full items-center justify-center rounded-md text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             <Mail className="mr-1.5 h-4 w-4" />
-            {CONTACT[lang]}
+            {t('signIn.error.contact')}
           </a>
         </div>
       </div>

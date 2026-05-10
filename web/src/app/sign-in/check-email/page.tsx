@@ -1,31 +1,21 @@
-'use client'
+// RSC — no interactivity, just localized rendering. Reads the cookie
+// language server-side via getServerLanguage() and emits per-route
+// metadata for the browser tab. Copy lives at `signIn.checkEmail.*`
+// in i18n/{fr,ht}.ts.
 
 import Link from 'next/link'
 import { Mail, ArrowRight } from 'lucide-react'
-import { useLanguage } from '@/i18n/LanguageContext'
+import type { Metadata } from 'next'
+import { getServerLanguage, getT } from '@/i18n/server'
 
-const COPY = {
-  fr: {
-    title: 'Vérifiez votre boîte de réception',
-    body:
-      'Un lien de connexion a été envoyé. Cliquez dessus depuis votre boîte mail pour vous connecter.',
-    devNote: 'En développement, l’e-mail est intercepté par Mailpit :',
-    openMailpit: 'Ouvrir Mailpit',
-    backToSignIn: '← Utiliser une autre adresse',
-  },
-  ht: {
-    title: 'Tcheke bwat resepsyon ou',
-    body:
-      'Yon lyen koneksyon voye. Klike sou li depi nan bwat imèl ou pou konekte.',
-    devNote: 'Nan devlòpman, imèl la kenbe pa Mailpit :',
-    openMailpit: 'Ouvri Mailpit',
-    backToSignIn: '← Sèvi ak yon lòt adrès',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getServerLanguage()
+  const t = await getT(language)
+  return { title: t('signIn.checkEmail.pageTitle') }
 }
 
-export default function CheckEmail() {
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+export default async function CheckEmail() {
+  const t = await getT()
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-white">
@@ -34,19 +24,23 @@ export default function CheckEmail() {
           <Mail className="w-6 h-6 text-emerald-700" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          {t.title}
+          {t('signIn.checkEmail.title')}
         </h1>
-        <p className="mt-2 text-sm text-slate-500 leading-relaxed">{t.body}</p>
+        <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+          {t('signIn.checkEmail.body')}
+        </p>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-500 mb-3">{t.devNote}</p>
+          <p className="text-xs text-slate-500 mb-3">
+            {t('signIn.checkEmail.devNote')}
+          </p>
           <a
             href="http://localhost:8025"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700"
           >
-            {t.openMailpit}
+            {t('signIn.checkEmail.openMailpit')}
             <ArrowRight className="w-4 h-4" />
           </a>
         </div>
@@ -55,7 +49,7 @@ export default function CheckEmail() {
           href="/sign-in"
           className="mt-8 inline-block text-xs text-slate-400 hover:text-slate-600"
         >
-          {t.backToSignIn}
+          {t('signIn.checkEmail.backToSignIn')}
         </Link>
       </div>
     </div>

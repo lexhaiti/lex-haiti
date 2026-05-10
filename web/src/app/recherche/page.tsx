@@ -21,28 +21,12 @@ import {
   type GlobalSearchResponse,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
-
-const MONTHS_FR = [
-  '',
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
-
-function formatLongDate(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return iso
-  const day = Number.parseInt(m[3], 10)
-  const month = Number.parseInt(m[2], 10)
-  return `${day} ${MONTHS_FR[month] ?? ''} ${m[1]}`
-}
-
-function smartIssueNumber(raw: string): string {
-  // Mirror the rule used elsewhere: prepend "N°" only when the issue
-  // number starts with a digit, so a stored "Spécial N° 5" doesn't
-  // become "N° Spécial N° 5".
-  return /^[0-9]/.test(raw) ? `N° ${raw}` : raw
-}
+import { highlightMatches } from '@/lib/text/highlight'
+import { formatLongDate } from '@/lib/format/date'
+import { smartIssueNumber } from '@/lib/format/moniteur'
+import { LoadingState } from '@/components/shared/LoadingState'
+import { ErrorBanner } from '@/components/shared/ErrorBanner'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 // ---------------------------------------------------------------------------
 // Inline search field — same band as the StandardPageHeader, lives inside it
@@ -109,55 +93,6 @@ function SearchBar({
 // Moniteur issue card — small, link to /moniteur/[id]
 // ---------------------------------------------------------------------------
 
-function highlightMatches(
-  text: string,
-  query?: string,
-): React.ReactNode {
-  if (!text || !query || !query.trim()) return text
-  const stripAccents = (s: string) =>
-    s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-  const stripped = stripAccents(text)
-  const tokens = stripAccents(query.trim())
-    .split(/\s+/)
-    .filter((t) => t.length >= 2)
-  if (tokens.length === 0) return text
-
-  const ranges: Array<[number, number]> = []
-  for (const tok of tokens) {
-    let idx = 0
-    while (idx < stripped.length) {
-      const found = stripped.indexOf(tok, idx)
-      if (found < 0) break
-      ranges.push([found, found + tok.length])
-      idx = found + tok.length
-    }
-  }
-  if (ranges.length === 0) return text
-  ranges.sort((a, b) => a[0] - b[0])
-  const merged: Array<[number, number]> = []
-  for (const r of ranges) {
-    const last = merged[merged.length - 1]
-    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
-    else merged.push([r[0], r[1]])
-  }
-  const out: React.ReactNode[] = []
-  let cursor = 0
-  for (const [start, end] of merged) {
-    if (cursor < start) out.push(text.slice(cursor, start))
-    out.push(
-      <mark
-        key={`${start}-${end}`}
-        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
-      >
-        {text.slice(start, end)}
-      </mark>,
-    )
-    cursor = end
-  }
-  if (cursor < text.length) out.push(text.slice(cursor))
-  return <>{out}</>
-}
-
 function MoniteurCard({
   issue,
   lang,
@@ -189,7 +124,7 @@ function MoniteurCard({
           {issue.publication_date && (
             <span className="inline-flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {formatLongDate(issue.publication_date)}
+              {formatLongDate(issue.publication_date, lang)}
             </span>
           )}
           {issue.edition_label && (
@@ -309,17 +244,9 @@ function SearchPageInner() {
           <EmptyPrompt lang={lang} />
         )}
 
-        {query && loading && (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 text-slate-300 animate-spin" />
-          </div>
-        )}
+        {query && loading && <LoadingState />}
 
-        {query && !loading && error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
-            {error}
-          </div>
-        )}
+        {query && !loading && error && <ErrorBanner>{error}</ErrorBanner>}
 
         {query && !loading && !error && data && totals.total === 0 && (
           <NoResults query={query} lang={lang} />
@@ -437,58 +364,55 @@ function EmptyPrompt({ lang }: { lang: 'fr' | 'ht' }) {
       ? ['Constitution 1987', 'CL-007-09-09', 'Code Civil', 'Spécial N° 5']
       : ['Konstitisyon 1987', 'CL-007-09-09', 'Kòd Sivil', 'Spécial N° 5']
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center bg-slate-50/50">
-      <Search className="w-10 h-10 mx-auto text-slate-300 mb-4" />
-      <p className="text-slate-500">
-        {lang === 'fr'
+    <EmptyState
+      icon={Search}
+      description={
+        lang === 'fr'
           ? 'Tapez votre recherche ci-dessus pour explorer la législation.'
-          : 'Tape rechèch ou anwo a pou eksplore lejislasyon an.'}
-      </p>
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-          {lang === 'fr' ? 'Essayer' : 'Eseye'}
-        </span>
-        {examples.map((ex) => (
-          <Link
-            key={ex}
-            href={`/recherche?q=${encodeURIComponent(ex)}`}
-            className="px-3 py-1 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition-colors"
-          >
-            {ex}
-          </Link>
-        ))}
-      </div>
-    </div>
+          : 'Tape rechèch ou anwo a pou eksplore lejislasyon an.'
+      }
+      actions={
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            {lang === 'fr' ? 'Essayer' : 'Eseye'}
+          </span>
+          {examples.map((ex) => (
+            <Link
+              key={ex}
+              href={`/recherche?q=${encodeURIComponent(ex)}`}
+              className="px-3 py-1 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition-colors"
+            >
+              {ex}
+            </Link>
+          ))}
+        </div>
+      }
+    />
   )
 }
 
 function NoResults({ query, lang }: { query: string; lang: 'fr' | 'ht' }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-200 p-12 text-center">
-      <SearchX className="w-10 h-10 mx-auto text-slate-300 mb-4" />
-      <p className="text-slate-700 font-bold mb-1">
-        {lang === 'fr'
+    <EmptyState
+      icon={SearchX}
+      tone="attention"
+      title={
+        lang === 'fr'
           ? `Aucun résultat pour « ${query} ».`
-          : `Pa gen okenn rezilta pou « ${query} ».`}
-      </p>
-      <p className="text-sm text-slate-500 max-w-md mx-auto">
-        {lang === 'fr'
+          : `Pa gen okenn rezilta pou « ${query} ».`
+      }
+      description={
+        lang === 'fr'
           ? "Vérifiez l'orthographe ou essayez des termes plus généraux."
-          : 'Verifye òtograf la oswa eseye mo pi jeneral.'}
-      </p>
-    </div>
+          : 'Verifye òtograf la oswa eseye mo pi jeneral.'
+      }
+    />
   )
 }
 
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-slate-300 animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState variant="viewport" />}>
       <SearchPageInner />
     </Suspense>
   )

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LexHaïti favicon.
+
+  Visual identity matches BrandLogo.tsx:
+    - Rounded square card, gradient #1e3a5f → #2d5a87 (top-left to bottom-right)
+    - Lucide "Scale" icon (justice scales) in white, ~70% of the canvas
+
+  Square 64×64, designed to render legibly down to 16×16. Single SVG file
+  picked up by Next 14 App Router via the file convention `app/icon.svg` —
+  no metadata wiring needed. Modern browsers render the SVG; for iOS we
+  rely on the rasterizer (good enough at favicon sizes).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="lexhaitiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#2d5a87"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Card background, rounded-xl ≈ 12px on a 64-unit grid -->
+  <rect width="64" height="64" rx="12" fill="url(#lexhaitiGradient)"/>
+
+  <!-- Scale icon: Lucide source viewBox is 0 0 24 24; we scale ×1.7 and
+       center on the 64×64 card → translate by (32 - 24*1.7/2) ≈ 11.6 -->
+  <g transform="translate(11.6 11.6) scale(1.7)"
+     fill="none" stroke="#ffffff" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+    <path d="M7 21h10"/>
+    <path d="M12 3v18"/>
+    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+  </g>
+</svg>

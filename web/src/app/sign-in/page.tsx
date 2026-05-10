@@ -6,41 +6,13 @@ import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
-const COPY = {
-  fr: {
-    backHome: 'Retour au site',
-    title: 'Connexion éditeur',
-    subtitle:
-      'Entrez votre adresse e-mail. Vous recevrez un lien à usage unique pour vous connecter — pas de mot de passe.',
-    emailLabel: 'Adresse e-mail',
-    emailPlaceholder: 'vous@lexhaiti.ht',
-    submitButton: 'Recevoir le lien',
-    submittingButton: 'Envoi…',
-    note: 'Si votre adresse n’est pas autorisée, contactez l’administrateur.',
-    alreadySignedInPrefix: 'Vous êtes déjà connecté en tant que',
-    goHome: "Aller à l’accueil",
-  },
-  ht: {
-    backHome: 'Retounen sou sit la',
-    title: 'Koneksyon editè',
-    subtitle:
-      'Antre adrès imèl ou. W ap resevwa yon lyen pou yon sèl fwa pou konekte — pa gen modpas.',
-    emailLabel: 'Adrès imèl',
-    emailPlaceholder: 'ou@lexhaiti.ht',
-    submitButton: 'Resevwa lyen an',
-    submittingButton: 'K ap voye…',
-    note: 'Si adrès ou pa otorize, kontakte administratè a.',
-    alreadySignedInPrefix: 'Ou deja konekte kòm',
-    goHome: 'Ale sou paj akèy',
-  },
-}
+// Copy lives at `signIn.*` in i18n/{fr,ht}.ts.
 
 export default function SignInPage() {
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
   const { data: session, status } = useSession()
   const router = useRouter()
 
@@ -78,14 +50,14 @@ export default function SignInPage() {
       <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-white">
         <div className="w-full max-w-sm text-center">
           <p className="text-sm text-slate-600">
-            {t.alreadySignedInPrefix}
+            {t('signIn.alreadySignedInPrefix')}
           </p>
           <p className="mt-1 text-base font-semibold text-slate-900">
             {session.user.email}
           </p>
           <Button asChild className="mt-6 w-full">
             <Link href="/">
-              {t.goHome}
+              {t('signIn.goHome')}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
@@ -102,27 +74,27 @@ export default function SignInPage() {
           className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors mb-10"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          {t.backHome}
+          {t('signIn.backHome')}
         </Link>
 
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          {t.title}
+          {t('signIn.title')}
         </h1>
         <p className="mt-2 text-sm text-slate-500 leading-relaxed">
-          {t.subtitle}
+          {t('signIn.subtitle')}
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <label className="block">
             <span className="block text-xs font-semibold text-slate-700 mb-1.5">
-              {t.emailLabel}
+              {t('signIn.emailLabel')}
             </span>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={t.emailPlaceholder}
+              placeholder={t('signIn.emailPlaceholder')}
               disabled={pending}
               autoFocus
               className={cn(
@@ -144,15 +116,15 @@ export default function SignInPage() {
             {pending ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                {t.submittingButton}
+                {t('signIn.submittingButton')}
               </>
             ) : (
-              t.submitButton
+              t('signIn.submitButton')
             )}
           </Button>
         </form>
 
-        <p className="mt-6 text-xs text-slate-400 leading-relaxed">{t.note}</p>
+        <p className="mt-6 text-xs text-slate-400 leading-relaxed">{t('signIn.note')}</p>
       </div>
     </div>
   )

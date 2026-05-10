@@ -16,32 +16,9 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 
-const COPY = {
-  fr: {
-    backHome: 'Retour à l’accueil',
-    title: 'Mon profil',
-    subtitle: 'Compte éditeur',
-    accountSection: 'Informations du compte',
-    nameLabel: 'Nom',
-    emailLabel: 'Adresse e-mail',
-    roleLabel: 'Rôle',
-    signOut: 'Se déconnecter',
-    notSet: 'Non défini',
-  },
-  ht: {
-    backHome: 'Retounen sou paj akèy',
-    title: 'Pwofil mwen',
-    subtitle: 'Kont editè',
-    accountSection: 'Enfòmasyon kont',
-    nameLabel: 'Non',
-    emailLabel: 'Adrès imèl',
-    roleLabel: 'Wòl',
-    signOut: 'Dekonekte',
-    notSet: 'Pa defini',
-  },
-}
+// Copy lives at `profile.*` in i18n/{fr,ht}.ts.
 
 interface FieldCardProps {
   icon: typeof UserIcon
@@ -66,8 +43,7 @@ function FieldCard({ icon: Icon, label, children }: FieldCardProps) {
 }
 
 export default function ProfilePage() {
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
   const { data: session, status } = useSession()
   const router = useRouter()
 
@@ -91,7 +67,7 @@ export default function ProfilePage() {
     session.user.email?.[0] ??
     'E'
   ).toUpperCase()
-  const role = session.user.role ?? t.notSet
+  const role = session.user.role ?? t('profile.notSet')
 
   return (
     <div className="bg-slate-50/30 min-h-screen">
@@ -132,7 +108,7 @@ export default function ProfilePage() {
           className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary transition-colors mb-8"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          {t.backHome}
+          {t('profile.backHome')}
         </Link>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
@@ -140,19 +116,19 @@ export default function ProfilePage() {
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-red-100 text-red-700">
               <IdCard className="w-3.5 h-3.5" />
             </span>
-            {t.accountSection}
+            {t('profile.accountSection')}
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <FieldCard icon={UserIcon} label={t.nameLabel}>
+            <FieldCard icon={UserIcon} label={t('profile.nameLabel')}>
               {session.user.name || (
                 <span className="text-slate-400 italic font-normal">—</span>
               )}
             </FieldCard>
-            <FieldCard icon={Mail} label={t.emailLabel}>
+            <FieldCard icon={Mail} label={t('profile.emailLabel')}>
               {session.user.email}
             </FieldCard>
-            <FieldCard icon={ClipboardCheck} label={t.roleLabel}>
+            <FieldCard icon={ClipboardCheck} label={t('profile.roleLabel')}>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-bold">
                 <Pencil className="w-3 h-3" />
                 {role}
@@ -168,7 +144,7 @@ export default function ProfilePage() {
               className="h-9 rounded-full border-slate-200 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
             >
               <LogOut className="mr-1.5 h-3.5 w-3.5" />
-              {t.signOut}
+              {t('profile.signOut')}
             </Button>
           </div>
         </section>

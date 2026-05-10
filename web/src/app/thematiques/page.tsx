@@ -1,7 +1,10 @@
-'use client'
+// RSC — pure content browser for the 12 cross-cutting legal themes.
+// Cookie-based i18n + per-route metadata + CSS-only entrance animation
+// (the per-item stagger via framer-motion was dropped; visually the
+// `animate-in fade-in` pulse is close enough).
 
-import { useT } from '@/i18n/useT'
-import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
+import type { Metadata } from 'next'
+import Link from 'next/link'
 import {
   ArrowRight,
   Briefcase,
@@ -19,10 +22,10 @@ import {
   Scroll,
   ShieldCheck,
   Users,
+  type LucideIcon,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import type { LucideIcon } from 'lucide-react'
+import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
+import { getServerLanguage, getT } from '@/i18n/server'
 
 // ---------------------------------------------------------------------------
 // Theme catalogue — mirrors the Thématiques megamenu (3 columns) and the
@@ -106,9 +109,19 @@ const PALETTE = {
   },
 }
 
-export default function Page() {
-  const { t, language } = useT()
-  const isFr = language === 'fr'
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getServerLanguage()
+  const t = await getT(language)
+  return {
+    title: t('themes.title', {
+      fallback: language === 'fr' ? 'Thématiques' : 'Tèm yo',
+    }),
+  }
+}
+
+export default async function Page() {
+  const t = await getT()
+  const isFr = t.language === 'fr'
 
   return (
     <div className="min-h-screen bg-white">
@@ -158,15 +171,12 @@ export default function Page() {
 
                 {/* Items */}
                 <ul className="flex-1 divide-y divide-slate-100">
-                  {col.items.map((item, idx) => {
+                  {col.items.map((item) => {
                     const Icon = item.icon
                     return (
-                      <motion.li
+                      <li
                         key={item.key}
-                        initial={{ opacity: 0, x: -6 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: idx * 0.04 }}
+                        className="animate-in fade-in slide-in-from-left-2 duration-500"
                       >
                         <Link
                           href={`/lois?theme=${item.key}`}
@@ -187,7 +197,7 @@ export default function Page() {
                           </div>
                           <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                         </Link>
-                      </motion.li>
+                      </li>
                     )
                   })}
                 </ul>
@@ -197,12 +207,7 @@ export default function Page() {
         </div>
 
         {/* Info section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-20 p-10 lg:p-14 rounded-3xl bg-primary text-white relative overflow-hidden"
-        >
+        <div className="mt-20 p-10 lg:p-14 rounded-3xl bg-primary text-white relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-600/10 blur-[100px] rounded-full -translate-x-1/2 translate-y-1/2" />
 
@@ -234,7 +239,7 @@ export default function Page() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

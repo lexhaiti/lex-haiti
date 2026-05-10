@@ -15,7 +15,8 @@ import {
 } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { ErrorBanner } from '@/components/shared/ErrorBanner'
+import { useT } from '@/i18n/useT'
 import {
   getMoniteurIssue,
   parseMoniteurIssue,
@@ -28,131 +29,10 @@ import {
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 
-const COPY = {
-  fr: {
-    crumbs: {
-      home: 'Accueil',
-      editor: 'Éditorial',
-      moniteur: 'Le Moniteur',
-      review: 'Revue',
-    },
-    title: 'Revue des candidats détectés',
-    subtitleNoFile: 'Aucun PDF téléversé. Retournez à l’étape de téléversement.',
-    subtitleNoCandidates: 'Aucun candidat détecté. Lancez ou relancez l’analyse.',
-    subtitlePending: 'Validez chaque candidat — accepter le promeut en brouillon de texte légal ; rejeter le supprime.',
-    runParseAgain: 'Relancer l’analyse',
-    pages: 'pp.',
-    cardCategory: 'Catégorie',
-    cardNumber: 'Numéro',
-    cardDate: 'Date',
-    cardTitle: 'Titre détecté',
-    cardConfidence: 'Confiance',
-    cardExtract: 'Extrait OCR',
-    editText: 'Modifier le texte',
-    saveText: 'Enregistrer la transcription',
-    cancelText: 'Annuler',
-    textSaved: 'Transcription enregistrée.',
-    textHelp:
-      "Corrigez les fautes d'OCR, retirez les en-têtes / pieds de page parasites, ajoutez les sauts de ligne entre articles. Le texte mis à jour sera utilisé lors de la promotion.",
-    previewTitle: 'Aperçu de la structure',
-    previewHint:
-      "Comment le texte sera découpé en blocs juridiques lors de la promotion. Utilisez « Article 1. », « Vu… » ou « Considérant que… » au début d'une ligne pour aider le découpage.",
-    previewVisas: 'Visas',
-    previewConsiderants: 'Considérants',
-    previewEnacting: "Formule d'adoption",
-    previewPreamble: 'Préambule',
-    previewArticles: 'Articles',
-    previewEmpty: 'Aucun bloc structuré détecté.',
-    previewLoading: 'Calcul…',
-    accept: 'Accepter & promouvoir',
-    reject: 'Rejeter',
-    defer: 'Reporter',
-    promoted: 'Promu — brouillon créé',
-    openDraft: 'Ouvrir le brouillon',
-    edit: 'Modifier',
-    save: 'Enregistrer',
-    cancel: 'Annuler',
-    fieldCategory: 'Catégorie',
-    fieldTitle: 'Titre',
-    fieldNumber: 'Numéro',
-    fieldDate: 'Date',
-    saving: 'Enregistrement…',
-    rejected: 'Rejeté',
-    deferred: 'Reporté',
-    pending: 'En attente',
-    loading: 'Chargement…',
-    parseRunning: 'Analyse en cours…',
-  },
-  ht: {
-    crumbs: {
-      home: 'Akèy',
-      editor: 'Editoryal',
-      moniteur: 'Le Moniteur',
-      review: 'Revize',
-    },
-    title: 'Revize kandida yo',
-    subtitleNoFile: 'Pa gen PDF. Tounen sou etap telechaje a.',
-    subtitleNoCandidates: 'Pa gen kandida. Lanse oswa rilanse analiz la.',
-    subtitlePending: 'Valide chak kandida — aksepte fè li tounen yon bouyon ; rejte efase l.',
-    runParseAgain: 'Rilanse analiz la',
-    pages: 'pp.',
-    cardCategory: 'Kategori',
-    cardNumber: 'Nimewo',
-    cardDate: 'Dat',
-    cardTitle: 'Tit detekte',
-    cardConfidence: 'Konfyans',
-    cardExtract: 'Ekstrè OCR',
-    editText: 'Modifye tèks la',
-    saveText: 'Anrejistre transkripsyon an',
-    cancelText: 'Anile',
-    textSaved: 'Transkripsyon anrejistre.',
-    textHelp:
-      "Korije erè OCR, retire ankèt / pye paj ki pa nesesè, ajoute sou liy ant atik yo. Tèks ki mete ajou ap itilize pandan pwomosyon an.",
-    previewTitle: 'Apèsi estrikti a',
-    previewHint:
-      "Kijan tèks la pral koupe an blòk jiridik pandan pwomosyon an. Itilize « Article 1. », « Vu… » oswa « Considérant que… » nan kòmansman yon liy pou ede koupe.",
-    previewVisas: 'Viza',
-    previewConsiderants: 'Konsiderasyon',
-    previewEnacting: "Fòmil adopsyon",
-    previewPreamble: 'Preambil',
-    previewArticles: 'Atik',
-    previewEmpty: 'Pa gen blòk estriktire detekte.',
-    previewLoading: 'Ap kalkile…',
-    accept: 'Aksepte & pwomouvwa',
-    reject: 'Rejte',
-    defer: 'Repòte',
-    promoted: 'Pwomouvre — bouyon kreye',
-    openDraft: 'Louvri bouyon an',
-    edit: 'Modifye',
-    save: 'Anrejistre',
-    cancel: 'Anile',
-    fieldCategory: 'Kategori',
-    fieldTitle: 'Tit',
-    fieldNumber: 'Nimewo',
-    fieldDate: 'Dat',
-    saving: 'Ap anrejistre…',
-    rejected: 'Rejte',
-    deferred: 'Repòte',
-    pending: 'Ap tann',
-    loading: 'Ap chaje…',
-    parseRunning: 'Analiz ap mache…',
-  },
-}
+// Copy lives at `editorial.moniteur.review.*` in i18n/{fr,ht}.ts.
 
-const CATEGORY_LABEL: Record<string, { fr: string; ht: string }> = {
-  constitution: { fr: 'Constitution', ht: 'Konstitisyon' },
-  code: { fr: 'Code', ht: 'Kòd' },
-  loi: { fr: 'Loi', ht: 'Lwa' },
-  decret: { fr: 'Décret', ht: 'Dekrè' },
-  arrete: { fr: 'Arrêté', ht: 'Arète' },
-  circulaire: { fr: 'Circulaire', ht: 'Sirkilè' },
-  convention: { fr: 'Convention', ht: 'Konvansyon' },
-  ordonnance: { fr: 'Ordonnance', ht: 'Òdonans' },
-  communique: { fr: 'Communiqué', ht: 'Kominike' },
-  promulgation: { fr: 'Promulgation', ht: 'Pwomilgasyon' },
-  errata: { fr: 'Errata', ht: 'Erata' },
-  autre: { fr: 'Autre', ht: 'Lòt' },
-}
+// Centralised in @/lib/legal/labels — local alias for indexed lookups.
+import { CATEGORY_LABELS as CATEGORY_LABEL } from '@/lib/legal/labels'
 
 /** Keys used by the review pill — restricted to string-valued COPY entries. */
 type PillCopyKey = 'pending' | 'promoted' | 'rejected' | 'deferred'
@@ -170,12 +50,13 @@ const REVIEW_PILL: Record<
   deferred: { cls: 'bg-amber-50 text-amber-800 border-amber-200', key: 'deferred' },
 }
 
+type T = (key: string, opts?: { fallback?: string }) => string
+
 export default function MoniteurReviewPage() {
   const params = useParams()
   const id = Number(params?.id)
-  const { language } = useLanguage()
+  const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
 
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -371,15 +252,15 @@ export default function MoniteurReviewPage() {
           <Breadcrumb
             className="mb-6"
             items={[
-              { label: copy.crumbs.home, href: '/' },
-              { label: copy.crumbs.editor, href: '/profile' },
-              { label: copy.crumbs.moniteur, href: '/editorial/moniteur' },
+              { label: t('editorial.moniteur.review.crumbs.home'), href: '/' },
+              { label: t('editorial.moniteur.review.crumbs.editor'), href: '/profile' },
+              { label: t('editorial.moniteur.review.crumbs.moniteur'), href: '/editorial/moniteur' },
               {
                 // Smart N° prefix: skip the prefix when the issue.number
                 // already starts with non-digit text like "Spécial N° 5".
                 label: issue
                   ? `${/^[0-9]/.test(issue.number) ? `N° ${issue.number}` : issue.number} / ${issue.year}`
-                  : copy.crumbs.review,
+                  : t('editorial.moniteur.review.crumbs.review'),
               },
             ]}
           />
@@ -390,7 +271,7 @@ export default function MoniteurReviewPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
             >
-              {copy.title}
+              {t('editorial.moniteur.review.title')}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0 }}
@@ -399,12 +280,12 @@ export default function MoniteurReviewPage() {
               className="text-slate-300 text-lg leading-relaxed border-l-2 border-red-600 pl-6"
             >
               {!issue
-                ? copy.loading
+                ? t('editorial.moniteur.review.loading')
                 : !issue.file_url
-                  ? copy.subtitleNoFile
+                  ? t('editorial.moniteur.review.subtitleNoFile')
                   : issue.entries.length === 0
-                    ? copy.subtitleNoCandidates
-                    : copy.subtitlePending}
+                    ? t('editorial.moniteur.review.subtitleNoCandidates')
+                    : t('editorial.moniteur.review.subtitlePending')}
             </motion.p>
           </div>
         </div>
@@ -421,12 +302,12 @@ export default function MoniteurReviewPage() {
               {parsing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {copy.parseRunning}
+                  {t('editorial.moniteur.review.parseRunning')}
                 </>
               ) : (
                 <>
                   <RotateCcw className="w-4 h-4" />
-                  {copy.runParseAgain}
+                  {t('editorial.moniteur.review.runParseAgain')}
                 </>
               )}
             </button>
@@ -434,15 +315,14 @@ export default function MoniteurReviewPage() {
         )}
 
         {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <ErrorBanner density="compact" icon={AlertTriangle} className="mb-6">
             {error}
-          </div>
+          </ErrorBanner>
         )}
 
         {issue && issue.entries.length === 0 && !parsing && (
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-6 py-10 text-center text-sm text-slate-600">
-            {copy.subtitleNoCandidates}
+            {t('editorial.moniteur.review.subtitleNoCandidates')}
           </div>
         )}
 
@@ -471,16 +351,16 @@ export default function MoniteurReviewPage() {
                         pill.cls,
                       )}
                     >
-                      {copy[pill.key]}
+                      {t(`editorial.moniteur.review.${pill.key}`)}
                     </span>
                     {c.confidence && (
                       <span className="text-[11px] text-slate-500 tabular-nums">
-                        {copy.cardConfidence}: {Number(c.confidence).toFixed(2)}
+                        {t('editorial.moniteur.review.cardConfidence')}: {Number(c.confidence).toFixed(2)}
                       </span>
                     )}
                     {c.page_from && (
                       <span className="text-[11px] text-slate-400">
-                        {copy.pages} {c.page_from}
+                        {t('editorial.moniteur.review.pages')} {c.page_from}
                         {c.page_to && c.page_to !== c.page_from
                           ? `–${c.page_to}`
                           : ''}
@@ -494,7 +374,7 @@ export default function MoniteurReviewPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                       <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold uppercase tracking-widest text-primary/65">
-                          {copy.fieldCategory}
+                          {t('editorial.moniteur.review.fieldCategory')}
                         </span>
                         <select
                           value={editingFields.detected_category}
@@ -515,7 +395,7 @@ export default function MoniteurReviewPage() {
                       </label>
                       <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold uppercase tracking-widest text-primary/65">
-                          {copy.fieldNumber}
+                          {t('editorial.moniteur.review.fieldNumber')}
                         </span>
                         <input
                           type="text"
@@ -530,7 +410,7 @@ export default function MoniteurReviewPage() {
                       </label>
                       <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold uppercase tracking-widest text-primary/65">
-                          {copy.fieldDate}
+                          {t('editorial.moniteur.review.fieldDate')}
                         </span>
                         <input
                           type="date"
@@ -546,7 +426,7 @@ export default function MoniteurReviewPage() {
                     </div>
                     <label className="flex flex-col gap-1.5">
                       <span className="text-xs font-bold uppercase tracking-widest text-primary/65">
-                        {copy.fieldTitle}
+                        {t('editorial.moniteur.review.fieldTitle')}
                       </span>
                       <textarea
                         value={editingFields.detected_title}
@@ -567,7 +447,7 @@ export default function MoniteurReviewPage() {
                         className="inline-flex items-center gap-2 rounded-md border border-slate-300 text-slate-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
                       >
                         <X className="w-4 h-4" />
-                        {copy.cancel}
+                        {t('editorial.moniteur.review.cancel')}
                       </button>
                       <button
                         type="button"
@@ -580,23 +460,23 @@ export default function MoniteurReviewPage() {
                         ) : (
                           <Check className="w-4 h-4" />
                         )}
-                        {savingFields ? copy.saving : copy.save}
+                        {savingFields ? t('editorial.moniteur.review.saving') : t('editorial.moniteur.review.save')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
-                      <Detail label={copy.cardCategory}>{cat}</Detail>
-                      <Detail label={copy.cardNumber}>
+                      <Detail label={t('editorial.moniteur.review.cardCategory')}>{cat}</Detail>
+                      <Detail label={t('editorial.moniteur.review.cardNumber')}>
                         {c.detected_number || '—'}
                       </Detail>
-                      <Detail label={copy.cardDate}>
+                      <Detail label={t('editorial.moniteur.review.cardDate')}>
                         {c.detected_date ?? '—'}
                       </Detail>
                     </div>
 
-                    <Detail label={copy.cardTitle}>
+                    <Detail label={t('editorial.moniteur.review.cardTitle')}>
                       <p className="text-base font-semibold text-primary leading-snug">
                         {c.detected_title || '(sans titre)'}
                       </p>
@@ -606,12 +486,12 @@ export default function MoniteurReviewPage() {
 
                 <details className="mt-4" open={editingText?.candidateId === c.id}>
                   <summary className="text-xs font-bold uppercase tracking-widest text-primary/65 cursor-pointer hover:text-primary">
-                    {copy.cardExtract}
+                    {t('editorial.moniteur.review.cardExtract')}
                   </summary>
                   {editingText?.candidateId === c.id ? (
                     <div className="mt-2 space-y-2">
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        {copy.textHelp}
+                        {t('editorial.moniteur.review.textHelp')}
                       </p>
                       <textarea
                         value={editingText.raw_text}
@@ -636,7 +516,7 @@ export default function MoniteurReviewPage() {
                           ) : (
                             <Check className="w-3.5 h-3.5" />
                           )}
-                          {copy.saveText}
+                          {t('editorial.moniteur.review.saveText')}
                         </button>
                         <button
                           type="button"
@@ -644,7 +524,7 @@ export default function MoniteurReviewPage() {
                           disabled={savingText}
                           className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:opacity-50"
                         >
-                          {copy.cancelText}
+                          {t('editorial.moniteur.review.cancelText')}
                         </button>
                       </div>
 
@@ -655,7 +535,7 @@ export default function MoniteurReviewPage() {
                       <TranscriptPreviewPanel
                         preview={preview}
                         loading={previewing}
-                        copy={copy}
+                        t={t}
                       />
                     </div>
                   ) : (
@@ -670,7 +550,7 @@ export default function MoniteurReviewPage() {
                           className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                         >
                           <Pencil className="w-3 h-3" />
-                          {copy.editText}
+                          {t('editorial.moniteur.review.editText')}
                         </button>
                       )}
                     </div>
@@ -689,7 +569,7 @@ export default function MoniteurReviewPage() {
                       ) : (
                         <Check className="w-4 h-4" />
                       )}
-                      {copy.accept}
+                      {t('editorial.moniteur.review.accept')}
                     </button>
                     <button
                       onClick={() => handleReject(c)}
@@ -697,14 +577,14 @@ export default function MoniteurReviewPage() {
                       className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
                     >
                       <X className="w-4 h-4" />
-                      {copy.reject}
+                      {t('editorial.moniteur.review.reject')}
                     </button>
                     <button
                       onClick={() => handleDefer(c)}
                       disabled={isBusy}
                       className="inline-flex items-center gap-2 rounded-md border border-slate-300 text-slate-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition-colors"
                     >
-                      {copy.defer}
+                      {t('editorial.moniteur.review.defer')}
                     </button>
                     <button
                       type="button"
@@ -713,7 +593,7 @@ export default function MoniteurReviewPage() {
                       className="ml-auto inline-flex items-center gap-2 rounded-md border border-amber-200 text-amber-800 bg-amber-50/50 px-4 py-2 text-sm font-semibold hover:bg-amber-50 disabled:opacity-50 transition-colors"
                     >
                       <Pencil className="w-4 h-4" />
-                      {copy.edit}
+                      {t('editorial.moniteur.review.edit')}
                     </button>
                   </div>
                 )}
@@ -725,15 +605,15 @@ export default function MoniteurReviewPage() {
                 {c.promoted_legal_text_slug && (
                   <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
                     <span className="text-xs text-slate-500">
-                      {copy.promoted}
+                      {t('editorial.moniteur.review.promoted')}
                     </span>
                     <Link
                       href={`/loi/${c.promoted_legal_text_slug}`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/[0.04] transition-colors"
                     >
                       {c.promoted_legal_text_title_fr
-                        ? `${copy.openDraft} : ${c.promoted_legal_text_title_fr.slice(0, 50)}${c.promoted_legal_text_title_fr.length > 50 ? '…' : ''}`
-                        : copy.openDraft}
+                        ? `${t('editorial.moniteur.review.openDraft')} : ${c.promoted_legal_text_title_fr.slice(0, 50)}${c.promoted_legal_text_title_fr.length > 50 ? '…' : ''}`
+                        : t('editorial.moniteur.review.openDraft')}
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
@@ -750,34 +630,34 @@ export default function MoniteurReviewPage() {
 function TranscriptPreviewPanel({
   preview,
   loading,
-  copy,
+  t,
 }: {
   preview: TranscriptPreview | null
   loading: boolean
-  copy: (typeof COPY)['fr']
+  t: T
 }) {
   const blockSummary: Array<{ key: keyof TranscriptPreview; label: string }> = [
-    { key: 'preamble', label: copy.previewPreamble },
-    { key: 'visas', label: copy.previewVisas },
-    { key: 'considerants', label: copy.previewConsiderants },
-    { key: 'enacting_formula', label: copy.previewEnacting },
+    { key: 'preamble', label: t('editorial.moniteur.review.previewPreamble') },
+    { key: 'visas', label: t('editorial.moniteur.review.previewVisas') },
+    { key: 'considerants', label: t('editorial.moniteur.review.previewConsiderants') },
+    { key: 'enacting_formula', label: t('editorial.moniteur.review.previewEnacting') },
   ]
 
   return (
     <div className="mt-4 rounded-md border border-slate-200 bg-slate-50/40 p-3">
       <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-          {copy.previewTitle}
+          {t('editorial.moniteur.review.previewTitle')}
         </p>
         {loading && (
           <span className="text-[10px] text-slate-400 inline-flex items-center gap-1">
             <Loader2 className="w-3 h-3 animate-spin" />
-            {copy.previewLoading}
+            {t('editorial.moniteur.review.previewLoading')}
           </span>
         )}
       </div>
       <p className="text-[11px] text-slate-500 leading-relaxed mb-3">
-        {copy.previewHint}
+        {t('editorial.moniteur.review.previewHint')}
       </p>
       {!preview ||
       (!preview.preamble &&
@@ -785,7 +665,7 @@ function TranscriptPreviewPanel({
         !preview.considerants &&
         !preview.enacting_formula &&
         preview.articles.length === 0) ? (
-        <p className="text-xs text-slate-400 italic">{copy.previewEmpty}</p>
+        <p className="text-xs text-slate-400 italic">{t('editorial.moniteur.review.previewEmpty')}</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {blockSummary.map(({ key, label }) => {
@@ -819,7 +699,7 @@ function TranscriptPreviewPanel({
             )}
           >
             <div className="text-[9px] font-bold uppercase tracking-wider">
-              {copy.previewArticles}
+              {t('editorial.moniteur.review.previewArticles')}
             </div>
             <div className="text-base font-bold tabular-nums">
               {preview.articles.length}

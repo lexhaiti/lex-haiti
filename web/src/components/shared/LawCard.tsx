@@ -1,9 +1,22 @@
 // src/components/shared/LawCard.tsx
+//
+// Stays 'use client' for now because both current call sites
+// (recherche/page.tsx and AllLawsUI.tsx) are themselves client
+// components — you can't render a server component from a client
+// parent. This component is *RSC-compatible* though: it uses no React
+// hooks and no framer-motion, only CSS-driven `group-hover:` utilities
+// for the hover choreography. The day a parent gets refactored to RSC
+// (e.g. recherche/page.tsx with server-fetched results), drop the
+// 'use client' directive below for free.
+//
+// The previous framer-motion implementation shipped two `motion.div`
+// wrappers per card with `whileHover` variants and a pulsing-ring
+// effect (`repeat: Infinity`). All replaced by tailwind utilities,
+// shrinking the client bundle and the per-card render cost.
 'use client'
 
 import Link from 'next/link'
-import React, { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import React from 'react'
 import {
   ArrowUpRight,
   Ban,
@@ -17,51 +30,39 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { components } from '@/lib/api-types'
-import { LawCardModel, toLawCardModel } from '@/lib/law-ui/toLawModel'
+import { toLawCardModel } from '@/lib/law-ui/toLawModel'
 import type { DisplayItem } from '@/lib/hooks/useAllTexts'
+import { HighlightText } from '@/lib/text/highlight'
 
 type LegalTextListItem = components['schemas']['LegalTextListItem']
 type SearchHit = components['schemas']['SearchHit']
 
 export type CardStyle = 'grid' | 'list'
 
+/**
+ * Props are a discriminated union over how the card is fed:
+ *   - `item` mode: a plain `LegalTextListItem` from `/legal-texts`
+ *   - `displayItem` mode: a `DisplayItem` (text OR search hit) from
+ *     the `useAllTexts` hook, which mixes listings and search results
+ *     into one stream
+ */
+type SharedProps = {
+  cardStyle?: CardStyle
+  index?: number
+  className?: string
+  /** Wrap query matches in <mark> inside title + description + snippets. */
+  query?: string
+}
+
 type Props =
-  | {
-      model: LawCardModel
-      cardStyle?: CardStyle
-      index?: number
-      className?: string
-      /** Wrap query matches in <mark> inside title + description. */
-      query?: string
-    }
-  | {
+  | (SharedProps & {
       item: LegalTextListItem
       language: 'fr' | 'ht'
-      cardStyle?: CardStyle
-      index?: number
-      className?: string
-      /** Wrap query matches in <mark> inside title + description. */
-      query?: string
-    }
-  | {
+    })
+  | (SharedProps & {
       displayItem: DisplayItem
       language: 'fr' | 'ht'
-      cardStyle?: CardStyle
-      index?: number
-      className?: string
-      /** Wrap query matches in <mark> inside title + description. */
-      query?: string
-    }
-  | {
-      law: any // For backward compatibility or different models
-      currentLang: 'fr' | 'ht'
-      variant?: string
-      cardStyle?: CardStyle
-      index?: number
-      className?: string
-      /** Wrap query matches in <mark> inside title + description. */
-      query?: string
-    }
+    })
 
 function statusBadgeMeta(badge?: {
   tone?: 'success' | 'warning' | 'danger' | 'neutral'
@@ -91,7 +92,7 @@ function badgeClass(tone: 'success' | 'warning' | 'danger' | 'neutral') {
   }
 }
 
-function subtitleMetaIcon(subtitle?: string) {
+function subtitleIconFor(subtitle?: string): LucideIcon {
   if (!subtitle) return Hash
   if (/^\d{4}-\d{2}-\d{2}$/.test(subtitle)) return Calendar
   if (/^\d{4}$/.test(subtitle)) return Calendar
@@ -99,113 +100,47 @@ function subtitleMetaIcon(subtitle?: string) {
   return Hash
 }
 
-function stripAccents(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-}
-
-/**
- * Wrap every occurrence of any query token inside `text` in a `<mark>`.
- * Matching is case- AND accent-insensitive ("president" matches
- * "président" and vice versa), but the rendered slices preserve the
- * original casing/accents from `text`.
- *
- * Multi-word queries split on whitespace; tokens shorter than 2
- * characters are dropped to avoid noisy single-letter highlights.
- */
-function HighlightText({ text, query }: { text: string; query?: string }) {
-  if (!text || !query || !query.trim()) return <>{text}</>
-
-  const stripped = stripAccents(text)
-  const tokens = stripAccents(query.trim())
-    .split(/\s+/)
-    .filter((t) => t.length >= 2)
-  if (tokens.length === 0) return <>{text}</>
-
-  // Find every occurrence of every token; sort + merge overlapping ranges.
-  const ranges: Array<[number, number]> = []
-  for (const tok of tokens) {
-    let idx = 0
-    while (idx < stripped.length) {
-      const found = stripped.indexOf(tok, idx)
-      if (found < 0) break
-      ranges.push([found, found + tok.length])
-      idx = found + tok.length
-    }
-  }
-  if (ranges.length === 0) return <>{text}</>
-  ranges.sort((a, b) => a[0] - b[0])
-  const merged: Array<[number, number]> = []
-  for (const r of ranges) {
-    const last = merged[merged.length - 1]
-    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
-    else merged.push([r[0], r[1]])
-  }
-
-  const out: React.ReactNode[] = []
-  let cursor = 0
-  for (const [start, end] of merged) {
-    if (cursor < start) out.push(text.slice(cursor, start))
-    out.push(
-      <mark
-        key={`${start}-${end}`}
-        className="bg-amber-100 text-amber-900 rounded-sm px-0.5 font-semibold"
-      >
-        {text.slice(start, end)}
-      </mark>,
-    )
-    cursor = end
-  }
-  if (cursor < text.length) out.push(text.slice(cursor))
-  return <>{out}</>
-}
-
 export function LawCard(props: Props) {
-  const model = useMemo(() => {
-    if ('model' in props) return props.model
-    if ('displayItem' in props) {
-      const item =
-        props.displayItem.type === 'text'
-          ? (props.displayItem.data as LegalTextListItem)
-          : (props.displayItem.data as SearchHit).text
-      return toLawCardModel({ item, language: props.language })
-    }
-    if ('item' in props)
-      return toLawCardModel({ item: props.item, language: props.language })
-    if ('law' in props) {
-      const language = (props as any).currentLang ?? 'fr'
-      return toLawCardModel({
-        item: props.law as any,
-        language,
-      })
-    }
-    return toLawCardModel({ item: undefined as any, language: 'fr' })
-  }, [props])
+  const { cardStyle: cardStyleProp, query: highlightQuery, language } = props
 
-  const cardStyle: CardStyle = props.cardStyle ?? 'grid'
+  // Plain function call — no useMemo. Models are cheap (icon/color
+  // lookup + bilingual field selection); React's reconciler handles
+  // the rest. RSC compatibility note above explains the rationale.
+  const model =
+    'displayItem' in props
+      ? toLawCardModel({
+          item:
+            props.displayItem.type === 'text'
+              ? (props.displayItem.data as LegalTextListItem)
+              : (props.displayItem.data as SearchHit).text,
+          language,
+        })
+      : toLawCardModel({ item: props.item, language })
+
+  const cardStyle: CardStyle = cardStyleProp ?? 'grid'
 
   const { href, title, subtitle, description, color, badge, stats } = model
   const Icon: LucideIcon = model.icon
 
-  // Optional query string — when set, the card wraps query matches in
-  // <mark> inside the title and description renders. Used by /recherche
-  // and the search results page so visitors see WHERE their query
-  // matched in each card.
-  const highlightQuery = (props as { query?: string }).query
-
-  // Deep search logic
+  // Snippet rendering — only when card was fed from a SearchHit.
   const isHit = 'displayItem' in props && props.displayItem.type === 'hit'
-  const hit = isHit ? (props.displayItem.data as SearchHit) : null
-  const language = 'language' in props ? props.language : 'fr'
+  const hit: SearchHit | null = isHit
+    ? (props.displayItem.data as SearchHit)
+    : null
 
+  // CSS variables let group-hover utilities reference the dynamic
+  // per-card colour without inline-style on every element.
   const activeStyle = {
     '--card-theme': color,
     '--card-theme-light': `${color}15`,
     '--card-theme-medium': `${color}30`,
+    '--card-theme-strong': `${color}20`,
+    '--card-theme-tint': `${color}10`,
   } as React.CSSProperties
 
   const badgeText = badge?.text ?? 'Texte'
   const { tone, icon: StatusIcon } = statusBadgeMeta(badge)
-  const SubtitleIcon = subtitleMetaIcon(subtitle)
+  const SubtitleIcon = subtitleIconFor(subtitle)
 
   if (cardStyle === 'list') {
     return (
@@ -213,11 +148,7 @@ export function LawCard(props: Props) {
         href={href}
         className={cn('block outline-none group', props.className)}
       >
-        <motion.div
-          initial="rest"
-          whileHover="hover"
-          animate="rest"
-          viewport={{ once: true, margin: '-50px' }}
+        <div
           style={activeStyle}
           className={cn(
             'relative overflow-hidden rounded-xl bg-white transition-all duration-300',
@@ -226,44 +157,36 @@ export function LawCard(props: Props) {
             'hover:-translate-y-0.5',
           )}
         >
-          {/* Glass morphism background on hover */}
+          {/* Hover wash */}
           <div className="absolute inset-0 z-0 bg-gradient-to-r from-white/50 via-white/30 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 backdrop-blur-sm" />
 
-          {/* Animated color strip on left - uses card theme color (same as grid variant) */}
+          {/* Left colour rail — scales in from the top on hover. */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-[3px] z-20 origin-top scale-y-0 transition-transform duration-500 ease-out group-hover:scale-y-100"
-            style={{ backgroundColor: 'var(--card-theme)' }}
+            className="absolute left-0 top-0 bottom-0 w-[3px] z-20 origin-top scale-y-0 transition-transform duration-500 ease-out group-hover:scale-y-100 bg-[var(--card-theme)]"
           />
 
           <div className="relative z-10 pl-6 pr-4 py-4">
-            {/* Two-column wrapper */}
             <div className="flex gap-4">
-              {/* First column: Icon with glass morphism */}
+              {/* Icon column */}
               <div className="flex-shrink-0 pt-1">
                 <div
                   className={cn(
                     'relative flex h-10 w-10 items-center justify-center rounded-full',
-                    'border border-white/60 shadow-sm transition-all duration-500',
-                    'group-hover:scale-105 group-hover:rotate-3 backdrop-blur-md',
-                    'before:absolute before:inset-0 before:rounded-full before:bg-white/30 before:backdrop-blur-sm before:opacity-0 before:group-hover:opacity-100 before:transition-opacity',
+                    'border border-white/60 shadow-sm transition-all duration-500 backdrop-blur-md',
+                    'group-hover:scale-105 group-hover:rotate-3',
+                    'bg-[var(--card-theme-light)]',
                   )}
-                  style={{
-                    backgroundColor: 'var(--card-theme-light)',
-                    boxShadow: `0 2px 8px ${color}15`,
-                  }}
+                  style={{ boxShadow: `0 2px 8px ${color}15` }}
                 >
                   <Icon className="h-5 w-5 relative z-10" style={{ color }} />
                 </div>
               </div>
 
-              {/* Second column: Two rows */}
+              {/* Body column */}
               <div className="flex-1 min-w-0">
-                {/* First row: Title and description in two columns, then badge */}
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  {/* Title and description container */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-4">
-                      {/* Title column */}
                       <div className="flex-1 min-w-0">
                         <h3
                           className={cn(
@@ -274,7 +197,6 @@ export function LawCard(props: Props) {
                         >
                           <HighlightText text={title} query={highlightQuery} />
                         </h3>
-                        {/* Subtitle under title */}
                         {subtitle && (
                           <div className="flex items-center gap-1.5 mt-1">
                             <SubtitleIcon className="h-3 w-3 text-gray-400" />
@@ -285,16 +207,15 @@ export function LawCard(props: Props) {
                         )}
                       </div>
 
-                      {/* Description column - desktop only */}
                       {(description || (isHit && hit?.snippets?.length)) && (
                         <div className="hidden md:block flex-1 min-w-0">
                           {isHit && hit?.snippets?.length ? (
                             <div className="space-y-2">
                               {hit.snippets.map((snippet, si) => {
-                                const sFr = snippet.snippet_fr
-                                const sHt = snippet.snippet_ht
                                 const sContent =
-                                  language === 'ht' ? sHt : sFr
+                                  language === 'ht'
+                                    ? snippet.snippet_ht
+                                    : snippet.snippet_fr
                                 return (
                                   <div
                                     key={si}
@@ -304,15 +225,12 @@ export function LawCard(props: Props) {
                                       Article {snippet.article.number}
                                     </p>
                                     <p className="text-gray-600 line-clamp-1 italic">
-                                      "
+                                      &quot;
                                       <HighlightText
                                         text={sContent || ''}
-                                        query={
-                                          (props as any).displayItem?.data
-                                            ?.query
-                                        }
+                                        query={highlightQuery}
                                       />
-                                      "
+                                      &quot;
                                     </p>
                                   </div>
                                 )
@@ -331,7 +249,6 @@ export function LawCard(props: Props) {
                     </div>
                   </div>
 
-                  {/* Badge on the right */}
                   <div className="flex-shrink-0">
                     <span
                       className={cn(
@@ -346,7 +263,7 @@ export function LawCard(props: Props) {
                   </div>
                 </div>
 
-                {/* Mobile description */}
+                {/* Mobile-only description row */}
                 {description && (
                   <div className="md:hidden mb-3">
                     <p className="text-sm text-gray-600 line-clamp-2">
@@ -355,9 +272,7 @@ export function LawCard(props: Props) {
                   </div>
                 )}
 
-                {/* Second row: Stats and button */}
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  {/* Stats */}
                   <div className="flex items-center gap-6">
                     {(stats ?? []).slice(0, 2).map((stat, i) => (
                       <div key={i} className="flex items-center gap-2">
@@ -371,65 +286,40 @@ export function LawCard(props: Props) {
                     ))}
                   </div>
 
-                  {/* Button - same rounded style as grid variant */}
-                  <motion.div
-                    initial={false}
-                    whileHover={{
-                      scale: 1.1,
-                      rotate: 5,
-                      backgroundColor: `${color}20`,
-                    }}
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 border"
+                  {/* Action affordance — scales + tints on group hover. */}
+                  <div
+                    className={cn(
+                      'relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 border',
+                      'group-hover:scale-110 group-hover:rotate-[5deg] group-hover:bg-[var(--card-theme-strong)]',
+                    )}
                     style={{
                       backgroundColor: `${color}10`,
                       color,
                       borderColor: `${color}20`,
                     }}
                   >
-                    <motion.div
-                      animate={{ x: 0, y: 0 }}
-                      whileHover={{ x: 2, y: -2 }}
-                      transition={{ type: 'spring', stiffness: 400 }}
-                    >
-                      <ArrowUpRight className="h-5 w-5" />
-                    </motion.div>
-
-                    {/* Pulsing ring effect on hover */}
-                    <motion.div
-                      className="absolute inset-0 rounded-full border"
-                      style={{ borderColor: color }}
-                      initial={{ scale: 1, opacity: 0.3 }}
-                      whileHover={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.6, 0.3],
-                      }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    />
-                  </motion.div>
+                    <ArrowUpRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Subtle hover gradient overlay */}
+          {/* Bottom hover gradient — flows in left-to-right. */}
           <div className="absolute inset-0 z-0 bg-gradient-to-r from-[var(--card-theme-light)]/0 via-[var(--card-theme-light)]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        </motion.div>
+        </div>
       </Link>
     )
   }
 
-  // default "card" (grid)
+  // ---- Grid (default) variant -------------------------------------------
   const badgeVariant = badge?.variant ?? 'default'
   return (
     <Link
       href={href}
       className={cn('block h-full outline-none group', props.className)}
     >
-      <motion.div
-        initial="rest"
-        whileHover="hover"
-        animate="rest"
-        viewport={{ once: true, margin: '-50px' }}
+      <div
         style={activeStyle}
         className={cn(
           'relative flex h-full flex-col justify-between overflow-hidden rounded-3xl bg-white transition-all duration-500',
@@ -438,11 +328,10 @@ export function LawCard(props: Props) {
           'hover:-translate-y-1',
         )}
       >
-        <div
-          className="absolute top-0 left-0 right-0 h-1.5 z-20 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100"
-          style={{ backgroundColor: 'var(--card-theme)' }}
-        />
+        {/* Top colour rail — scales in horizontally on hover. */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 z-20 origin-left scale-x-0 transition-transform duration-500 ease-out group-hover:scale-x-100 bg-[var(--card-theme)]" />
 
+        {/* Diagonal background tint on hover. */}
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-[var(--card-theme-light)] to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
         <div className="relative z-10 p-7 pt-9 flex flex-col h-full">
@@ -450,10 +339,10 @@ export function LawCard(props: Props) {
             <div
               className={cn(
                 'relative flex h-14 w-14 items-center justify-center rounded-full',
-                'border border-white/60 shadow-sm transition-transform duration-500',
-                'group-hover:scale-110 group-hover:rotate-3 backdrop-blur-md',
+                'border border-white/60 shadow-sm transition-transform duration-500 backdrop-blur-md',
+                'group-hover:scale-110 group-hover:rotate-3',
+                'bg-[var(--card-theme-light)]',
               )}
-              style={{ backgroundColor: 'var(--card-theme-light)' }}
             >
               <Icon className="h-7 w-7" style={{ color }} />
             </div>
@@ -502,12 +391,12 @@ export function LawCard(props: Props) {
                       key={si}
                       className="text-[11px] border-l-2 border-red-500/30 pl-2 py-0.5 bg-gray-50/50 rounded-r-lg italic text-gray-600 line-clamp-2"
                     >
-                      "
+                      &quot;
                       <HighlightText
                         text={sContent || ''}
-                        query={(props as any).displayItem?.data?.query}
+                        query={highlightQuery}
                       />
-                      "
+                      &quot;
                     </div>
                   )
                 })}
@@ -530,43 +419,23 @@ export function LawCard(props: Props) {
                 ))}
               </div>
 
-              <motion.div
-                initial={false}
-                whileHover={{
-                  scale: 1.1,
-                  rotate: 5,
-                  backgroundColor: `${color}20`,
-                }}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 border"
+              <div
+                className={cn(
+                  'relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 border',
+                  'group-hover:scale-110 group-hover:rotate-[5deg] group-hover:bg-[var(--card-theme-strong)]',
+                )}
                 style={{
                   backgroundColor: `${color}10`,
                   color,
                   borderColor: `${color}20`,
                 }}
               >
-                <motion.div
-                  animate={{ x: 0, y: 0 }}
-                  whileHover={{ x: 2, y: -2 }}
-                  transition={{ type: 'spring', stiffness: 400 }}
-                >
-                  <ArrowUpRight className="h-5 w-5" />
-                </motion.div>
-
-                <motion.div
-                  className="absolute inset-0 rounded-full border"
-                  style={{ borderColor: color }}
-                  initial={{ scale: 1, opacity: 0.3 }}
-                  whileHover={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.3, 0.6, 0.3],
-                  }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-              </motion.div>
+                <ArrowUpRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-[2px] group-hover:-translate-y-[2px]" />
+              </div>
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </Link>
   )
 }

@@ -10,38 +10,14 @@ import { CardStyle, LawCard } from '@/components/shared/LawCard'
 import type { DisplayItem } from '@/lib/hooks/useAllTexts'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { themeDescription, themeLabel } from '@/lib/themes'
+// Reuse the centralised label maps. Keep these renamed locals so the
+// downstream code (existence checks, indexed reads) stays untouched.
+import {
+  CATEGORY_LABELS_PLURAL as CATEGORY_LABELS,
+  SUBCATEGORY_LABELS,
+} from '@/lib/legal/labels'
 
 type LegalTextListItem = components['schemas']['LegalTextListItem']
-
-// Labels for the dynamic breadcrumb. Mirrors the dropdowns in LawFilter.tsx
-// — when those change, update here too. Keep in sync with backend
-// `LegalCategory` and `CodeSubcategory` enums.
-const CATEGORY_LABELS: Record<string, { fr: string; ht: string }> = {
-  constitution: { fr: 'Constitution', ht: 'Konstitisyon' },
-  code: { fr: 'Codes', ht: 'Kòd' },
-  loi: { fr: 'Lois', ht: 'Lwa' },
-  decret: { fr: 'Décrets', ht: 'Dekrè' },
-  arrete: { fr: 'Arrêtés', ht: 'Arète' },
-  circulaire: { fr: 'Circulaires', ht: 'Sirkilè' },
-  convention: { fr: 'Conventions', ht: 'Konvansyon' },
-}
-
-const SUBCATEGORY_LABELS: Record<string, { fr: string; ht: string }> = {
-  code_civil: { fr: 'Code Civil', ht: 'Kòd Sivil' },
-  code_penal: { fr: 'Code Pénal', ht: 'Kòd Penal' },
-  code_procedure_civile: {
-    fr: 'Code de Procédure Civile',
-    ht: 'Kòd Pwosedi Sivil',
-  },
-  code_procedure_penale: {
-    fr: 'Code de Procédure Pénale',
-    ht: 'Kòd Pwosedi Penal',
-  },
-  code_travail: { fr: 'Code du Travail', ht: 'Kòd Travay' },
-  code_commerce: { fr: 'Code de Commerce', ht: 'Kòd Komès' },
-  code_rural: { fr: 'Code Rural', ht: 'Kòd Riral' },
-  autre: { fr: 'Autre', ht: 'Lòt' },
-}
 
 /**
  * Title shown in the page hero — reflects the active filter (theme >

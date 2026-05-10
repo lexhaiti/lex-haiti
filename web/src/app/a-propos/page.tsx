@@ -1,49 +1,62 @@
-'use client'
+// RSC — cookie-based i18n + per-route metadata + CSS-only entrance
+// animations. The 5 framer-motion blocks (h1, p, stat tiles, value
+// cards, CTA) became plain `animate-in` utilities — staggered effect
+// is approximated rather than per-index.
 
-import { useT } from '@/i18n/useT'
-import { Info, Shield, Target, Users, BookOpen, Scale, Globe } from 'lucide-react'
-import { motion } from 'framer-motion'
+import type { Metadata } from 'next'
 import Link from 'next/link'
+import { BookOpen, Shield, Target, Users } from 'lucide-react'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
+import { getServerLanguage, getT } from '@/i18n/server'
 
-export default function Page() {
-  const { t, language } = useT()
-  const isFr = language === 'fr'
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getServerLanguage()
+  const t = await getT(language)
+  return {
+    title: t('about.title', {
+      fallback: language === 'fr' ? 'À Propos' : 'Konsènan',
+    }),
+  }
+}
+
+export default async function Page() {
+  const t = await getT()
+  const isFr = t.language === 'fr'
 
   const values = [
     {
       icon: Target,
       title: isFr ? 'Notre Mission' : 'Misyon Nou',
       description: isFr
-        ? "Rendre le droit ha\u00eftien accessible, moderne et gratuit pour tous les citoyens et professionnels."
-        : "Rann dwa ayisyen an aksesib, mod\u00e8n ak gratis pou tout sitwayen ak pwofesyon\u00e8l.",
+        ? 'Rendre le droit haïtien accessible, moderne et gratuit pour tous les citoyens et professionnels.'
+        : 'Rann dwa ayisyen an aksesib, modèn ak gratis pou tout sitwayen ak pwofesyonèl.',
     },
     {
       icon: Users,
-      title: isFr ? 'Communaut\u00e9' : 'Kominote',
+      title: isFr ? 'Communauté' : 'Kominote',
       description: isFr
-        ? "Un projet collaboratif port\u00e9 par des experts juridiques et des passionn\u00e9s de technologie."
-        : "Yon pwoj\u00e8 kolaboratif ki f\u00e8t ak eksp\u00e8 jiridik ak moun ki renmen teknoloji.",
+        ? 'Un projet collaboratif porté par des experts juridiques et des passionnés de technologie.'
+        : 'Yon pwojè kolaboratif ki fèt ak ekspè jiridik ak moun ki renmen teknoloji.',
     },
     {
       icon: Shield,
-      title: isFr ? 'Fiabilit\u00e9' : 'Fyabilite',
+      title: isFr ? 'Fiabilité' : 'Fyabilite',
       description: isFr
-        ? "Des textes rigoureusement v\u00e9rifi\u00e9s et mis \u00e0 jour selon les publications officielles."
-        : "T\u00e8ks ki verifye sery\u00e8zman ak mizajou dapre piblikasyon ofisy\u00e8l yo.",
+        ? 'Des textes rigoureusement vérifiés et mis à jour selon les publications officielles.'
+        : 'Tèks ki verifye seryèzman ak mizajou dapre piblikasyon ofisyèl yo.',
     },
   ]
 
-  // Honest numbers only. Earlier values ("15,000+ Articles index\u00e9s",
+  // Honest numbers only. Earlier values ("15,000+ Articles indexés",
   // "200+ Textes de loi") were aspirational placeholders that contradicted
   // the live corpus and read as false advertising. Until the figures can be
   // wired to the API, only the facts that are true today stay on the page.
   const stats = [
-    { value: '2', label: isFr ? 'Langues officielles' : 'Lang ofisy\u00e8l' },
-    { value: '100%', label: isFr ? 'Acc\u00e8s libre' : 'Aks\u00e8 gratis' },
+    { value: '2', label: isFr ? 'Langues officielles' : 'Lang ofisyèl' },
+    { value: '100%', label: isFr ? 'Accès libre' : 'Aksè gratis' },
     {
       value: 'Open',
-      label: isFr ? 'Code source ouvert' : 'K\u00f2d sous ouv\u00e8',
+      label: isFr ? 'Code source ouvert' : 'Kòd sous ouvè',
     },
   ]
 
@@ -61,32 +74,22 @@ export default function Page() {
           <Breadcrumb
             className="mb-6"
             items={[
-              { label: isFr ? 'Accueil' : 'Ak\u00e8y', href: '/' },
-              { label: isFr ? '\u00c0 propos' : 'Kons\u00e8nan' },
+              { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
+              { label: isFr ? 'À propos' : 'Konsènan' },
             ]}
           />
 
-          <motion.h1
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tight"
-          >
-            {t('about.title', { fallback: isFr ? '\u00c0 Propos' : 'Kons\u00e8nan' })}
-          </motion.h1>
+          <h1 className="text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tight animate-in fade-in slide-in-from-top-2 duration-500">
+            {t('about.title', { fallback: isFr ? 'À Propos' : 'Konsènan' })}
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
-          >
+          <p className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6 animate-in fade-in duration-700 [animation-delay:120ms]">
             {t('about.subtitle', {
               fallback: isFr
-                ? "D\u00e9couvrez LexHaiti, la plateforme de r\u00e9f\u00e9rence pour le droit num\u00e9rique en Ha\u00efti."
-                : "Dekouvri LexHaiti, platf\u00f2m referans pou dwa nimerik nan peyi Ayiti.",
+                ? 'Découvrez LexHaiti, la plateforme de référence pour le droit numérique en Haïti.'
+                : 'Dekouvri LexHaiti, platfòm referans pou dwa nimerik nan peyi Ayiti.',
             })}
-          </motion.p>
+          </p>
         </div>
       </div>
 
@@ -95,17 +98,13 @@ export default function Page() {
         <div className="container py-10">
           <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto">
             {stats.map((stat, idx) => (
-              <motion.div
+              <div
                 key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="text-center"
+                className="text-center animate-in fade-in slide-in-from-bottom-2 duration-500"
               >
                 <p className="text-3xl lg:text-4xl font-black text-slate-900">{stat.value}</p>
                 <p className="text-sm text-slate-500 mt-1 font-medium">{stat.label}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -115,13 +114,9 @@ export default function Page() {
       <div className="container py-20 lg:py-28">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {values.map((value, idx) => (
-            <motion.div
+            <div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="group"
+              className="group animate-in fade-in slide-in-from-bottom-2 duration-500"
             >
               <div className="mb-6 inline-flex p-4 rounded-xl bg-primary/5 border border-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-white group-hover:border-primary group-hover:shadow-md">
                 <value.icon className="w-8 h-8" />
@@ -132,17 +127,12 @@ export default function Page() {
               <p className="text-slate-500 leading-relaxed text-lg">
                 {value.description}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {/* Quote / CTA section */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-24 p-12 lg:p-16 rounded-[2rem] bg-primary text-white relative overflow-hidden"
-        >
+        <div className="mt-24 p-12 lg:p-16 rounded-[2rem] bg-primary text-white relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-600/10 blur-[100px] rounded-full -translate-x-1/2 translate-y-1/2" />
 
@@ -161,8 +151,8 @@ export default function Page() {
               </p>
               <p className="text-slate-400 text-lg leading-relaxed max-w-2xl">
                 {isFr
-                  ? "LexHaiti est un engagement pour la transparence juridique et l'\u00e9ducation civique en Ha\u00efti. Notre plateforme \u00e9volue chaque jour gr\u00e2ce \u00e0 votre soutien."
-                  : "LexHaiti se yon angajman pou transparans jiridik ak edikasyon sivik nan peyi Ayiti. Platf\u00f2m nou an ap evolye chak jou gras ak sip\u00f2 ou."}
+                  ? "LexHaiti est un engagement pour la transparence juridique et l'éducation civique en Haïti. Notre plateforme évolue chaque jour grâce à votre soutien."
+                  : 'LexHaiti se yon angajman pou transparans jiridik ak edikasyon sivik nan peyi Ayiti. Platfòm nou an ap evolye chak jou gras ak sipò ou.'}
               </p>
             </div>
             <div className="flex-shrink-0">
@@ -171,11 +161,11 @@ export default function Page() {
                 className="inline-flex items-center gap-2 bg-white hover:bg-slate-100 text-primary px-6 py-3 rounded-md font-semibold transition-colors active:scale-[0.99] shadow-sm"
               >
                 <BookOpen className="w-4 h-4" />
-                {isFr ? 'Explorer les textes' : 'Eksplore t\u00e8ks yo'}
+                {isFr ? 'Explorer les textes' : 'Eksplore tèks yo'}
               </Link>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

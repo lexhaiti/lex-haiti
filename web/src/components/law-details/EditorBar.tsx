@@ -16,7 +16,7 @@ import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/toast-simple'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import {
   publishLegalText,
   requestChanges,
@@ -31,46 +31,7 @@ import {
 
 type Status = 'draft' | 'pending_review' | 'published' | 'rejected'
 
-const COPY = {
-  fr: {
-    statusDraft: 'Brouillon',
-    statusPending: 'En revue',
-    statusPublished: 'Publié',
-    statusRejected: 'Rejeté',
-    publish: 'Publier',
-    unpublish: 'Dépublier',
-    requestChanges: 'Demander modification',
-    editMetadata: 'Métadonnées',
-    signOut: 'Déconnexion',
-    cancel: 'Annuler',
-    confirm: 'Confirmer',
-    requestPlaceholder: 'Quel changement demandez-vous ?',
-    unpublishPlaceholder: 'Pourquoi dépubliez-vous ce texte ?',
-    publishedToast: 'Publié',
-    requestedToast: 'Demande envoyée',
-    unpublishedToast: 'Dépublié',
-    failed: 'Échec',
-  },
-  ht: {
-    statusDraft: 'Bouyon',
-    statusPending: 'Nan revizyon',
-    statusPublished: 'Pibliye',
-    statusRejected: 'Rejte',
-    publish: 'Pibliye',
-    unpublish: 'Depibliye',
-    requestChanges: 'Mande modifikasyon',
-    editMetadata: 'Metadata',
-    signOut: 'Dekonekte',
-    cancel: 'Anile',
-    confirm: 'Konfime',
-    requestPlaceholder: 'Ki chanjman ou mande?',
-    unpublishPlaceholder: 'Poukisa ou ap depibliye tèks la?',
-    publishedToast: 'Pibliye',
-    requestedToast: 'Demand voye',
-    unpublishedToast: 'Depibliye',
-    failed: 'Echwe',
-  },
-}
+// Copy lives at `editorBar.*` in i18n/{fr,ht}.ts.
 
 const STATUS_TONE: Record<Status, string> = {
   draft: 'bg-amber-100 text-amber-900 border-amber-200',
@@ -94,8 +55,7 @@ export function EditorBar({
   metadata,
   onChanged,
 }: EditorBarProps) {
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
   const [pending, startTransition] = useTransition()
   const [showCommentBox, setShowCommentBox] = useState<
     null | 'request_changes' | 'unpublish'
@@ -106,12 +66,12 @@ export function EditorBar({
 
   const statusLabel =
     status === 'draft'
-      ? t.statusDraft
+      ? t('editorBar.statusDraft')
       : status === 'pending_review'
-        ? t.statusPending
+        ? t('editorBar.statusPending')
         : status === 'published'
-          ? t.statusPublished
-          : t.statusRejected
+          ? t('editorBar.statusPublished')
+          : t('editorBar.statusRejected')
 
   function run(toastLabel: string, fn: () => Promise<unknown>) {
     startTransition(async () => {
@@ -123,7 +83,7 @@ export function EditorBar({
         onChanged?.()
       } catch (err) {
         const code = err instanceof ApiError ? ` (${err.status})` : ''
-        toast(`${t.failed}${code}`)
+        toast(`${t('editorBar.failed')}${code}`)
       }
     })
   }
@@ -163,7 +123,7 @@ export function EditorBar({
             <Button
               size="sm"
               disabled={pending}
-              onClick={() => run(t.publishedToast, () => publishLegalText(slug))}
+              onClick={() => run(t('editorBar.publishedToast'), () => publishLegalText(slug))}
               className="bg-emerald-600 text-white hover:bg-emerald-700 h-8 px-3 sm:px-4 flex-shrink-0"
             >
               {pending ? (
@@ -171,7 +131,7 @@ export function EditorBar({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5 sm:mr-1.5" />
               )}
-              <span className="hidden sm:inline">{t.publish}</span>
+              <span className="hidden sm:inline">{t('editorBar.publish')}</span>
             </Button>
           ) : (
             <Button
@@ -182,7 +142,7 @@ export function EditorBar({
               className="h-8 px-3 sm:px-4 flex-shrink-0"
             >
               <Undo2 className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">{t.unpublish}</span>
+              <span className="hidden sm:inline">{t('editorBar.unpublish')}</span>
             </Button>
           )}
 
@@ -193,10 +153,10 @@ export function EditorBar({
               disabled={pending}
               onClick={() => setMetadataOpen(true)}
               className="h-8 px-3 sm:px-4 flex-shrink-0"
-              title={t.editMetadata}
+              title={t('editorBar.editMetadata')}
             >
               <Pencil className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden md:inline">{t.editMetadata}</span>
+              <span className="hidden md:inline">{t('editorBar.editMetadata')}</span>
             </Button>
           )}
 
@@ -208,7 +168,7 @@ export function EditorBar({
             className="h-8 px-3 sm:px-4 flex-shrink-0"
           >
             <MessageSquareWarning className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden md:inline">{t.requestChanges}</span>
+            <span className="hidden md:inline">{t('editorBar.requestChanges')}</span>
           </Button>
 
           <Button
@@ -217,10 +177,10 @@ export function EditorBar({
             disabled={pending}
             onClick={() => signOut({ callbackUrl: '/' })}
             className="text-slate-500 hover:text-red-600 h-8 px-2 sm:px-3 flex-shrink-0"
-            title={t.signOut}
+            title={t('editorBar.signOut')}
           >
             <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden lg:inline">{t.signOut}</span>
+            <span className="hidden lg:inline">{t('editorBar.signOut')}</span>
           </Button>
         </div>
 
@@ -244,8 +204,8 @@ export function EditorBar({
               onChange={(e) => setComment(e.target.value)}
               placeholder={
                 showCommentBox === 'request_changes'
-                  ? t.requestPlaceholder
-                  : t.unpublishPlaceholder
+                  ? t('editorBar.requestPlaceholder')
+                  : t('editorBar.unpublishPlaceholder')
               }
               rows={3}
               autoFocus
@@ -260,25 +220,25 @@ export function EditorBar({
                 }}
                 disabled={pending}
               >
-                {t.cancel}
+                {t('editorBar.cancel')}
               </Button>
               <Button
                 size="sm"
                 disabled={pending || comment.trim().length === 0}
                 onClick={() => {
                   if (showCommentBox === 'request_changes') {
-                    run(t.requestedToast, () =>
+                    run(t('editorBar.requestedToast'), () =>
                       requestChanges(slug, comment.trim()),
                     )
                   } else {
-                    run(t.unpublishedToast, () =>
+                    run(t('editorBar.unpublishedToast'), () =>
                       unpublishLegalText(slug, comment.trim()),
                     )
                   }
                 }}
               >
                 {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                {t.confirm}
+                {t('editorBar.confirm')}
               </Button>
             </div>
           </motion.div>

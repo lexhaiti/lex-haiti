@@ -4,6 +4,7 @@ import { badgeForLaw, type LawBadge } from './badges'
 import { colorFromSlug } from './colors'
 import { iconForLaw } from './icons'
 import { statsForLaw } from './stats'
+import { formatLongDate as formatLongDateRaw } from '@/lib/format/date'
 
 type LegalTextListItem = components['schemas']['LegalTextListItem']
 
@@ -20,26 +21,13 @@ export type LawCardModel = {
   stats: { label: string; value: string | number }[]
 }
 
-const MONTHS_FR = [
-  '',
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
-const MONTHS_HT = [
-  '',
-  'janvye', 'fevriye', 'mas', 'avril', 'me', 'jen',
-  'jiyè', 'out', 'septanm', 'oktòb', 'novanm', 'desanm',
-]
-
+/** Adapter wrapper: returns `undefined` instead of an empty string when
+ *  the date is missing, so the calling code can `??` cleanly into the
+ *  `moniteur_ref` fallback. */
 function formatLongDate(iso: string | undefined, lang: 'fr' | 'ht'): string | undefined {
   if (!iso) return undefined
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (!m) return iso
-  const year = m[1]
-  const month = Number.parseInt(m[2], 10)
-  const day = Number.parseInt(m[3], 10)
-  const months = lang === 'ht' ? MONTHS_HT : MONTHS_FR
-  return `${day} ${months[month] ?? ''} ${year}`.trim()
+  const out = formatLongDateRaw(iso, lang)
+  return out === '' ? undefined : out
 }
 
 // Descriptions that are pure data-provenance preambles (auto-imported source

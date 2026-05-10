@@ -13,21 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
-
-const COPY = {
-  fr: {
-    profile: 'Mon profil',
-    addText: 'Ajouter du contenu',
-    signOut: 'Déconnexion',
-  },
-  ht: {
-    profile: 'Pwofil mwen',
-    addText: 'Ajoute kontni',
-    signOut: 'Dekonekte',
-  },
-}
+// Copy lives at `userMenu.*` in i18n/{fr,ht}.ts.
 
 /**
  * "+" button shown left of the avatar when an editor is signed in.
@@ -36,16 +24,16 @@ const COPY = {
  */
 export function AddTextButton({ className }: { className?: string }) {
   const { status } = useSession()
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
 
   if (status !== 'authenticated') return null
 
+  const addText = t('userMenu.addText')
   return (
     <Link
       href="/editorial/import"
-      aria-label={t.addText}
-      title={t.addText}
+      aria-label={addText}
+      title={addText}
       className={cn(
         'inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full',
         'bg-primary text-white shadow-sm',
@@ -67,8 +55,7 @@ export function AddTextButton({ className }: { className?: string }) {
  */
 export function UserMenu({ className }: { className?: string }) {
   const { data: session, status } = useSession()
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
 
   const [open, setOpen] = useState(false)
 
@@ -113,7 +100,7 @@ export function UserMenu({ className }: { className?: string }) {
         <DropdownMenuItem asChild>
           <Link href="/profile" className="cursor-pointer">
             <UserIcon className="mr-2 h-4 w-4" />
-            {t.profile}
+            {t('userMenu.profile')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -126,7 +113,7 @@ export function UserMenu({ className }: { className?: string }) {
           className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
         >
           <LogOut className="mr-2 h-4 w-4" />
-          {t.signOut}
+          {t('userMenu.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

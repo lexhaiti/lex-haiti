@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
 import { useT } from '@/i18n/useT'
+import { messages } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 // =============================================================================
@@ -87,154 +88,9 @@ interface FormState {
   yearTo: string
 }
 
-// =============================================================================
-// Copy
-// =============================================================================
+// Copy lives at `searchAdvanced.*` in i18n/{fr,ht}.ts.
 
-const COPY = {
-  fr: {
-    pageTitle: 'Recherche avancée',
-    pageSubtitle:
-      'Filtrez le corpus par type de texte, statut juridique, période et mots-clés. Combinez plusieurs critères avec ET, OU et SAUF.',
-    fondsLabel: 'Fonds documentaire',
-    fondsDropdown: {
-      all: 'Dans tous les fonds',
-      constitution: 'Constitutions',
-      code: 'Codes',
-      loi: 'Lois',
-      decret: 'Décrets',
-      arrete: 'Arrêtés',
-    },
-    selectFondsHint:
-      'Sélectionnez un fonds documentaire pour cibler la recherche.',
-    operatorLabel: 'Opérateur logique',
-    operatorOptions: { ET: 'ET', OU: 'OU', SAUF: 'SAUF' },
-    operatorHelp: {
-      ET: 'Tous les critères « ET » doivent correspondre.',
-      OU: 'Au moins un critère « OU » doit correspondre.',
-      SAUF: 'Aucun critère « SAUF » ne doit correspondre.',
-    },
-    fieldLabel: 'Champ',
-    fieldOptions: {
-      all: 'Dans tous les champs',
-      title: 'Dans les titres',
-      description: 'Dans les descriptions',
-    },
-    textLabel: 'Texte recherché',
-    textPlaceholder: 'Ex. : paternité, divorce, propriété…',
-    modeLabel: 'Mode',
-    modeOptions: {
-      all: 'Tous les mots',
-      exact: 'Expression exacte',
-      any: 'Un de ces mots',
-      exclude: 'Exclure ces mots',
-    },
-    deleteCriterion: 'Supprimer ce critère',
-    addCriterion: 'Ajouter un groupe de critères',
-    refineTitle: 'Affiner la recherche',
-    statusLabel: 'Statut juridique',
-    // Mirror the backend `LegalStatus` enum exactly. The previous
-    // 'historical' / 'suspended' values weren't backend-valid and
-    // produced HTTP 422s when applied as a filter.
-    statusOptions: {
-      all: 'Tous',
-      in_force: 'En vigueur',
-      abrogated: 'Abrogée',
-      partially_abrogated: 'Partiellement abrogée',
-    },
-    yearLabel: 'Année de publication',
-    yearFrom: 'De',
-    yearTo: 'à',
-    submit: 'Lancer la recherche',
-    reset: 'Réinitialiser la recherche',
-    resultsTitle: 'Résultats',
-    noResults: 'Aucun texte ne correspond à ces critères.',
-    notSearchedYet:
-      'Configurez vos critères ci-dessus, puis lancez la recherche pour afficher les résultats.',
-    loading: 'Chargement du corpus…',
-    error: 'Erreur de chargement.',
-    helpTitle: 'Aide LexHaïti',
-    helpIntro:
-      'Pour vous accompagner dans l’utilisation du site, consultez l’aide disponible.',
-    helpItems: [
-      'La recherche ne tient pas compte des accents ni de la casse.',
-      'Pour une expression exacte, choisissez « Expression exacte » dans le mode.',
-      'Combinez plusieurs critères : « ET » pour cumuler, « OU » pour élargir, « SAUF » pour exclure.',
-    ],
-    contactUs: 'Nous contacter',
-    tutorials: 'Voir les tutoriels',
-    useCases: 'Guide des cas d’usage',
-  },
-  ht: {
-    pageTitle: 'Rechèch avanse',
-    pageSubtitle:
-      'Filtre kòpis la pa tip tèks, estati jiridik, peryòd ak mo kle. Konbine plizyè kritè avèk ET, OU ak SOF.',
-    fondsLabel: 'Fon dokimantè',
-    fondsDropdown: {
-      all: 'Nan tout fon yo',
-      constitution: 'Konstitisyon',
-      code: 'Kòd yo',
-      loi: 'Lwa yo',
-      decret: 'Dekrè yo',
-      arrete: 'Arète yo',
-    },
-    selectFondsHint: 'Chwazi yon fon dokimantè pou sible rechèch la.',
-    operatorLabel: 'Operatè lojik',
-    operatorOptions: { ET: 'AK', OU: 'OU', SAUF: 'SOF' },
-    operatorHelp: {
-      ET: 'Tout kritè « AK » yo dwe matche.',
-      OU: 'Omwen yon kritè « OU » dwe matche.',
-      SAUF: 'Okenn kritè « SOF » pa dwe matche.',
-    },
-    fieldLabel: 'Chan',
-    fieldOptions: {
-      all: 'Nan tout chan yo',
-      title: 'Nan tit yo',
-      description: 'Nan deskripsyon yo',
-    },
-    textLabel: 'Tèks chèche',
-    textPlaceholder: 'Egz. : patènite, divòs, pwopriyete…',
-    modeLabel: 'Mòd',
-    modeOptions: {
-      all: 'Tout mo yo',
-      exact: 'Ekspresyon egzak',
-      any: 'Youn nan mo sa yo',
-      exclude: 'Eskli mo sa yo',
-    },
-    deleteCriterion: 'Retire kritè sa a',
-    addCriterion: 'Ajoute yon gwoup kritè',
-    refineTitle: 'Afine rechèch la',
-    statusLabel: 'Estati jiridik',
-    statusOptions: {
-      all: 'Tout',
-      in_force: 'An vigè',
-      abrogated: 'Abwoje',
-      partially_abrogated: 'Pasyèlman abwoje',
-    },
-    yearLabel: 'Ane piblikasyon',
-    yearFrom: 'Soti',
-    yearTo: 'rive',
-    submit: 'Lanse rechèch la',
-    reset: 'Reinisyalize rechèch la',
-    resultsTitle: 'Rezilta yo',
-    noResults: 'Pa gen tèks ki matche kritè sa yo.',
-    notSearchedYet:
-      'Konfigire kritè ou yo anlè, epi lanse rechèch la pou afiche rezilta yo.',
-    loading: 'Ap chaje kòpis la…',
-    error: 'Erè pandan chajman.',
-    helpTitle: 'Èd LexHaïti',
-    helpIntro:
-      'Pou ede w sèvi ak sit la, gade nan èd ki disponib la.',
-    helpItems: [
-      'Rechèch pa enpòtan aksan ni majiskil/miniskil.',
-      'Pou yon ekspresyon egzak, chwazi « Ekspresyon egzak » nan mòd la.',
-      'Konbine plizyè kritè : « AK » pou kimile, « OU » pou elaji, « SOF » pou eskli.',
-    ],
-    contactUs: 'Kontakte nou',
-    tutorials: 'Wè tutoriels yo',
-    useCases: 'Gid ka itilizasyon',
-  },
-}
+type T = (key: string, opts?: { fallback?: string }) => string
 
 // =============================================================================
 // Constants
@@ -249,22 +105,25 @@ const FONDS = [
   { value: 'arrete', icon: Stamp },
 ] as const
 
-const CATEGORY_PILL: Record<string, { fr: string; ht: string; cls: string }> = {
-  constitution: { fr: 'Constitution', ht: 'Konstitisyon', cls: 'bg-amber-100 text-amber-800' },
-  code: { fr: 'Code', ht: 'Kòd', cls: 'bg-blue-100 text-blue-800' },
-  loi: { fr: 'Loi', ht: 'Lwa', cls: 'bg-indigo-100 text-indigo-800' },
-  decret: { fr: 'Décret', ht: 'Dekrè', cls: 'bg-emerald-100 text-emerald-800' },
-  arrete: { fr: 'Arrêté', ht: 'Arète', cls: 'bg-purple-100 text-purple-800' },
+// Visual treatment for category / status pill chips. The label text is
+// resolved from i18n at render time via `t('searchAdvanced.categoryPills.*')`
+// — only the colour classes live here.
+const CATEGORY_PILL_CLS: Record<string, string> = {
+  constitution: 'bg-amber-100 text-amber-800',
+  code: 'bg-blue-100 text-blue-800',
+  loi: 'bg-indigo-100 text-indigo-800',
+  decret: 'bg-emerald-100 text-emerald-800',
+  arrete: 'bg-purple-100 text-purple-800',
 }
 
 // Display chips for each `LegalStatus` enum value. The backend only
 // emits `in_force / abrogated / partially_abrogated`; the previous
 // 'historical' / 'suspended' entries were dead chrome that no row
 // could ever match.
-const STATUS_PILL: Record<string, { fr: string; ht: string; cls: string }> = {
-  in_force: { fr: 'En vigueur', ht: 'An vigè', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  abrogated: { fr: 'Abrogée', ht: 'Abwoje', cls: 'bg-red-50 text-red-700 border-red-200' },
-  partially_abrogated: { fr: 'Partiellement abrogée', ht: 'Pasyèlman abwoje', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+const STATUS_PILL_CLS: Record<string, string> = {
+  in_force: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  abrogated: 'bg-red-50 text-red-700 border-red-200',
+  partially_abrogated: 'bg-amber-50 text-amber-800 border-amber-200',
 }
 
 // =============================================================================
@@ -298,9 +157,8 @@ const DEFAULT_FORM: FormState = {
 // =============================================================================
 
 export default function AdvancedSearchPage() {
-  const { language } = useT()
+  const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
 
   const PAGE_SIZE = 24
 
@@ -431,13 +289,25 @@ export default function AdvancedSearchPage() {
       rows: cur.rows.length > 1 ? cur.rows.filter((r) => r.id !== id) : cur.rows,
     }))
 
-  const fondsLabelText =
-    copy.fondsDropdown[form.fonds as keyof typeof copy.fondsDropdown] ??
-    copy.fondsDropdown.all
+  const fondsLabelText = t(`searchAdvanced.fondsDropdown.${form.fonds}`, {
+    fallback: t('searchAdvanced.fondsDropdown.all'),
+  })
+
+  // Pre-resolve the dropdown labels into a plain Record<string,string> so
+  // the FondsPicker subcomponent can index them like the legacy structure.
+  const fondsDropdownLabels: Record<string, string> = Object.fromEntries(
+    Object.keys(messages.fr.searchAdvanced.fondsDropdown).map((k) => [
+      k,
+      t(`searchAdvanced.fondsDropdown.${k}`),
+    ]),
+  )
 
   return (
     <div className="bg-white min-h-screen">
-      <StandardPageHeader title={copy.pageTitle} subtitle={copy.pageSubtitle} />
+      <StandardPageHeader
+        title={t('searchAdvanced.pageTitle')}
+        subtitle={t('searchAdvanced.pageSubtitle')}
+      />
 
       {/* Search panel — Légifrance-style inset */}
       <div className="container py-10 lg:py-12">
@@ -451,20 +321,21 @@ export default function AdvancedSearchPage() {
           {/* Fonds picker — DropdownMenu with tile grid inside */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">
-              {copy.fondsLabel}
+              {t('searchAdvanced.fondsLabel')}
             </label>
             <FondsPicker
               value={form.fonds}
               onChange={(v) => setForm((cur) => ({ ...cur, fonds: v }))}
               labelText={fondsLabelText}
-              dropdownLabels={copy.fondsDropdown}
+              dropdownLabels={fondsDropdownLabels}
+              dropdownTitle={t('searchAdvanced.fondsPickerSelectLabel')}
             />
           </div>
 
           {form.fonds === 'all' && (
             <div className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-primary">
               <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>{copy.selectFondsHint}</span>
+              <span>{t('searchAdvanced.selectFondsHint')}</span>
             </div>
           )}
 
@@ -507,7 +378,7 @@ export default function AdvancedSearchPage() {
                   )}
                   <CriteriaRowEditor
                     row={row}
-                    copy={copy}
+                    t={t}
                     onChange={(patch) => updateRow(row.id, patch)}
                     onDelete={() => deleteRow(row.id)}
                     canDelete={form.rows.length > 1}
@@ -524,7 +395,7 @@ export default function AdvancedSearchPage() {
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline underline-offset-4"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                {copy.reset}
+                {t('searchAdvanced.reset')}
               </button>
               <button
                 type="button"
@@ -532,7 +403,7 @@ export default function AdvancedSearchPage() {
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-4"
               >
                 <Plus className="w-3.5 h-3.5" />
-                {copy.addCriterion}
+                {t('searchAdvanced.addCriterion')}
               </button>
             </div>
           </div>
@@ -546,7 +417,7 @@ export default function AdvancedSearchPage() {
               aria-expanded={refineOpen}
             >
               <span className="text-sm font-bold text-primary">
-                {copy.refineTitle}
+                {t('searchAdvanced.refineTitle')}
               </span>
               <ChevronDown
                 className={cn(
@@ -570,7 +441,7 @@ export default function AdvancedSearchPage() {
                         id="adv-status-label"
                         className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2"
                       >
-                        {copy.statusLabel}
+                        {t('searchAdvanced.statusLabel')}
                       </label>
                       <Select
                         value={form.status}
@@ -585,11 +456,11 @@ export default function AdvancedSearchPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">{copy.statusOptions.all}</SelectItem>
-                          <SelectItem value="in_force">{copy.statusOptions.in_force}</SelectItem>
-                          <SelectItem value="abrogated">{copy.statusOptions.abrogated}</SelectItem>
+                          <SelectItem value="all">{t('searchAdvanced.statusOptions.all')}</SelectItem>
+                          <SelectItem value="in_force">{t('searchAdvanced.statusOptions.in_force')}</SelectItem>
+                          <SelectItem value="abrogated">{t('searchAdvanced.statusOptions.abrogated')}</SelectItem>
                           <SelectItem value="partially_abrogated">
-                            {copy.statusOptions.partially_abrogated}
+                            {t('searchAdvanced.statusOptions.partially_abrogated')}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -597,7 +468,7 @@ export default function AdvancedSearchPage() {
 
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                        {copy.yearLabel}
+                        {t('searchAdvanced.yearLabel')}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
@@ -605,8 +476,8 @@ export default function AdvancedSearchPage() {
                           inputMode="numeric"
                           min={1800}
                           max={2100}
-                          placeholder={copy.yearFrom}
-                          aria-label={`${copy.yearLabel} — ${copy.yearFrom}`}
+                          placeholder={t('searchAdvanced.yearFrom')}
+                          aria-label={`${t('searchAdvanced.yearLabel')} — ${t('searchAdvanced.yearFrom')}`}
                           value={form.yearFrom}
                           onChange={(e) =>
                             setForm((cur) => ({ ...cur, yearFrom: e.target.value }))
@@ -614,15 +485,15 @@ export default function AdvancedSearchPage() {
                           className="w-full h-11 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
                         />
                         <span aria-hidden="true" className="text-xs text-slate-400">
-                          {copy.yearTo}
+                          {t('searchAdvanced.yearTo')}
                         </span>
                         <input
                           type="number"
                           inputMode="numeric"
                           min={1800}
                           max={2100}
-                          placeholder={copy.yearTo}
-                          aria-label={`${copy.yearLabel} — ${copy.yearTo}`}
+                          placeholder={t('searchAdvanced.yearTo')}
+                          aria-label={`${t('searchAdvanced.yearLabel')} — ${t('searchAdvanced.yearTo')}`}
                           value={form.yearTo}
                           onChange={(e) =>
                             setForm((cur) => ({ ...cur, yearTo: e.target.value }))
@@ -647,7 +518,7 @@ export default function AdvancedSearchPage() {
             className="h-12 rounded-md bg-primary text-white hover:bg-primary/90 px-7 font-semibold gap-2"
           >
             <SearchIcon className="w-4 h-4" />
-            {copy.submit}
+            {t('searchAdvanced.submit')}
           </Button>
         </div>
       </div>
@@ -657,14 +528,14 @@ export default function AdvancedSearchPage() {
         {!hasSearched ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/40 px-6 py-10 text-center">
             <p className="text-sm text-slate-500 leading-relaxed max-w-xl mx-auto">
-              {copy.notSearchedYet}
+              {t('searchAdvanced.notSearchedYet')}
             </p>
           </div>
         ) : (
           <>
             <div className="flex items-baseline gap-3 mb-6">
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                {copy.resultsTitle}
+                {t('searchAdvanced.resultsTitle')}
               </h2>
               {/* Show "loaded / total" so the editor sees pagination
                   state at a glance. Identical figures (e.g. "5 / 5")
@@ -676,23 +547,24 @@ export default function AdvancedSearchPage() {
             </div>
 
             {loading && results.length === 0 && (
-              <p className="text-sm text-slate-400 italic">{copy.loading}</p>
+              <p className="text-sm text-slate-400 italic">{t('searchAdvanced.loading')}</p>
             )}
             {!loading && errored && (
-              <p className="text-sm text-red-500 italic">{copy.error}</p>
+              <p className="text-sm text-red-500 italic">{t('searchAdvanced.error')}</p>
             )}
             {!loading && !errored && results.length === 0 && (
-              <p className="text-sm text-slate-400 italic">{copy.noResults}</p>
+              <p className="text-sm text-slate-400 italic">{t('searchAdvanced.noResults')}</p>
             )}
 
             {results.length > 0 && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
-                  {results.map((t) => (
+                  {results.map((row) => (
                     <ResultCard
-                      key={t.slug}
-                      text={t}
+                      key={row.slug}
+                      text={row}
                       lang={lang}
+                      t={t}
                       query={
                         applied.rows.find(
                           (r, i) =>
@@ -714,12 +586,8 @@ export default function AdvancedSearchPage() {
                       className="min-w-[200px] rounded-full h-11"
                     >
                       {loading
-                        ? lang === 'fr'
-                          ? 'Chargement…'
-                          : 'Ap chaje…'
-                        : lang === 'fr'
-                          ? `Charger plus (${total - results.length})`
-                          : `Chaje plis (${total - results.length})`}
+                        ? t('searchAdvanced.loadingMore')
+                        : `${t('searchAdvanced.loadMore')} (${total - results.length})`}
                     </Button>
                   </div>
                 )}
@@ -733,13 +601,14 @@ export default function AdvancedSearchPage() {
       <section className="bg-slate-50/60 border-t border-slate-200 py-12 lg:py-16">
         <div className="container">
           <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3 tracking-tight">
-            {copy.helpTitle}
+            {t('searchAdvanced.helpTitle')}
           </h3>
           <p className="text-sm text-slate-600 mb-6 max-w-3xl leading-relaxed">
-            {copy.helpIntro}
+            {t('searchAdvanced.helpIntro')}
           </p>
           <ul className="space-y-2 text-sm text-slate-600 leading-relaxed mb-8 max-w-3xl">
-            {copy.helpItems.map((item, i) => (
+            {(messages[lang]?.searchAdvanced?.helpItems ??
+              messages.fr.searchAdvanced.helpItems).map((item, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="mt-1.5 h-1 w-1 rounded-full bg-slate-400 flex-shrink-0" />
                 <span>{item}</span>
@@ -752,7 +621,7 @@ export default function AdvancedSearchPage() {
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-4"
             >
               <Mail className="w-3.5 h-3.5" />
-              {copy.contactUs}
+              {t('searchAdvanced.contactUs')}
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <Link
@@ -760,7 +629,7 @@ export default function AdvancedSearchPage() {
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-4"
             >
               <PlayCircle className="w-3.5 h-3.5" />
-              {copy.tutorials}
+              {t('searchAdvanced.tutorials')}
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <Link
@@ -768,7 +637,7 @@ export default function AdvancedSearchPage() {
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline underline-offset-4"
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              {copy.useCases}
+              {t('searchAdvanced.useCases')}
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -787,6 +656,7 @@ interface FondsPickerProps {
   onChange: (v: string) => void
   labelText: string
   dropdownLabels: Record<string, string>
+  dropdownTitle: string
 }
 
 function FondsPicker({
@@ -794,6 +664,7 @@ function FondsPicker({
   onChange,
   labelText,
   dropdownLabels,
+  dropdownTitle,
 }: FondsPickerProps) {
   const [open, setOpen] = useState(false)
   return (
@@ -815,7 +686,7 @@ function FondsPicker({
         className="p-3 w-[min(720px,calc(100vw-2rem))]"
       >
         <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 px-1">
-          {dropdownLabels.all === 'Dans tous les fonds' ? 'Sélectionner un fonds' : 'Chwazi yon fon'}
+          {dropdownTitle}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {FONDS.map((f) => {
@@ -873,7 +744,7 @@ function FondsPicker({
 
 interface CriteriaRowEditorProps {
   row: CriteriaRow
-  copy: (typeof COPY)['fr']
+  t: T
   onChange: (patch: Partial<CriteriaRow>) => void
   onDelete: () => void
   canDelete: boolean
@@ -896,7 +767,7 @@ interface CriteriaRowEditorProps {
  */
 function CriteriaRowEditor({
   row,
-  copy,
+  t,
   onChange,
   onDelete,
   canDelete,
@@ -921,14 +792,14 @@ function CriteriaRowEditor({
           >
             <SelectTrigger
               className="!h-11 w-full bg-white font-semibold text-primary tracking-widest uppercase text-xs"
-              aria-label={copy.operatorLabel}
+              aria-label={t('searchAdvanced.operatorLabel')}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ET">{copy.operatorOptions.ET}</SelectItem>
-              <SelectItem value="OU">{copy.operatorOptions.OU}</SelectItem>
-              <SelectItem value="SAUF">{copy.operatorOptions.SAUF}</SelectItem>
+              <SelectItem value="ET">{t('searchAdvanced.operatorOptions.ET')}</SelectItem>
+              <SelectItem value="OU">{t('searchAdvanced.operatorOptions.OU')}</SelectItem>
+              <SelectItem value="SAUF">{t('searchAdvanced.operatorOptions.SAUF')}</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -940,15 +811,15 @@ function CriteriaRowEditor({
         >
           <SelectTrigger
             className="!h-11 w-full bg-white"
-            aria-label={copy.fieldLabel}
+            aria-label={t('searchAdvanced.fieldLabel')}
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{copy.fieldOptions.all}</SelectItem>
-            <SelectItem value="title">{copy.fieldOptions.title}</SelectItem>
+            <SelectItem value="all">{t('searchAdvanced.fieldOptions.all')}</SelectItem>
+            <SelectItem value="title">{t('searchAdvanced.fieldOptions.title')}</SelectItem>
             <SelectItem value="description">
-              {copy.fieldOptions.description}
+              {t('searchAdvanced.fieldOptions.description')}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -958,8 +829,8 @@ function CriteriaRowEditor({
           type="text"
           value={row.text}
           onChange={(e) => onChange({ text: e.target.value })}
-          placeholder={copy.textPlaceholder}
-          aria-label={copy.textLabel}
+          placeholder={t('searchAdvanced.textPlaceholder')}
+          aria-label={t('searchAdvanced.textLabel')}
           className="w-full h-11 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
         />
 
@@ -970,15 +841,15 @@ function CriteriaRowEditor({
         >
           <SelectTrigger
             className="!h-11 w-full bg-white"
-            aria-label={copy.modeLabel}
+            aria-label={t('searchAdvanced.modeLabel')}
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{copy.modeOptions.all}</SelectItem>
-            <SelectItem value="exact">{copy.modeOptions.exact}</SelectItem>
-            <SelectItem value="any">{copy.modeOptions.any}</SelectItem>
-            <SelectItem value="exclude">{copy.modeOptions.exclude}</SelectItem>
+            <SelectItem value="all">{t('searchAdvanced.modeOptions.all')}</SelectItem>
+            <SelectItem value="exact">{t('searchAdvanced.modeOptions.exact')}</SelectItem>
+            <SelectItem value="any">{t('searchAdvanced.modeOptions.any')}</SelectItem>
+            <SelectItem value="exclude">{t('searchAdvanced.modeOptions.exclude')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -989,8 +860,8 @@ function CriteriaRowEditor({
             <button
               type="button"
               onClick={onDelete}
-              aria-label={copy.deleteCriterion}
-              title={copy.deleteCriterion}
+              aria-label={t('searchAdvanced.deleteCriterion')}
+              title={t('searchAdvanced.deleteCriterion')}
               className="w-11 h-11 inline-flex items-center justify-center rounded-md border border-transparent text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -1006,74 +877,26 @@ function CriteriaRowEditor({
 interface ResultCardProps {
   text: LegalTextRow
   lang: 'fr' | 'ht'
+  t: T
   /** Search query string — used to highlight matches in title/description. */
   query?: string
 }
 
-/** Strip combining diacritics (NFD form) so "président" matches "president". */
-function stripAccents(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-}
+// Query-highlighting moved to @/lib/text/highlight (imported as
+// `highlightQuery` to avoid touching call sites).
+import { highlightMatches as highlightQuery } from '@/lib/text/highlight'
 
-/**
- * Highlight every occurrence of any query word inside `text`. Matching is
- * case- and accent-insensitive, but the returned slices preserve the original
- * casing/accents from `text`. Returns React nodes (an array of strings and
- * `<mark>` elements).
- */
-function highlightQuery(text: string, query: string): React.ReactNode {
-  if (!text || !query.trim()) return text
-  const stripped = stripAccents(text)
-  const tokens = stripAccents(query.trim())
-    .split(/\s+/)
-    .filter((t) => t.length >= 2)
-  if (tokens.length === 0) return text
-
-  // Find every occurrence of every token; build a sorted, merged list of ranges.
-  const ranges: Array<[number, number]> = []
-  for (const tok of tokens) {
-    let idx = 0
-    while (idx < stripped.length) {
-      const found = stripped.indexOf(tok, idx)
-      if (found < 0) break
-      ranges.push([found, found + tok.length])
-      idx = found + tok.length
-    }
-  }
-  if (ranges.length === 0) return text
-  ranges.sort((a, b) => a[0] - b[0])
-  const merged: Array<[number, number]> = []
-  for (const r of ranges) {
-    const last = merged[merged.length - 1]
-    if (last && last[1] >= r[0]) last[1] = Math.max(last[1], r[1])
-    else merged.push([r[0], r[1]])
-  }
-
-  const out: React.ReactNode[] = []
-  let cursor = 0
-  for (const [start, end] of merged) {
-    if (cursor < start) out.push(text.slice(cursor, start))
-    out.push(
-      <mark
-        key={`${start}-${end}`}
-        className="bg-amber-100 text-amber-900 rounded px-0.5 font-semibold"
-      >
-        {text.slice(start, end)}
-      </mark>,
-    )
-    cursor = end
-  }
-  if (cursor < text.length) out.push(text.slice(cursor))
-  return out
-}
-
-function ResultCard({ text, lang, query = '' }: ResultCardProps) {
+function ResultCard({ text, lang, t, query = '' }: ResultCardProps) {
   const title = lang === 'ht' && text.title_ht ? text.title_ht : text.title_fr
   const desc =
     lang === 'ht' && text.description_ht ? text.description_ht : text.description_fr
-  const cat = CATEGORY_PILL[text.category] ?? CATEGORY_PILL.loi
-  const stat =
-    text.status && STATUS_PILL[text.status] ? STATUS_PILL[text.status] : null
+  const catCls = CATEGORY_PILL_CLS[text.category] ?? CATEGORY_PILL_CLS.loi
+  const catLabel = t(`searchAdvanced.categoryPills.${text.category}`, {
+    fallback: t('searchAdvanced.categoryPills.loi'),
+  })
+  const stat = text.status && STATUS_PILL_CLS[text.status]
+    ? { cls: STATUS_PILL_CLS[text.status], label: t(`searchAdvanced.statusPills.${text.status}`) }
+    : null
   const year = text.publication_date?.slice(0, 4)
   const snippets = text.match_snippets ?? []
 
@@ -1084,15 +907,15 @@ function ResultCard({ text, lang, query = '' }: ResultCardProps) {
     <div className="group flex flex-col h-full rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-slate-300 hover:shadow-md">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cat.cls}`}
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${catCls}`}
         >
-          {cat[lang]}
+          {catLabel}
         </span>
         {stat && (
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${stat.cls}`}
           >
-            {stat[lang]}
+            {stat.label}
           </span>
         )}
       </div>
@@ -1155,7 +978,7 @@ function ResultCard({ text, lang, query = '' }: ResultCardProps) {
           href={`/loi/${text.slug}`}
           className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline underline-offset-4"
         >
-          {lang === 'fr' ? 'Voir le texte' : 'Wè tèks la'}
+          {t('searchAdvanced.viewText')}
           <ArrowRight className="w-3 h-3" />
         </Link>
       </div>

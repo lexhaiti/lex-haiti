@@ -34,6 +34,9 @@ import {
   createLegalText,
   type DocumentParseResponse,
 } from '@/lib/api/endpoints'
+import { FormSection } from '@/components/forms/FormSection'
+import { Field } from '@/components/forms/Field'
+import { Dropzone } from '@/components/forms/Dropzone'
 
 // ===========================================================================
 // Types
@@ -79,172 +82,18 @@ interface ParseResult {
   warnings: string[]
 }
 
-// ===========================================================================
-// Copy
-// ===========================================================================
+// Copy lives at `editorial.import.legalText.*` in i18n/{fr,ht}.ts.
 
-const COPY = {
-  fr: {
-    pageTitle: 'Importer un nouveau texte',
-    pageSubtitle:
-      'Téléversez un texte juridique avec ses sources officielles. Le contenu est analysé puis présenté pour validation éditoriale avant publication.',
-    backToEditor: 'Retour à l’éditorial',
-    requiresEditor:
-      'Cette page est réservée aux éditeurs. Connectez-vous avec un compte éditorial pour accéder à l’import.',
-    signIn: 'Se connecter',
-    sectionMeta: 'Métadonnées',
-    sectionMetaHelp:
-      'Renseignez les informations bibliographiques. Le slug détermine l’URL publique du texte.',
-    sectionDocument: 'Document source',
-    sectionDocumentHelp:
-      'Téléversez le fichier qui contient les articles à structurer (PDF, DOCX ou TXT). L’analyse extrait automatiquement titres, chapitres, sections et articles.',
-    sectionSource: 'Source officielle (Le Moniteur)',
-    sectionSourceHelp:
-      'Téléversez le scan PDF ou l’image de la publication originale dans Le Moniteur. C’est la pièce de provenance.',
-    fields: {
-      slug: 'Slug (URL)',
-      slugPlaceholder: 'ex. : code-civil-1825 — auto-généré depuis le titre si vide',
-      titleFr: 'Titre (français)',
-      titleHt: 'Titre (kreyòl)',
-      descFr: 'Description (français)',
-      descHt: 'Description (kreyòl)',
-      category: 'Catégorie',
-      promulgationDate: 'Date de promulgation',
-      publicationDate: 'Date de publication',
-      moniteurRef: 'Référence Moniteur (numéro)',
-      moniteurRefHint:
-        '« Le Moniteur » est ajouté automatiquement à l’affichage. Saisissez seulement le numéro et la date.',
-      status: 'Statut juridique',
-    },
-    statusOptions: {
-      in_force: 'En vigueur',
-      abrogated: 'Abrogée',
-      suspended: 'Suspendue',
-      historical: 'Historique',
-    },
-    categoryOptions: {
-      constitution: 'Constitution',
-      code: 'Code',
-      loi: 'Loi',
-      decret: 'Décret',
-      arrete: 'Arrêté',
-      circulaire: 'Circulaire',
-      convention: 'Convention',
-    },
-    dropzoneDocument: 'Glissez-déposez le fichier ici, ou ',
-    dropzoneSource: 'Glissez-déposez le scan ici, ou ',
-    dropzoneBrowse: 'parcourir',
-    dropzoneFormatsDoc: 'Formats acceptés : PDF, DOCX, TXT (max. 25 Mo)',
-    dropzoneFormatsImg: 'Formats acceptés : PDF, JPG, PNG (max. 25 Mo)',
-    fileSelected: 'Fichier sélectionné :',
-    removeFile: 'Retirer',
-    submit: 'Lancer l’analyse',
-    submitting: 'Analyse en cours…',
-    parsingTitle: 'Analyse du document',
-    parsingHelp:
-      'Extraction du texte, détection de la structure (titres, chapitres, articles) et préparation de la prévisualisation.',
-    resultTitle: 'Aperçu de la structure détectée',
-    resultIntro:
-      'Vérifiez la structure ci-dessous avant de l’enregistrer. Vous pourrez l’affiner article par article via l’éditeur après import.',
-    confidence: 'Confiance du parseur',
-    headingsLabel: 'Hiérarchie',
-    articlesLabel: 'Articles détectés',
-    warnings: 'Avertissements',
-    saveDraft: 'Enregistrer comme brouillon',
-    discard: 'Annuler',
-    successDraft: 'Texte importé en brouillon, en attente de validation.',
-    requiredField: 'Champ requis',
-    editArticle: 'Modifier',
-    deleteArticle: 'Supprimer',
-    confirmDelete: 'Confirmer la suppression',
-    cancelEdit: 'Annuler',
-    saveEdit: 'Enregistrer',
-    reassignHeading: 'Rattacher à…',
-    noHeading: '(aucun rattachement)',
-    articlesRemoved: (n: number) =>
-      `${n} article${n > 1 ? 's' : ''} supprimé${n > 1 ? 's' : ''}.`,
-  },
-  ht: {
-    pageTitle: 'Enpòte yon nouvo tèks',
-    pageSubtitle:
-      "Telechaje yon tèks jiridik avèk sous ofisyèl li. Sistèm la analize kontni an, epi prezante li pou validasyon editoryal anvan piblikasyon.",
-    backToEditor: 'Retounen nan editoryal',
-    requiresEditor:
-      "Paj sa a sèlman pou editè yo. Konekte avèk yon kont editoryal pou jwenn aksè a enpò a.",
-    signIn: 'Konekte',
-    sectionMeta: 'Metadata',
-    sectionMetaHelp:
-      "Mete enfòmasyon bibliyografik yo. Slug la detèmine URL piblik tèks la.",
-    sectionDocument: 'Dokiman sous',
-    sectionDocumentHelp:
-      'Telechaje fichye ki gen atik pou estriktire (PDF, DOCX oswa TXT). Analiz la ekstrè otomatikman tit, chapit, seksyon ak atik.',
-    sectionSource: 'Sous ofisyèl (Le Moniteur)',
-    sectionSourceHelp:
-      'Telechaje skanèyon PDF oswa imaj piblikasyon orijinal nan Le Moniteur. Se moso pwovnens lan.',
-    fields: {
-      slug: 'Slug (URL)',
-      slugPlaceholder: 'egz. : kod-sivil-1825 — otomatik soti nan tit la',
-      titleFr: 'Tit (fransè)',
-      titleHt: 'Tit (kreyòl)',
-      descFr: 'Deskripsyon (fransè)',
-      descHt: 'Deskripsyon (kreyòl)',
-      category: 'Kategori',
-      promulgationDate: 'Dat pwomilgasyon',
-      publicationDate: 'Dat piblikasyon',
-      moniteurRef: 'Referans Moniteur (nimewo)',
-      moniteurRefHint:
-        '« Le Moniteur » ajoute otomatikman lè y’ap afiche. Mete sèlman nimewo ak dat la.',
-      status: 'Estati jiridik',
-    },
-    statusOptions: {
-      in_force: 'An vigè',
-      abrogated: 'Abwoje',
-      suspended: 'Sispann',
-      historical: 'Istorik',
-    },
-    categoryOptions: {
-      constitution: 'Konstitisyon',
-      code: 'Kòd',
-      loi: 'Lwa',
-      decret: 'Dekrè',
-      arrete: 'Arète',
-      circulaire: 'Sikilè',
-      convention: 'Konvansyon',
-    },
-    dropzoneDocument: 'Glise epi depoze fichye a la, oswa ',
-    dropzoneSource: 'Glise epi depoze skanèyon an la, oswa ',
-    dropzoneBrowse: 'navige',
-    dropzoneFormatsDoc: 'Fòma aksepte : PDF, DOCX, TXT (max. 25 Mo)',
-    dropzoneFormatsImg: 'Fòma aksepte : PDF, JPG, PNG (max. 25 Mo)',
-    fileSelected: 'Fichye chwazi :',
-    removeFile: 'Retire',
-    submit: 'Lanse analiz la',
-    submitting: 'N ap analize…',
-    parsingTitle: 'Analiz dokiman an',
-    parsingHelp:
-      'Ekstraksyon tèks, deteksyon estrikti (tit, chapit, atik) ak preparasyon prevyou a.',
-    resultTitle: 'Prevyou estrikti ki detekte',
-    resultIntro:
-      'Verifye estrikti anba a anvan ou anrejistre. W ap kapab afine li atik pa atik nan editè a apre enpò.',
-    confidence: 'Konfyans nan parsè a',
-    headingsLabel: 'Yerachi',
-    articlesLabel: 'Atik ki detekte',
-    warnings: 'Avètisman',
-    saveDraft: 'Anrejistre kòm bouyon',
-    discard: 'Anile',
-    successDraft: "Tèks enpòte kòm bouyon, ap tann validasyon.",
-    requiredField: 'Chan obligatwa',
-    editArticle: 'Modifye',
-    deleteArticle: 'Efase',
-    confirmDelete: 'Konfime efasman',
-    cancelEdit: 'Anile',
-    saveEdit: 'Anrejistre',
-    reassignHeading: 'Ratache a…',
-    noHeading: '(pa gen ratachman)',
-    articlesRemoved: (n: number) =>
-      `${n} atik efase.`,
-  },
-}
+const STATUS_VALUES = ['in_force', 'abrogated', 'suspended', 'historical'] as const
+const CATEGORY_VALUES = [
+  'constitution',
+  'code',
+  'loi',
+  'decret',
+  'arrete',
+  'circulaire',
+  'convention',
+] as const
 
 const DEFAULT_FORM: FormState = {
   slug: '',
@@ -278,12 +127,11 @@ function toSlug(s: string): string {
 // ===========================================================================
 
 type ViewState = 'form' | 'parsing' | 'preview'
+type T = (key: string, opts?: { fallback?: string }) => string
 
 export default function LegalTextImportPanel() {
   const router = useRouter()
-  const { language } = useT()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+  const { t } = useT()
 
   const { isEditor } = useEditorMode()
 
@@ -306,9 +154,9 @@ export default function LegalTextImportPanel() {
 
   const validate = (): boolean => {
     const e: Partial<Record<keyof FormState, string>> = {}
-    if (!form.title_fr.trim()) e.title_fr = copy.requiredField
-    if (!form.slug.trim()) e.slug = copy.requiredField
-    if (!form.document_file) e.document_file = copy.requiredField
+    if (!form.title_fr.trim()) e.title_fr = t('editorial.import.legalText.requiredField')
+    if (!form.slug.trim()) e.slug = t('editorial.import.legalText.requiredField')
+    if (!form.document_file) e.document_file = t('editorial.import.legalText.requiredField')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -426,13 +274,13 @@ export default function LegalTextImportPanel() {
             <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-slate-700 leading-relaxed mb-4">
-                {copy.requiresEditor}
+                {t('editorial.import.legalText.requiresEditor')}
               </p>
               <Link
                 href="/sign-in"
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary text-white px-5 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
-                {copy.signIn}
+                {t('editorial.import.legalText.signIn')}
               </Link>
             </div>
           </div>
@@ -449,9 +297,12 @@ export default function LegalTextImportPanel() {
         {view === 'form' && (
           <form onSubmit={submit} className="space-y-8 w-full">
             {/* Section 1 — Metadata */}
-            <FormSection title={copy.sectionMeta} help={copy.sectionMetaHelp}>
+            <FormSection
+              title={t('editorial.import.legalText.sectionMeta')}
+              help={t('editorial.import.legalText.sectionMetaHelp')}
+            >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <Field label={copy.fields.titleFr} required error={errors.title_fr}>
+                <Field label={t('editorial.import.legalText.fields.titleFr')} required error={errors.title_fr}>
                   <input
                     type="text"
                     value={form.title_fr}
@@ -460,7 +311,7 @@ export default function LegalTextImportPanel() {
                     className="formInput"
                   />
                 </Field>
-                <Field label={copy.fields.titleHt}>
+                <Field label={t('editorial.import.legalText.fields.titleHt')}>
                   <input
                     type="text"
                     value={form.title_ht}
@@ -470,7 +321,7 @@ export default function LegalTextImportPanel() {
                   />
                 </Field>
 
-                <Field label={copy.fields.descFr}>
+                <Field label={t('editorial.import.legalText.fields.descFr')}>
                   <textarea
                     value={form.description_fr}
                     onChange={(e) => setField('description_fr', e.target.value)}
@@ -478,7 +329,7 @@ export default function LegalTextImportPanel() {
                     className="formInput min-h-[88px]"
                   />
                 </Field>
-                <Field label={copy.fields.descHt}>
+                <Field label={t('editorial.import.legalText.fields.descHt')}>
                   <textarea
                     value={form.description_ht}
                     onChange={(e) => setField('description_ht', e.target.value)}
@@ -487,7 +338,7 @@ export default function LegalTextImportPanel() {
                   />
                 </Field>
 
-                <Field label={copy.fields.category}>
+                <Field label={t('editorial.import.legalText.fields.category')}>
                   <Select
                     value={form.category}
                     onValueChange={(v) => setField('category', v as FormState['category'])}
@@ -496,16 +347,16 @@ export default function LegalTextImportPanel() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(copy.categoryOptions).map(([k, label]) => (
+                      {CATEGORY_VALUES.map((k) => (
                         <SelectItem key={k} value={k}>
-                          {label}
+                          {t(`editorial.import.legalText.categoryOptions.${k}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label={copy.fields.status}>
+                <Field label={t('editorial.import.legalText.fields.status')}>
                   <Select
                     value={form.status}
                     onValueChange={(v) => setField('status', v as FormState['status'])}
@@ -514,16 +365,16 @@ export default function LegalTextImportPanel() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(copy.statusOptions).map(([k, label]) => (
+                      {STATUS_VALUES.map((k) => (
                         <SelectItem key={k} value={k}>
-                          {label}
+                          {t(`editorial.import.legalText.statusOptions.${k}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label={copy.fields.promulgationDate}>
+                <Field label={t('editorial.import.legalText.fields.promulgationDate')}>
                   <input
                     type="date"
                     value={form.promulgation_date}
@@ -531,7 +382,7 @@ export default function LegalTextImportPanel() {
                     className="formInput"
                   />
                 </Field>
-                <Field label={copy.fields.publicationDate}>
+                <Field label={t('editorial.import.legalText.fields.publicationDate')}>
                   <input
                     type="date"
                     value={form.publication_date}
@@ -541,8 +392,8 @@ export default function LegalTextImportPanel() {
                 </Field>
 
                 <Field
-                  label={copy.fields.moniteurRef}
-                  hint={copy.fields.moniteurRefHint}
+                  label={t('editorial.import.legalText.fields.moniteurRef')}
+                  hint={t('editorial.import.legalText.fields.moniteurRefHint')}
                   className="lg:col-span-2"
                 >
                   <input
@@ -555,7 +406,7 @@ export default function LegalTextImportPanel() {
                 </Field>
 
                 <Field
-                  label={copy.fields.slug}
+                  label={t('editorial.import.legalText.fields.slug')}
                   required
                   error={errors.slug}
                   className="lg:col-span-2"
@@ -567,7 +418,7 @@ export default function LegalTextImportPanel() {
                       setSlugTouched(true)
                       setField('slug', toSlug(e.target.value))
                     }}
-                    placeholder={copy.fields.slugPlaceholder}
+                    placeholder={t('editorial.import.legalText.fields.slugPlaceholder')}
                     className="formInput font-mono text-[13px]"
                   />
                 </Field>
@@ -576,39 +427,38 @@ export default function LegalTextImportPanel() {
 
             {/* Section 2 — Document source */}
             <FormSection
-              title={copy.sectionDocument}
-              help={copy.sectionDocumentHelp}
+              title={t('editorial.import.legalText.sectionDocument')}
+              help={t('editorial.import.legalText.sectionDocumentHelp')}
               icon={FileText}
             >
               <Dropzone
                 file={form.document_file}
                 onSelect={(f) => setField('document_file', f)}
                 accept=".pdf,.docx,.txt"
-                placeholder={copy.dropzoneDocument}
-                browseLabel={copy.dropzoneBrowse}
-                formatsLabel={copy.dropzoneFormatsDoc}
-                fileSelectedLabel={copy.fileSelected}
-                removeLabel={copy.removeFile}
+                prompt={t('editorial.import.legalText.dropzoneDocument')}
+                browseLabel={t('editorial.import.legalText.dropzoneBrowse')}
+                formatsLabel={t('editorial.import.legalText.dropzoneFormatsDoc')}
+                fileSelectedLabel={t('editorial.import.legalText.fileSelected')}
+                removeLabel={t('editorial.import.legalText.removeFile')}
                 error={errors.document_file}
-                requiredLabel={copy.requiredField}
               />
             </FormSection>
 
             {/* Section 3 — Moniteur source */}
             <FormSection
-              title={copy.sectionSource}
-              help={copy.sectionSourceHelp}
+              title={t('editorial.import.legalText.sectionSource')}
+              help={t('editorial.import.legalText.sectionSourceHelp')}
               icon={Newspaper}
             >
               <Dropzone
                 file={form.source_file}
                 onSelect={(f) => setField('source_file', f)}
                 accept=".pdf,.jpg,.jpeg,.png"
-                placeholder={copy.dropzoneSource}
-                browseLabel={copy.dropzoneBrowse}
-                formatsLabel={copy.dropzoneFormatsImg}
-                fileSelectedLabel={copy.fileSelected}
-                removeLabel={copy.removeFile}
+                prompt={t('editorial.import.legalText.dropzoneSource')}
+                browseLabel={t('editorial.import.legalText.dropzoneBrowse')}
+                formatsLabel={t('editorial.import.legalText.dropzoneFormatsImg')}
+                fileSelectedLabel={t('editorial.import.legalText.fileSelected')}
+                removeLabel={t('editorial.import.legalText.removeFile')}
               />
             </FormSection>
 
@@ -623,7 +473,7 @@ export default function LegalTextImportPanel() {
                 onClick={reset}
                 className="h-11 rounded-md"
               >
-                {copy.discard}
+                {t('editorial.import.legalText.discard')}
               </Button>
               <Button
                 type="submit"
@@ -631,21 +481,24 @@ export default function LegalTextImportPanel() {
                 className="h-11 rounded-md bg-primary text-white hover:bg-primary/90 px-7 font-semibold gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                {copy.submit}
+                {t('editorial.import.legalText.submit')}
               </Button>
             </div>
           </form>
         )}
 
         {view === 'parsing' && (
-          <ParsingState title={copy.parsingTitle} help={copy.parsingHelp} />
+          <ParsingState
+            title={t('editorial.import.legalText.parsingTitle')}
+            help={t('editorial.import.legalText.parsingHelp')}
+          />
         )}
 
         {view === 'preview' && parseResult && (
           <PreviewState
             result={parseResult}
             onUpdateResult={setParseResult}
-            copy={copy}
+            t={t}
             onSaveDraft={saveDraft}
             onDiscard={reset}
             saving={saving}
@@ -687,170 +540,11 @@ export default function LegalTextImportPanel() {
 // ===========================================================================
 // Sub-components
 // ===========================================================================
-
-interface FormSectionProps {
-  title: string
-  help?: string
-  icon?: React.ComponentType<{ className?: string }>
-  children: React.ReactNode
-}
-
-function FormSection({ title, help, icon: Icon, children }: FormSectionProps) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
-      <div className="mb-5 flex items-center gap-3">
-        {Icon && (
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-primary">
-            <Icon className="w-4.5 h-4.5" />
-          </span>
-        )}
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 leading-tight">
-            {title}
-          </h2>
-          {help && (
-            <p className="text-xs text-slate-500 leading-relaxed mt-1 max-w-3xl">
-              {help}
-            </p>
-          )}
-        </div>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-interface FieldProps {
-  label: string
-  hint?: string
-  required?: boolean
-  error?: string
-  className?: string
-  children: React.ReactNode
-}
-
-function Field({ label, hint, required, error, className, children }: FieldProps) {
-  return (
-    <label className={cn('block', className)}>
-      <span className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-slate-500">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </span>
-      {children}
-      {hint && (
-        <span className="mt-1 block text-[11px] leading-relaxed text-slate-500">
-          {hint}
-        </span>
-      )}
-      {error && (
-        <span className="mt-1 block text-[11px] leading-relaxed text-red-600">
-          {error}
-        </span>
-      )}
-    </label>
-  )
-}
-
-interface DropzoneProps {
-  file: File | null
-  onSelect: (f: File | null) => void
-  accept: string
-  placeholder: string
-  browseLabel: string
-  formatsLabel: string
-  fileSelectedLabel: string
-  removeLabel: string
-  error?: string
-  requiredLabel?: string
-}
-
-function Dropzone({
-  file,
-  onSelect,
-  accept,
-  placeholder,
-  browseLabel,
-  formatsLabel,
-  fileSelectedLabel,
-  removeLabel,
-  error,
-}: DropzoneProps) {
-  const [dragOver, setDragOver] = useState(false)
-  const inputId = `file-${Math.random().toString(36).slice(2, 8)}`
-
-  const onFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    onSelect(files[0])
-  }
-
-  return (
-    <>
-      {file ? (
-        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/40 px-4 py-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700 mb-1">
-              {fileSelectedLabel}
-            </p>
-            <p className="text-sm text-slate-800 font-medium truncate">{file.name}</p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {(file.size / 1024 / 1024).toFixed(2)} Mo
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-            {removeLabel}
-          </button>
-        </div>
-      ) : (
-        <label
-          htmlFor={inputId}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setDragOver(true)
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDragOver(false)
-            onFiles(e.dataTransfer.files)
-          }}
-          className={cn(
-            'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 cursor-pointer transition-colors',
-            dragOver
-              ? 'border-primary bg-primary/5'
-              : error
-                ? 'border-red-300 bg-red-50/40'
-                : 'border-slate-300 bg-slate-50/40 hover:border-slate-400 hover:bg-slate-50',
-          )}
-        >
-          <Upload className="w-8 h-8 text-slate-400" />
-          <p className="text-sm text-slate-600 text-center">
-            {placeholder}
-            <span className="font-semibold text-primary underline underline-offset-4">
-              {browseLabel}
-            </span>
-          </p>
-          <p className="text-[11px] text-slate-400">{formatsLabel}</p>
-          <input
-            id={inputId}
-            type="file"
-            accept={accept}
-            onChange={(e) => onFiles(e.target.files)}
-            className="sr-only"
-          />
-        </label>
-      )}
-      {error && (
-        <p className="mt-1 text-[11px] text-red-600">{error}</p>
-      )}
-    </>
-  )
-}
+//
+// FormSection / Field / Dropzone now live in @/components/forms — see
+// the imports at the top of this file. Page-local subcomponents below
+// are wizard-specific (parsing screen, preview screen with editable
+// articles).
 
 interface ParsingStateProps {
   title: string
@@ -874,7 +568,7 @@ function ParsingState({ title, help }: ParsingStateProps) {
 interface PreviewStateProps {
   result: ParseResult
   onUpdateResult: (r: ParseResult) => void
-  copy: (typeof COPY)['fr']
+  t: T
   onSaveDraft: () => void
   onDiscard: () => void
   saving: boolean
@@ -892,7 +586,7 @@ const LEVEL_LABELS: Record<string, string> = {
 function PreviewState({
   result,
   onUpdateResult,
-  copy,
+  t,
   onSaveDraft,
   onDiscard,
   saving,
@@ -964,14 +658,14 @@ function PreviewState({
             <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <h2 className="text-xl font-bold text-slate-900 mb-2">
-                {copy.resultTitle}
+                {t('editorial.import.legalText.resultTitle')}
               </h2>
               <p className="text-sm text-slate-600 leading-relaxed mb-4">
-                {copy.resultIntro}
+                {t('editorial.import.legalText.resultIntro')}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  {copy.confidence}
+                  {t('editorial.import.legalText.confidence')}
                 </span>
                 <span
                   className={cn(
@@ -997,7 +691,7 @@ function PreviewState({
         {result.headings.length > 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
-              {copy.headingsLabel}
+              {t('editorial.import.legalText.headingsLabel')}
             </h3>
             <ol className="space-y-1">
               {result.headings.map((h) => (
@@ -1025,7 +719,7 @@ function PreviewState({
         {/* Articles — editable */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
-            {copy.articlesLabel}
+            {t('editorial.import.legalText.articlesLabel')}
             <span className="text-slate-400 tabular-nums">({result.articles.length})</span>
           </h3>
           <ul className="divide-y divide-slate-100">
@@ -1043,7 +737,7 @@ function PreviewState({
                     {result.headings.length > 0 && (
                       <label className="block">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">
-                          {copy.reassignHeading}
+                          {t('editorial.import.legalText.reassignHeading')}
                         </span>
                         <div className="relative">
                           <select
@@ -1053,7 +747,7 @@ function PreviewState({
                             }
                             className="w-full h-9 pl-3 pr-8 rounded-md border border-slate-300 bg-white text-sm text-slate-700 appearance-none focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none"
                           >
-                            <option value="">{copy.noHeading}</option>
+                            <option value="">{t('editorial.import.legalText.noHeading')}</option>
                             {result.headings.map((h) => (
                               <option key={h.key} value={h.key}>
                                 {LEVEL_LABELS[h.level] ?? h.level} {h.number} — {h.title_fr}
@@ -1078,14 +772,14 @@ function PreviewState({
                         className="inline-flex items-center gap-1.5 rounded-md bg-primary text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary/90"
                       >
                         <CheckCircle2 className="w-3 h-3" />
-                        {copy.saveEdit}
+                        {t('editorial.import.legalText.saveEdit')}
                       </button>
                       <button
                         type="button"
                         onClick={cancelEdit}
                         className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-400"
                       >
-                        {copy.cancelEdit}
+                        {t('editorial.import.legalText.cancelEdit')}
                       </button>
                     </div>
                   </div>
@@ -1107,7 +801,7 @@ function PreviewState({
                           className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-primary hover:bg-primary/5"
                         >
                           <Pencil className="w-3 h-3" />
-                          {copy.editArticle}
+                          {t('editorial.import.legalText.editArticle')}
                         </button>
                         <button
                           type="button"
@@ -1115,7 +809,7 @@ function PreviewState({
                           className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="w-3 h-3" />
-                          {copy.deleteArticle}
+                          {t('editorial.import.legalText.deleteArticle')}
                         </button>
                       </span>
                     </div>
@@ -1134,7 +828,7 @@ function PreviewState({
           <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-6">
             <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-800 mb-3">
               <AlertCircle className="w-3.5 h-3.5" />
-              {copy.warnings}
+              {t('editorial.import.legalText.warnings')}
             </h3>
             <ul className="space-y-1.5 text-sm text-amber-900">
               {result.warnings.map((w, i) => (
@@ -1155,7 +849,7 @@ function PreviewState({
             onClick={onDiscard}
             className="h-11 rounded-md"
           >
-            {copy.discard}
+            {t('editorial.import.legalText.discard')}
           </Button>
           <Button
             type="button"
@@ -1169,7 +863,7 @@ function PreviewState({
             ) : (
               <CheckCircle2 className="w-4 h-4" />
             )}
-            {copy.saveDraft}
+            {t('editorial.import.legalText.saveDraft')}
           </Button>
         </div>
       </motion.div>

@@ -20,75 +20,25 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { useToast } from '@/components/ui/toast-simple'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import { ApiError } from '@/lib/api/client'
 import {
   type LegalTextMetadataPatch,
   updateLegalTextMetadata,
 } from '@/lib/api/endpoints'
 
-const COPY = {
-  fr: {
-    title: 'Modifier les métadonnées',
-    desc:
-      'Champs édités en français et en kreyòl. Le slug et le statut éditorial ne sont pas modifiables ici.',
-    titleFr: 'Titre (FR) *',
-    titleHt: 'Titre (KW)',
-    descFr: 'Description (FR)',
-    descHt: 'Description (KW)',
-    category: 'Catégorie',
-    codeSubcategory: 'Sous-catégorie',
-    legalStatus: 'Statut juridique',
-    promulgationDate: 'Date de promulgation',
-    publicationDate: 'Date de publication',
-    moniteurRef: 'Référence Moniteur (numéro)',
-    moniteurHint:
-      '« Le Moniteur » est ajouté automatiquement à l’affichage. Saisissez seulement le numéro et la date — ex. « n° 47 du 4 juin 2014 ». Pas d’URL ni de lien.',
-    comment: 'Commentaire (optionnel, journalisé)',
-    cancel: 'Annuler',
-    save: 'Enregistrer',
-    saving: 'Enregistrement…',
-    saved: 'Métadonnées enregistrées',
-    failed: 'Échec',
-    titleFrEmpty: 'Le titre FR ne peut pas être vide.',
-    none: 'Aucune',
-  },
-  ht: {
-    title: 'Modifye metadata',
-    desc:
-      'Chan an fransè ak an kreyòl. Slug ak estati editoryal pa modifye isit la.',
-    titleFr: 'Tit (FR) *',
-    titleHt: 'Tit (KW)',
-    descFr: 'Deskripsyon (FR)',
-    descHt: 'Deskripsyon (KW)',
-    category: 'Kategori',
-    codeSubcategory: 'Sou-kategori',
-    legalStatus: 'Estati jiridik',
-    promulgationDate: 'Dat pwomilgasyon',
-    publicationDate: 'Dat piblikasyon',
-    moniteurRef: 'Referans Moniteur (nimewo)',
-    moniteurHint:
-      '« Le Moniteur » ajoute otomatikman lè y’ap afiche. Mete sèlman nimewo ak dat la — egz. « n° 47 du 4 jen 2014 ». Pa met URL ni lyen.',
-    comment: 'Kòmantè (opsyonèl, jounalize)',
-    cancel: 'Anile',
-    save: 'Anrejistre',
-    saving: 'Ap anrejistre…',
-    saved: 'Metadata anrejistre',
-    failed: 'Echwe',
-    titleFrEmpty: 'Tit FR pa ka vid.',
-    none: 'Okenn',
-  },
-}
+// Copy lives at `metadataEditor.*` and `editorial.import.legalText.{categoryOptions,statusOptions}.*`
+// in i18n/{fr,ht}.ts.
 
-const CATEGORY_OPTS = [
-  { value: 'constitution', label: { fr: 'Constitution', ht: 'Konstitisyon' } },
-  { value: 'code', label: { fr: 'Code', ht: 'Kòd' } },
-  { value: 'loi', label: { fr: 'Loi', ht: 'Lwa' } },
-  { value: 'decret', label: { fr: 'Décret', ht: 'Dekrè' } },
-  { value: 'arrete', label: { fr: 'Arrêté', ht: 'Arète' } },
-  { value: 'circulaire', label: { fr: 'Circulaire', ht: 'Sirkilè' } },
-  { value: 'convention', label: { fr: 'Convention', ht: 'Konvansyon' } },
-]
+const CATEGORY_VALUES = [
+  'constitution',
+  'code',
+  'loi',
+  'decret',
+  'arrete',
+  'circulaire',
+  'convention',
+] as const
 
 const SUBCATEGORY_OPTS = [
   { value: 'code_civil', label: 'Code civil' },
@@ -101,14 +51,7 @@ const SUBCATEGORY_OPTS = [
   { value: 'autre', label: 'Autre' },
 ]
 
-const STATUS_OPTS = [
-  { value: 'in_force', label: { fr: 'En vigueur', ht: 'An vigè' } },
-  {
-    value: 'partially_abrogated',
-    label: { fr: 'Partiellement abrogé', ht: 'Pasyèlman abwoje' },
-  },
-  { value: 'abrogated', label: { fr: 'Abrogé', ht: 'Abwoje' } },
-]
+const STATUS_VALUES = ['in_force', 'partially_abrogated', 'abrogated'] as const
 
 export type LegalTextMetadata = {
   slug: string
@@ -132,11 +75,17 @@ interface Props {
 }
 
 export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
-  const { language } = useLanguage()
-  const lang = (language as 'fr' | 'ht') ?? 'fr'
-  const t = COPY[lang]
+  const { t } = useT()
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
+
+  // Status labels reuse the `searchAdvanced.statusPills.*` keys; the same
+  // `LegalStatus` enum values are surfaced on both screens.
+  const statusLabel = (value: string): string =>
+    t(`searchAdvanced.statusPills.${value}`)
+
+  const categoryLabel = (value: string): string =>
+    t(`editorial.import.legalText.categoryOptions.${value}`)
 
   // Local form state, seeded from the current text. Reset whenever the
   // sheet reopens so editors don't carry stale drafts across sessions.
@@ -183,7 +132,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
 
   function save() {
     if (!form.title_fr.trim()) {
-      toast(t.titleFrEmpty)
+      toast(t('metadataEditor.titleFrEmpty'))
       return
     }
     // Build a minimal patch — only fields that actually changed. The backend
@@ -232,12 +181,12 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
     startTransition(async () => {
       try {
         await updateLegalTextMetadata(text.slug, body)
-        toast(t.saved)
+        toast(t('metadataEditor.saved'))
         onOpenChange(false)
         onSaved?.()
       } catch (err) {
         const code = err instanceof ApiError ? ` (${err.status})` : ''
-        toast(`${t.failed}${code}`)
+        toast(`${t('metadataEditor.failed')}${code}`)
       }
     })
   }
@@ -249,12 +198,12 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
         className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto p-0"
       >
         <SheetHeader className="px-8 pt-8 pb-2">
-          <SheetTitle>{t.title}</SheetTitle>
-          <SheetDescription>{t.desc}</SheetDescription>
+          <SheetTitle>{t('metadataEditor.title')}</SheetTitle>
+          <SheetDescription>{t('metadataEditor.desc')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-2 space-y-6 px-8 pb-32">
-          <Field label={t.titleFr}>
+          <Field label={t('metadataEditor.titleFr')}>
             <Input
               value={form.title_fr}
               onChange={(e) => patch('title_fr', e.target.value)}
@@ -262,14 +211,14 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             />
           </Field>
 
-          <Field label={t.titleHt}>
+          <Field label={t('metadataEditor.titleHt')}>
             <Input
               value={form.title_ht}
               onChange={(e) => patch('title_ht', e.target.value)}
             />
           </Field>
 
-          <Field label={t.descFr}>
+          <Field label={t('metadataEditor.descFr')}>
             <Textarea
               rows={3}
               value={form.description_fr}
@@ -277,7 +226,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             />
           </Field>
 
-          <Field label={t.descHt}>
+          <Field label={t('metadataEditor.descHt')}>
             <Textarea
               rows={3}
               value={form.description_ht}
@@ -286,7 +235,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label={t.category}>
+            <Field label={t('metadataEditor.category')}>
               <Select
                 value={form.category}
                 onValueChange={(v) => patch('category', v)}
@@ -295,16 +244,16 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORY_OPTS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label[lang]}
+                  {CATEGORY_VALUES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {categoryLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
 
-            <Field label={t.legalStatus}>
+            <Field label={t('metadataEditor.legalStatus')}>
               <Select
                 value={form.status}
                 onValueChange={(v) => patch('status', v)}
@@ -313,9 +262,9 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUS_OPTS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label[lang]}
+                  {STATUS_VALUES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {statusLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -324,7 +273,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
           </div>
 
           {form.category === 'code' && (
-            <Field label={t.codeSubcategory}>
+            <Field label={t('metadataEditor.codeSubcategory')}>
               <Select
                 value={form.code_subcategory || '__none'}
                 onValueChange={(v) =>
@@ -335,7 +284,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">— {t.none} —</SelectItem>
+                  <SelectItem value="__none">— {t('metadataEditor.none')} —</SelectItem>
                   {SUBCATEGORY_OPTS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
@@ -347,14 +296,14 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label={t.promulgationDate}>
+            <Field label={t('metadataEditor.promulgationDate')}>
               <Input
                 type="date"
                 value={form.promulgation_date}
                 onChange={(e) => patch('promulgation_date', e.target.value)}
               />
             </Field>
-            <Field label={t.publicationDate}>
+            <Field label={t('metadataEditor.publicationDate')}>
               <Input
                 type="date"
                 value={form.publication_date}
@@ -363,7 +312,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             </Field>
           </div>
 
-          <Field label={t.moniteurRef} hint={t.moniteurHint}>
+          <Field label={t('metadataEditor.moniteurRef')} hint={t('metadataEditor.moniteurHint')}>
             <Input
               value={form.moniteur_ref}
               onChange={(e) => patch('moniteur_ref', e.target.value)}
@@ -371,7 +320,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             />
           </Field>
 
-          <Field label={t.comment}>
+          <Field label={t('metadataEditor.comment')}>
             <Textarea
               rows={2}
               value={form.comment}
@@ -386,7 +335,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            {t.cancel}
+            {t('metadataEditor.cancel')}
           </Button>
           <Button onClick={save} disabled={pending}>
             {pending ? (
@@ -394,7 +343,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {pending ? t.saving : t.save}
+            {pending ? t('metadataEditor.saving') : t('metadataEditor.save')}
           </Button>
         </div>
       </SheetContent>

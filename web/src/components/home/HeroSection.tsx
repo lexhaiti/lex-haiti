@@ -6,50 +6,33 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { useT } from '@/i18n/useT'
-import { useLanguage } from '@/i18n/LanguageContext'
 import { cn } from '@/lib/utils'
 
-const COPY = {
-  fr: {
-    title: "Portail juridique de la République d'Haïti",
-    description:
-      "Bienvenue sur LexHaïti, le portail public de référence regroupant les ressources en ligne du droit haïtien — Constitutions, codes, lois, décrets et arrêtés. Les textes sont consultables en français et en kreyòl ayisyen, deux langues officielles de la République, à partir de sources publiques vérifiées.",
-    findLabel: 'Trouver un texte',
-    placeholder: 'Ex. : Article 1382, Code Civil, CL-007-09-09',
-    searchButton: 'Rechercher',
-    advanced: 'Recherche avancée',
-    browse: 'Tous les textes',
-    suggestionsLabel: 'Populaires',
-    suggestions: [
-      { label: 'Constitution 1987', q: 'Constitution 1987' },
-      { label: 'Code Civil', q: 'Code Civil' },
-      { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
-      { label: 'Le Moniteur', href: '/moniteur' },
-    ],
-  },
-  ht: {
-    title: "Pòtal jiridik Repiblik d'Ayiti",
-    description:
-      "Byenveni sou LexHaïti, pòtal piblik referans ki rasanble resous an liy sou dwa ayisyen an — Konstitisyon, kòd, lwa, dekrè ak arete. Tèks yo disponib an fransè ak an kreyòl ayisyen, de lang ofisyèl Repiblik la, ki sòti nan sous piblik verifye.",
-    findLabel: 'Jwenn yon tèks',
-    placeholder: 'Egz. : Atik 1382, Kòd Sivil, CL-007-09-09',
-    searchButton: 'Chèche',
-    advanced: 'Rechèch avanse',
-    browse: 'Tout tèks yo',
-    suggestionsLabel: 'Popilè',
-    suggestions: [
-      { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
-      { label: 'Kòd Sivil', q: 'Code Civil' },
-      { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
-      { label: 'Le Moniteur', href: '/moniteur' },
-    ],
-  },
+// Hero copy is centralised under `home.hero.*` in i18n/{fr,ht}.ts.
+// Suggestion chips stay here because they mix copy with routing data
+// (label + (q OR href)) — moving them into i18n would force the messages
+// catalogue to carry route paths, which doesn't belong there.
+const SUGGESTIONS: Record<
+  'fr' | 'ht',
+  Array<{ label: string; q?: string; href?: string }>
+> = {
+  fr: [
+    { label: 'Constitution 1987', q: 'Constitution 1987' },
+    { label: 'Code Civil', q: 'Code Civil' },
+    { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
+    { label: 'Le Moniteur', href: '/moniteur' },
+  ],
+  ht: [
+    { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
+    { label: 'Kòd Sivil', q: 'Code Civil' },
+    { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
+    { label: 'Le Moniteur', href: '/moniteur' },
+  ],
 }
 
 export default function HeroSection() {
-  const { language } = useLanguage()
-  const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
-  const copy = COPY[lang]
+  const { t, language } = useT()
+  const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   const router = useRouter()
   const [query, setQuery] = useState('')
 
@@ -143,7 +126,7 @@ export default function HeroSection() {
             transition={{ duration: 0.5, delay: 0.05 }}
             className="text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-extrabold tracking-tight leading-[1.05] text-white"
           >
-            {copy.title}
+            {t('home.hero.title')}
           </motion.h1>
 
           {/* Amber accent — picks up the warm bronze of the palmis relief. */}
@@ -160,7 +143,7 @@ export default function HeroSection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-6 text-base sm:text-lg text-white/85 leading-relaxed"
           >
-            {copy.description}
+            {t('home.hero.description')}
           </motion.p>
 
           <motion.div
@@ -173,7 +156,7 @@ export default function HeroSection() {
               htmlFor="hero-search"
               className="block text-sm font-semibold text-white/90 mb-2"
             >
-              {copy.findLabel}
+              {t('home.hero.findLabel')}
             </label>
 
             <form
@@ -193,8 +176,8 @@ export default function HeroSection() {
                   type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={copy.placeholder}
-                  aria-label={copy.findLabel}
+                  placeholder={t('home.hero.placeholder')}
+                  aria-label={t('home.hero.findLabel')}
                   className="w-full h-14 pl-11 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
                   style={{ fontSize: '16px' }}
                 />
@@ -204,7 +187,7 @@ export default function HeroSection() {
                 className="inline-flex items-center gap-2 px-5 sm:px-7 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
               >
                 <Search className="w-4 h-4" />
-                <span className="hidden sm:inline">{copy.searchButton}</span>
+                <span className="hidden sm:inline">{t('home.hero.searchButton')}</span>
               </button>
             </form>
 
@@ -220,9 +203,9 @@ export default function HeroSection() {
               className="mt-4 flex flex-wrap items-center gap-2"
             >
               <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mr-1">
-                {copy.suggestionsLabel}
+                {t('home.hero.suggestionsLabel')}
               </span>
-              {copy.suggestions.map((s) => {
+              {SUGGESTIONS[lang].map((s) => {
                 const cls =
                   'inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-white/35 transition-colors backdrop-blur-sm'
                 if ('href' in s && s.href) {
@@ -254,14 +237,14 @@ export default function HeroSection() {
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/90 hover:text-amber-300 transition-colors"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                {copy.advanced}
+                {t('home.hero.advanced')}
               </Link>
               <span className="text-white/30" aria-hidden="true">|</span>
               <Link
                 href="/lois"
                 className="text-sm font-medium text-white/75 hover:text-amber-300 transition-colors"
               >
-                {copy.browse}
+                {t('home.hero.browse')}
               </Link>
             </div>
           </motion.div>

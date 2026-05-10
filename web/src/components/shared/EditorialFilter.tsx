@@ -1,7 +1,7 @@
 'use client'
 
 import { CheckCircle2, FileEdit, Layers } from 'lucide-react'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,18 +16,7 @@ import { cn } from '@/lib/utils'
  */
 export type EditorialStatusFilter = 'all' | 'published' | 'draft'
 
-const COPY = {
-  fr: {
-    all: 'Tous',
-    published: 'Publiés',
-    draft: 'Brouillons',
-  },
-  ht: {
-    all: 'Tout',
-    published: 'Pibliye',
-    draft: 'Bouyon',
-  },
-}
+// Copy lives at `editorialFilter.*` in i18n/{fr,ht}.ts.
 
 const OPTIONS: ReadonlyArray<{
   value: EditorialStatusFilter
@@ -59,8 +48,7 @@ export function EditorialFilter({
   onChange: (next: EditorialStatusFilter) => void
   counts?: Partial<Record<EditorialStatusFilter, number>>
 }) {
-  const { language } = useLanguage()
-  const t = COPY[(language as 'fr' | 'ht') ?? 'fr']
+  const { t } = useT()
 
   return (
     <div
@@ -70,11 +58,11 @@ export function EditorialFilter({
         'p-0.5 shadow-sm h-9',
       )}
       role="group"
-      aria-label={language === 'ht' ? 'Filtè editè' : 'Filtre éditeur'}
+      aria-label={t('editorialFilter.ariaLabel')}
     >
       {OPTIONS.map((opt) => {
         const active = value === opt.value
-        const label = t[opt.value]
+        const label = t(`editorialFilter.${opt.value}`)
         const count = counts?.[opt.value]
         const Icon = opt.icon
         return (

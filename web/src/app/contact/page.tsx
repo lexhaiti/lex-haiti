@@ -1,16 +1,29 @@
-'use client'
+// RSC — pure content + a static (uncontrolled) form. The shadcn
+// Input/Textarea/Button components are client-marked themselves so
+// importing them here is fine: Next handles the client boundary at the
+// import site.
 
-import { useT } from '@/i18n/useT'
+import type { Metadata } from 'next'
 import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
 import { Mail, MapPin, MessageCircle, Send } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { getServerLanguage, getT } from '@/i18n/server'
 
-export default function Page() {
-  const { t, language } = useT()
-  const isFr = language === 'fr'
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getServerLanguage()
+  const t = await getT(language)
+  return {
+    title: t('contact.title', {
+      fallback: language === 'fr' ? 'Contact' : 'Kontakte Nou',
+    }),
+  }
+}
+
+export default async function Page() {
+  const t = await getT()
+  const isFr = t.language === 'fr'
 
   // Phone removed pending a real number — placeholder "+509 0000-0000"
   // shipped to production looks unprofessional and creates dead-tap targets.
@@ -48,12 +61,7 @@ export default function Page() {
       <div className="container py-20 lg:py-32">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
           {/* Contact Info */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="space-y-12"
-          >
+          <div className="space-y-12 animate-in fade-in slide-in-from-left-4 duration-500">
             <div>
               <h2 className="text-3xl font-bold mb-6 text-slate-900">
                 {isFr ? 'Parlons ensemble' : 'Ann pale ansanm'}
@@ -82,15 +90,10 @@ export default function Page() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
           {/* Contact Form */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="relative"
-          >
+          <div className="relative animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-red-500/5 blur-3xl rounded-[3rem]" />
             <div className="relative bg-white border border-slate-100 shadow-2xl shadow-slate-200/50 rounded-[3rem] p-8 lg:p-12">
               <form className="space-y-6">
@@ -157,7 +160,7 @@ export default function Page() {
                 </Button>
               </form>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </div>
