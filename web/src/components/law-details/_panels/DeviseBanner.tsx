@@ -64,7 +64,9 @@ export function DeviseBanner({
         <span
           className={cn(
             'opacity-40',
-            isCompact ? 'mx-2' : 'mx-4 sm:mx-5',
+            // Tighten on the smallest viewports so the line doesn't
+            // wrap awkwardly; widen on sm+ for the formal feel.
+            isCompact ? 'mx-1.5' : 'mx-2 sm:mx-4 lg:mx-5',
           )}
         >
           •
@@ -73,7 +75,7 @@ export function DeviseBanner({
         <span
           className={cn(
             'opacity-40',
-            isCompact ? 'mx-2' : 'mx-4 sm:mx-5',
+            isCompact ? 'mx-1.5' : 'mx-2 sm:mx-4 lg:mx-5',
           )}
         >
           •

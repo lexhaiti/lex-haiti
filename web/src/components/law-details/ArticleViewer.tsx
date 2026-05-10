@@ -985,37 +985,50 @@ export default function ArticleViewer({
         </div>
       )}
 
-      {/* Article nav — prev | current article | next */}
+      {/* Article nav — prev | current article | next.
+          Mobile (< sm): chevron-only buttons + the centered article
+          number, otherwise the "ARTICLE PRÉCÉDENT" / "ARTICLE SUIVANT"
+          labels overflow the narrow content column.
+          Center number is bilingual — "Article 1" in fr, "Atik 1" in
+          ht — and tolerates inputs that already carry the prefix. */}
       <div className="border-t border-gray-200 mt-6 pt-5">
         <div className="flex items-center justify-between gap-3">
           <Button
             variant="ghost"
             onClick={onPrevious}
             disabled={!hasPrevious}
-            className="h-auto py-2 px-4 text-gray-600 hover:text-primary hover:bg-gray-100 group disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl"
+            aria-label={currentLang === 'fr' ? 'Article précédent' : 'Atik anvan'}
+            className="h-auto py-2 px-3 sm:px-4 text-gray-600 hover:text-primary hover:bg-gray-100 group disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl"
           >
-            <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
+            <ChevronLeft className="w-4 h-4 sm:mr-2 group-hover:-translate-x-1 transition-transform" />
+            <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest text-gray-500">
               {currentLang === 'fr' ? 'Article précédent' : 'Atik anvan'}
             </span>
           </Button>
 
           <span className="text-sm font-semibold text-slate-700 tabular-nums">
-            {article.number.toLowerCase().startsWith('article')
-              ? article.number
-              : `Article ${article.number}`}
+            {(() => {
+              // Strip any leading "Article" / "Atik" so we can re-prefix
+              // consistently in the active language.
+              const stripped = article.number
+                .replace(/^(article|atik)\s+/i, '')
+                .trim()
+              const prefix = currentLang === 'ht' ? 'Atik' : 'Article'
+              return `${prefix} ${stripped}`
+            })()}
           </span>
 
           <Button
             variant="ghost"
             onClick={onNext}
             disabled={!hasNext}
-            className="h-auto py-2 px-4 text-gray-600 hover:text-primary hover:bg-gray-100 group disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl"
+            aria-label={currentLang === 'fr' ? 'Article suivant' : 'Atik apre'}
+            className="h-auto py-2 px-3 sm:px-4 text-gray-600 hover:text-primary hover:bg-gray-100 group disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl"
           >
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500">
+            <span className="hidden sm:inline text-xs font-bold uppercase tracking-widest text-gray-500">
               {currentLang === 'fr' ? 'Article suivant' : 'Atik apre'}
             </span>
-            <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight className="w-4 h-4 sm:ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
         </div>
       </div>
