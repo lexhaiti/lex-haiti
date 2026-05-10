@@ -21,6 +21,18 @@ import {
 } from '@/components/ui/sheet'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
+import { THEME_LABELS, type LegalThemeKey } from '@/lib/themes'
+
+// Build the Thématique dropdown options from the canonical THEME_LABELS
+// map so adding a backend `LegalTheme` enum value automatically surfaces
+// here. Sort alphabetically by FR label so the menu reads predictably.
+const themeOptions = (() => {
+  const all = { value: 'all', label: { fr: 'Toutes thématiques', ht: 'Tout tèm' } }
+  const items = (Object.keys(THEME_LABELS) as LegalThemeKey[])
+    .map((key) => ({ value: key, label: THEME_LABELS[key] }))
+    .sort((a, b) => a.label.fr.localeCompare(b.label.fr, 'fr'))
+  return [all, ...items]
+})()
 
 type Lang = 'fr' | 'ht'
 const toSupportedLang = (lang?: string): Lang => (lang === 'ht' ? 'ht' : 'fr')
@@ -139,6 +151,11 @@ type FilterContentProps = {
   activeFiltersCount: number
   patch: (partial: PatchInput) => void
   onReset: () => void
+  /** Currently-selected theme tags. The dropdown is single-select, so
+   *  the array is either empty or has exactly one entry. */
+  themes: string[]
+  /** Replace the current theme selection. Pass `[]` to clear. */
+  onThemesChange: (themes: string[]) => void
 }
 
 function FilterContent({
@@ -149,7 +166,10 @@ function FilterContent({
   activeFiltersCount,
   patch,
   onReset,
+  themes,
+  onThemesChange,
 }: FilterContentProps) {
+  const currentTheme = themes[0] ?? 'all'
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto space-y-6 pb-20">
@@ -254,6 +274,32 @@ function FilterContent({
           </div>
         </div>
 
+        {/* Thématique — single-select. Backend supports multi-value
+            but the UI emits at most one for now (mirrors how the
+            megamenu links work). Upgrade to multi without breaking
+            the URL contract by switching the dropdown for a chips
+            input later. */}
+        <div>
+          <label className="text-sm font-semibold text-gray-900 mb-3 block">
+            {lang === 'fr' ? 'Thématique' : 'Tèm'}
+          </label>
+          <Select
+            value={currentTheme}
+            onValueChange={(v) => onThemesChange(v === 'all' ? [] : [v])}
+          >
+            <SelectTrigger className="w-full h-12 rounded-xl bg-gray-50 border-gray-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {themeOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label[lang]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Sort */}
         <div>
           <label className="text-sm font-semibold text-gray-900 mb-3 block">
@@ -302,8 +348,9 @@ function FilterContent({
 export default function LawFilters({
   filters,
   onFilterChange,
+  themes = [],
+  onThemesChange,
   currentLang,
-  resultsCount = 0,
 }: {
   filters: Filters
   onFilterChange: (next: {
@@ -313,16 +360,29 @@ export default function LawFilters({
     year: string
     sort: string
   }) => void
+  /** Active theme tags (single-select for now — array contains 0 or 1). */
+  themes?: string[]
+  /** Replace theme selection. Pass `[]` to clear. Optional so legacy
+   *  call sites that don't pass theme data don't break. */
+  onThemesChange?: (themes: string[]) => void
   currentLang?: string
-  resultsCount?: number
 }) {
   const { t, language } = useT()
   const lang = toSupportedLang(currentLang ?? language)
 
   const yearOptions = useMemo(() => buildYearOptions(), [])
   const activeFiltersCount = useMemo(
-    () => Object.values(filters).filter((v) => v && v !== 'all' && v !== 'newest').length,
-    [filters],
+    () =>
+      Object.values(filters).filter(
+        (v) => v && v !== 'all' && v !== 'newest',
+      ).length + (themes.length > 0 ? 1 : 0),
+    [filters, themes],
+  )
+
+  const currentTheme = themes[0] ?? 'all'
+  const handleThemeChange = useCallback(
+    (themesNext: string[]) => onThemesChange?.(themesNext),
+    [onThemesChange],
   )
 
   const patch = useCallback(
@@ -347,7 +407,8 @@ export default function LawFilters({
       year: 'all',
       sort: 'newest',
     })
-  }, [onFilterChange])
+    onThemesChange?.([])
+  }, [onFilterChange, onThemesChange])
 
   const isActive = (key: string, val?: string) => val !== undefined && val !== 'all' && (key !== 'sort' || val !== 'newest')
 
@@ -439,6 +500,30 @@ export default function LawFilters({
           </SelectContent>
         </Select>
 
+        {/* Thématique — driven by the megamenu links AND directly from
+            the bar. Single-select for now; emits an array so a future
+            multi-select can land without changing the URL contract. */}
+        <Select
+          value={currentTheme}
+          onValueChange={(v) => handleThemeChange(v === 'all' ? [] : [v])}
+        >
+          <SelectTrigger
+            className={cn(
+              'min-w-[12rem] w-auto',
+              triggerCls(currentTheme !== 'all'),
+            )}
+          >
+            <SelectValue placeholder={themeOptions[0].label[lang]} />
+          </SelectTrigger>
+          <SelectContent>
+            {themeOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label[lang]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <div className="h-6 w-px bg-gray-200 mx-1" />
 
         <Select
@@ -505,9 +590,9 @@ export default function LawFilters({
                 <SheetTitle className="text-2xl font-black text-gray-900">
                   {t('filters.title')}
                 </SheetTitle>
-                <SheetDescription className="text-gray-500 font-medium">
-                  {resultsCount} {t('filters.results')}
-                </SheetDescription>
+                {/* Subtitle removed — the result count belongs above the
+                    grid, not in the filter sheet. The sheet's job is
+                    APPLY, not browse. */}
               </SheetHeader>
             </div>
 
@@ -520,18 +605,15 @@ export default function LawFilters({
                 activeFiltersCount={activeFiltersCount}
                 patch={patch}
                 onReset={handleReset}
+                themes={themes}
+                onThemesChange={handleThemeChange}
               />
             </div>
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* Results count */}
-      <div className="hidden lg:block ml-auto">
-        <span className="text-sm text-gray-500 font-medium">
-          {resultsCount} {t('filters.foundText')}
-        </span>
-      </div>
+      {/* Results count moved out of the filter row — see ResultsCount
+          rendered above the grid in AllLawsUI. */}
     </div>
   )
 }

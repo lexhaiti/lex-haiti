@@ -110,6 +110,7 @@ export default function AllLaws() {
       filters={filters}
       onFiltersChange={setFilters}
       themes={themes}
+      onThemesChange={setThemes}
       isLoading={isLoading}
       laws={items}
       total={total}

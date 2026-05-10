@@ -2,13 +2,14 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Grid3X3, List, Loader2, Search } from 'lucide-react'
+import { FileText, Grid3X3, List, Loader2, Search, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import LawFilters from '@/components/all-laws/LawFilter'
 import type { components } from '@/lib/api-types'
 import { CardStyle, LawCard } from '@/components/shared/LawCard'
 import type { DisplayItem } from '@/lib/hooks/useAllTexts'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { themeDescription, themeLabel } from '@/lib/themes'
 // Reuse the centralised label maps. Keep these renamed locals so the
 // downstream code (existence checks, indexed reads) stays untouched.
@@ -142,6 +143,12 @@ type Props = {
    * and curated description.
    */
   themes?: string[]
+  /**
+   * Replace the current theme selection. Called by the Thématique
+   * dropdown in the filter bar. Optional so legacy call sites that
+   * don't drive themes from the bar (initial-render-only) keep working.
+   */
+  onThemesChange?: (themes: string[]) => void
 
   isLoading: boolean
   laws: DisplayItem[]
@@ -169,6 +176,7 @@ export function AllLawsUI({
   filters,
   onFiltersChange,
   themes = [],
+  onThemesChange,
   isLoading,
   laws,
   total,
@@ -302,11 +310,9 @@ export function AllLawsUI({
               <LawFilters
                 filters={filters}
                 onFilterChange={onFiltersChange}
+                themes={themes}
+                onThemesChange={onThemesChange}
                 currentLang={lang}
-                // Use the API total (post-filter, pre-pagination) so the
-                // count reflects "how many texts match my filters",
-                // not "how many cards are loaded so far".
-                resultsCount={typeof total === 'number' ? total : laws.length}
               />
               {editorialSlot}
             </div>
@@ -348,6 +354,22 @@ export function AllLawsUI({
 
       {/* Results */}
       <div className="container py-8 lg:py-12">
+        {/* Results count — relocated from the right edge of the filter
+            bar. Sits above the grid where it reads as a results header
+            instead of competing with filter chrome for horizontal space. */}
+        {!isLoading && laws.length > 0 && (
+          <div className="mb-6 flex items-baseline gap-2 text-sm">
+            <span className="text-base font-bold text-slate-900 tabular-nums">
+              {typeof total === 'number' ? total : laws.length}
+            </span>
+            <span className="text-slate-500">
+              {(typeof total === 'number' ? total : laws.length) === 1
+                ? lang === 'fr' ? 'texte trouvé' : 'tèks jwenn'
+                : lang === 'fr' ? 'textes trouvés' : 'tèks jwenn'}
+            </span>
+          </div>
+        )}
+
         {isLoading && laws.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -399,63 +421,67 @@ export function AllLawsUI({
           </>
         ) : (
           (() => {
-            // Detect any active narrowing filter so we can show a
-            // contextual "reset everything" CTA. Without it the
-            // visitor is stuck on the empty state and doesn't realize
-            // the filter sidebar is what's hiding all results.
-            const hasActiveFilter =
+            // Two distinct empty cases: filter-too-tight (visitor needs
+            // a "reset" CTA) vs corpus-empty (no filter, just nothing
+            // matches yet). Different message + different action.
+            const hasActiveFilter = Boolean(
               activeSearchTerm ||
-              (filters.category && filters.category !== 'all') ||
-              (filters.codeSubcategory &&
-                filters.codeSubcategory !== 'all') ||
-              (filters.year && filters.year !== 'all') ||
-              (filters.status && filters.status !== 'all') ||
-              themes.length > 0
+                (filters.category && filters.category !== 'all') ||
+                (filters.codeSubcategory &&
+                  filters.codeSubcategory !== 'all') ||
+                (filters.year && filters.year !== 'all') ||
+                (filters.status && filters.status !== 'all') ||
+                themes.length > 0,
+            )
             return (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20"
-              >
-                <FileText className="w-16 h-16 mx-auto text-gray-200 mb-4" />
-                <h3 className="text-xl font-semibold text-gray-500 mb-2">
-                  {t?.('allLaws.empty.title') ??
-                    (lang === 'fr'
-                      ? 'Aucun texte trouvé'
-                      : 'Pa gen tèks jwenn')}
-                </h3>
-                <p className="text-gray-400 max-w-md mx-auto">
-                  {hasActiveFilter
+              <EmptyState
+                icon={hasActiveFilter ? SearchX : FileText}
+                tone={hasActiveFilter ? 'attention' : 'default'}
+                title={
+                  hasActiveFilter
                     ? lang === 'fr'
-                      ? "Aucun texte ne correspond à votre sélection. Élargissez les critères ou réinitialisez les filtres."
-                      : 'Pa gen tèks ki koresponn ak chwa w lan. Elaji kritè yo oswa reyinisyalize filtè yo.'
+                      ? 'Aucun texte ne correspond à vos filtres.'
+                      : 'Pa gen tèks ki koresponn ak filtè ou.'
+                    : t?.('allLaws.empty.title') ??
+                      (lang === 'fr'
+                        ? 'Aucun texte trouvé'
+                        : 'Pa gen tèks jwenn')
+                }
+                description={
+                  hasActiveFilter
+                    ? lang === 'fr'
+                      ? 'Élargissez les critères ou réinitialisez les filtres pour voir plus de textes.'
+                      : 'Elaji kritè yo oswa reyinisyalize filtè yo pou wè plis tèks.'
                     : t?.('allLaws.empty.subtitle') ??
                       (lang === 'fr'
-                        ? 'Essayez de modifier vos critères de recherche.'
-                        : 'Eseye modifye kritè rechèch ou yo.')}
-                </p>
-                {hasActiveFilter && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSearchQueryChange('')
-                      onSearch?.()
-                      onFiltersChange({
-                        category: 'all',
-                        codeSubcategory: 'all',
-                        year: 'all',
-                        status: 'all',
-                        sort: filters.sort,
-                      })
-                    }}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/50 hover:text-primary transition-colors"
-                  >
-                    {lang === 'fr'
-                      ? 'Réinitialiser les filtres'
-                      : 'Reyinisyalize filtè yo'}
-                  </button>
-                )}
-              </motion.div>
+                        ? 'Le corpus s’enrichit chaque semaine — revenez bientôt.'
+                        : 'Kòpis la ap grandi chak semèn — tounen byento.')
+                }
+                actions={
+                  hasActiveFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSearchQueryChange('')
+                        onSearch?.()
+                        onFiltersChange({
+                          category: 'all',
+                          codeSubcategory: 'all',
+                          year: 'all',
+                          status: 'all',
+                          sort: filters.sort,
+                        })
+                        onThemesChange?.([])
+                      }}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/50 hover:text-primary transition-colors"
+                    >
+                      {lang === 'fr'
+                        ? 'Réinitialiser les filtres'
+                        : 'Reyinisyalize filtè yo'}
+                    </button>
+                  ) : undefined
+                }
+              />
             )
           })()
         )}

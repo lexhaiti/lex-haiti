@@ -446,6 +446,23 @@ export const fr = {
       backToSignIn: '← Utiliser une autre adresse',
     },
   },
+  notFound: {
+    pageTitle: 'Page introuvable',
+    eyebrow: 'Erreur 404',
+    title: 'Cette page n’existe pas (encore).',
+    body:
+      'Le lien que vous avez suivi est peut-être obsolète, ou la page n’a jamais été publiée. Essayez la recherche ou repartez de l’accueil.',
+    searchPlaceholder: 'Rechercher une loi, un article, un Moniteur…',
+    searchButton: 'Rechercher',
+    backHome: 'Retour à l’accueil',
+    popular: 'Pages populaires',
+    popularItems: {
+      constitution: 'Constitution de 1987',
+      codes: 'Codes',
+      moniteur: 'Le Moniteur',
+      themes: 'Thématiques',
+    },
+  },
   profile: {
     backHome: 'Retour à l’accueil',
     title: 'Mon profil',

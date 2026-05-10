@@ -92,7 +92,10 @@ export const MENU_DATA: MenuItem[] = [
           {
             labelKey: 'menu.constitution.glossary',
             descriptionKey: 'menu.constitution.glossaryDesc',
-            href: '/aide',
+            // /aide doesn't exist yet — fall back to /a-propos so the
+            // link doesn't 404. Promote to a real glossary page when
+            // the editorial team produces one.
+            href: '/a-propos',
           },
         ],
       },

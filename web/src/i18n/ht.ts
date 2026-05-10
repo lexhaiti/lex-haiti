@@ -435,6 +435,23 @@ export const ht = {
       backToSignIn: '← Sèvi ak yon lòt adrès',
     },
   },
+  notFound: {
+    pageTitle: 'Paj la pa jwenn',
+    eyebrow: 'Erè 404',
+    title: 'Paj sa a pa egziste (ankò).',
+    body:
+      'Lyen ou suiv la ka demode, oswa paj la pa janm pibliye. Eseye rechèch la oswa retounen sou paj akèy la.',
+    searchPlaceholder: 'Chèche yon lwa, yon atik, yon Moniteur…',
+    searchButton: 'Chèche',
+    backHome: 'Retounen sou paj akèy',
+    popular: 'Paj popilè',
+    popularItems: {
+      constitution: 'Konstitisyon 1987',
+      codes: 'Kòd yo',
+      moniteur: 'Le Moniteur',
+      themes: 'Tèm yo',
+    },
+  },
   profile: {
     backHome: 'Retounen sou paj akèy',
     title: 'Pwofil mwen',
