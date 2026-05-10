@@ -54,6 +54,11 @@ import {
   type TextStatus,
 } from './_helpers/textStatus'
 import { DownloadDropdown } from './_panels/DownloadDropdown'
+import { DeviseBanner } from './_panels/DeviseBanner'
+import { IssuingAuthorityHeader } from './_panels/IssuingAuthorityHeader'
+import { OfficialNumberTab } from './_panels/OfficialNumberTab'
+import { OfficialFormula } from './_panels/OfficialFormula'
+import { SignatureGrid } from './_panels/SignatureGrid'
 
 
 const categoryLabels: Record<
@@ -325,14 +330,16 @@ export default function LawDetail() {
             ]}
           />
 
-          {/* Hero is a vertical stack of four self-contained sections, each
+          {/* Hero is a vertical stack of self-contained sections, each
               left-aligned and using the full container width:
-                1. Category + status badges
+                1. Category + status badges (with optional N° officiel)
                 2. Title + description
                 3. Metadata row (year / articles / Moniteur ref) + download
                 4. Theme chips
-              The download is inline with the metadata row so the hero reads
-              top-to-bottom without a sidebar competing for horizontal space. */}
+              The DeviseBanner + IssuingAuthorityHeader are NOT in the
+              hero — per design, they sit in the document body, just
+              above the visas (mirroring how a printed legal act lays
+              out: identity preamble in the body, not in the masthead). */}
           <div className="flex flex-col gap-8 lg:gap-10">
             {/* ── 1. Badges ──────────────────────────────────────────── */}
             <motion.div
@@ -356,6 +363,17 @@ export default function LawDetail() {
                   </Badge>
                 )
               })()}
+              {/* Inline alongside the badges — the official number is the
+                  intrinsic identifier of the act, conceptually a third
+                  badge (after category + status). The devise +
+                  issuing-authority block is rendered later, in the body. */}
+              {law.official_number && (
+                <OfficialNumberTab
+                  value={law.official_number}
+                  category={law.category}
+                  lang={currentLang}
+                />
+              )}
             </motion.div>
 
             {/* ── 2. Title + description ─────────────────────────────── */}
@@ -760,6 +778,18 @@ export default function LawDetail() {
               </div>
             )}
 
+            {/* Identity preamble — devise nationale + autorité émettrice
+                rendered HERE (in the document body) rather than in the
+                hero. Mirrors how a printed legal act lays out: identity
+                opens the document, not the masthead. Hidden when there's
+                no issuing_authority on the row. */}
+            {law.issuing_authority && (
+              <div className="mb-8 flex flex-col items-center gap-3 text-slate-700">
+                <DeviseBanner />
+                <IssuingAuthorityHeader value={law.issuing_authority} />
+              </div>
+            )}
+
             {/* Pre-article blocks: Préambule → Visas → Considérants → Formule d'adoption */}
             {law.articles && law.articles.length > 0 && (law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr) && (
               <div className="mb-8 space-y-3">
@@ -961,9 +991,38 @@ export default function LawDetail() {
                   category: law.category,
                   code_subcategory: law.code_subcategory ?? null,
                   status: law.status,
+                  official_number: law.official_number ?? null,
+                  issuing_authority: law.issuing_authority ?? null,
+                  official_formula: law.official_formula ?? null,
                 }}
                 onChanged={refetch}
               />
+            )}
+
+            {/* Closing band — official_formula then signature grid.
+                Both auto-hide when their data is null/empty so old
+                laws and decree-style acts (Donné only, no Votée)
+                degrade gracefully. */}
+            {(law.official_formula ||
+              (law.signers && law.signers.length > 0)) && (
+              <div className="mt-16 space-y-10">
+                {law.official_formula && (
+                  <OfficialFormula
+                    value={law.official_formula}
+                    caption={
+                      currentLang === 'fr'
+                        ? 'Adoption et promulgation'
+                        : 'Adopsyon ak pwomilgasyon'
+                    }
+                  />
+                )}
+                {law.signers && law.signers.length > 0 && (
+                  <SignatureGrid
+                    signatories={law.signers}
+                    lang={currentLang}
+                  />
+                )}
+              </div>
             )}
 
             {/* Related Laws */}

@@ -504,6 +504,15 @@ export const ht = {
     moniteurRef: 'Referans Moniteur (nimewo)',
     moniteurHint:
       '« Le Moniteur » ajoute otomatikman lè y’ap afiche. Mete sèlman nimewo ak dat la — egz. « n° 47 du 4 jen 2014 ». Pa met URL ni lyen.',
+    officialNumber: 'Nimewo ofisyèl',
+    officialNumberHint:
+      'Idantifyan tèks la jan li pibliye — egz. « CL-007-09-09 » pou yon lwa Kò Lejislatif, « D-… » pou yon dekrè, « A-… » pou yon arète. Diferan ak referans Moniteur la.',
+    issuingAuthority: 'Otorite ki emèt',
+    issuingAuthorityHint:
+      'Ògàn konstitisyonèl ki emèt zak la — egz. « CORPS LÉGISLATIF » (lwa), « LE PRÉSIDENT DE LA RÉPUBLIQUE » (dekrè), « LE MINISTRE DE … » (arète). Plizyè liy pou arète konjwen oswa Konsèy Prezidansyèl.',
+    officialFormula: 'Fòmil ofisyèl (vòt + pwomilgasyon)',
+    officialFormulaHint:
+      'Bloke fen tèks la jan li enprime : mansyon vòt nan Sena / Chanm Depite, deviz « LIBERTÉ ÉGALITÉ FRATERNITÉ », fòmil « Donné au Palais National… ». Mete vèbatim — pa reformile.',
     comment: 'Kòmantè (opsyonèl, jounalize)',
     cancel: 'Anile',
     save: 'Anrejistre',

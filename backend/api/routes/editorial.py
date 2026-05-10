@@ -79,6 +79,11 @@ class DocumentParseResponse(BaseModel):
     preamble: str
     parser_confidence: float
     warnings: List[str]
+    # Page-1 + post-dispositif metadata extracted by the parser. Editor
+    # confirms these on the preview screen before committing the import.
+    official_number: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    official_formula: Optional[str] = None
 
 
 # -----------------------------------------------------------------------
@@ -174,6 +179,9 @@ async def parse_document(
         preamble=result.preamble,
         parser_confidence=result.parser_confidence,
         warnings=result.warnings,
+        official_number=result.official_number,
+        issuing_authority=result.issuing_authority,
+        official_formula=result.official_formula,
     )
 
 
@@ -194,6 +202,11 @@ class LegalTextMetadataUpdate(BaseModel):
     category: Optional[LegalCategory] = None
     code_subcategory: Optional[CodeSubcategory] = None
     status: Optional[LegalStatus] = None
+    # Page-1 + post-dispositif metadata. Editor can edit each
+    # independently; pass empty string or null to clear.
+    official_number: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    official_formula: Optional[str] = None
     comment: Optional[str] = Field(default=None, max_length=2000)
 
 

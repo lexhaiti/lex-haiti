@@ -515,6 +515,15 @@ export const fr = {
     moniteurRef: 'Référence Moniteur (numéro)',
     moniteurHint:
       '« Le Moniteur » est ajouté automatiquement à l’affichage. Saisissez seulement le numéro et la date — ex. « n° 47 du 4 juin 2014 ». Pas d’URL ni de lien.',
+    officialNumber: 'Numéro officiel',
+    officialNumberHint:
+      'Identifiant intrinsèque du texte tel que publié — ex. « CL-007-09-09 » pour une loi du Corps Législatif, « D-… » pour un décret, « A-… » pour un arrêté. Distinct de la référence Moniteur.',
+    issuingAuthority: 'Autorité émettrice',
+    issuingAuthorityHint:
+      'Organe constitutionnel qui émet l’acte — ex. « CORPS LÉGISLATIF » (loi), « LE PRÉSIDENT DE LA RÉPUBLIQUE » (décret), « LE MINISTRE DE … » (arrêté). Plusieurs lignes pour les arrêtés conjoints ou le Conseil Présidentiel.',
+    officialFormula: 'Formule officielle (votes + promulgation)',
+    officialFormulaHint:
+      'Bloc final du texte tel qu’imprimé : mentions de vote au Sénat / à la Chambre, devise « LIBERTÉ ÉGALITÉ FRATERNITÉ », formule « Donné au Palais National… ». Saisi verbatim — ne pas reformuler.',
     comment: 'Commentaire (optionnel, journalisé)',
     cancel: 'Annuler',
     save: 'Enregistrer',

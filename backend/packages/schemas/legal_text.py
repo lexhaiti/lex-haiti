@@ -40,6 +40,12 @@ class LegalTextBase(BaseModel):
     publication_date: Optional[date] = None
     moniteur_ref: Optional[str] = None
 
+    # Page-1 official metadata extracted by the parser; editor-correctable.
+    official_number: Optional[str] = None        # e.g. "CL-007-09-09"
+    issuing_authority: Optional[str] = None      # multi-line allowed
+    # Verbatim post-dispositif block (Votée + LIBERTÉ banner + Donné).
+    official_formula: Optional[str] = None
+
     status: LegalStatus = LegalStatus.in_force
     editorial_status: EditorialStatus = EditorialStatus.draft
 

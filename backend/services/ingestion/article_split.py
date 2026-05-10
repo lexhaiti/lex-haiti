@@ -54,6 +54,31 @@ class SplitResult:
 
     preamble: str  # everything before "Article 1" (often empty / whitespace)
     articles: List[ParsedArticle]
+    official_formula: Optional[str] = None  # post-dispositif block (Votée + Donné)
+
+
+# Post-dispositif markers — the first line after the last article's body
+# that announces the closing block. Order matters only insofar as we want
+# to log which marker matched; the regex is alternation-flat.
+#
+#   - "Votée au Sénat" / "Votée à la Chambre"  → law adoption certification
+#   - "LIBERTÉ ÉGALITÉ"                          → presidential promulgation banner
+#   - "Donné au"  / "Donné à"                    → presidential signing line
+#   - "Fait à"                                   → ministerial signing line (arrêtés)
+#   - "AU NOM DE LA RÉPUBLIQUE"                  → executive promulgation header
+_OFFICIAL_FORMULA_MARKER_RE = re.compile(
+    r"""
+    ^[\s ]*                           # start of line, optional indent
+    (?:
+        Vot[ée]e\s+(?:au|à\s+la)      # Votée au … / Votée à la …
+      | LIBERT[ÉE]\s+[ÉE]GALIT[ÉE]    # LIBERTÉ ÉGALITÉ banner
+      | Donn[ée]\s+(?:au|à)           # Donné au / Donné à
+      | Fait\s+(?:au|à)               # Fait à (arrêté variant)
+      | AU\s+NOM\s+DE\s+LA\s+R[ÉE]PUBLIQUE
+    )
+    """,
+    re.MULTILINE | re.VERBOSE,
+)
 
 
 # Article-heading patterns. Order matters — most specific first. Each
@@ -92,18 +117,34 @@ _ARTICLE_HEADING_RE = re.compile(
 
 
 def split_into_articles(body: str) -> SplitResult:
-    """Split a law body into preamble + list of articles.
+    """Split a law body into preamble + list of articles + optional formula.
 
     Empty or article-less input returns a result whose `articles` list is
     empty and `preamble` carries the whole input. Callers can fall back
     to "store everything as the description / preamble" in that case.
+
+    The post-dispositif block (Votée + LIBERTÉ + Donné + signature
+    lines) is sliced off the end and returned as `official_formula`.
+    The slice point is *sentence-aware*: we find the first marker, then
+    walk back to the nearest preceding `.` so the last article's body
+    always ends at a complete sentence — no half-paragraphs cut mid-
+    word when the marker happens to sit immediately after some text.
     """
     if not body or not body.strip():
-        return SplitResult(preamble="", articles=[])
+        return SplitResult(preamble="", articles=[], official_formula=None)
+
+    # Slice off the post-dispositif formula first, so the article matcher
+    # below doesn't see the "Article" mentions sometimes hidden inside the
+    # promulgation prose ("…modifie l'article 17 de la loi…").
+    body, official_formula = _split_official_formula(body)
 
     matches = list(_ARTICLE_HEADING_RE.finditer(body))
     if not matches:
-        return SplitResult(preamble=body.strip(), articles=[])
+        return SplitResult(
+            preamble=body.strip(),
+            articles=[],
+            official_formula=official_formula,
+        )
 
     preamble = body[: matches[0].start()].strip()
 
@@ -119,7 +160,38 @@ def split_into_articles(body: str) -> SplitResult:
             continue
         articles.append(ParsedArticle(number=number, body=article_body))
 
-    return SplitResult(preamble=preamble, articles=articles)
+    return SplitResult(
+        preamble=preamble,
+        articles=articles,
+        official_formula=official_formula,
+    )
+
+
+def _split_official_formula(body: str) -> tuple[str, Optional[str]]:
+    """Slice the post-dispositif `official_formula` off the end of body.
+
+    Returns `(body_without_formula, formula_or_None)`. The cut is made
+    at the nearest period BEFORE the first marker, so the article body
+    keeps its closing sentence intact.
+
+    No marker found → returns `(body, None)` and the caller proceeds
+    with the legacy splitter behaviour (all articles, no formula).
+    """
+    marker = _OFFICIAL_FORMULA_MARKER_RE.search(body)
+    if not marker:
+        return body, None
+
+    # Walk backward from the marker to the nearest sentence terminator.
+    # `.` covers the vast majority of legal prose; if nothing's found
+    # (very short / OCR-broken input), fall back to a hard cut at the
+    # marker itself rather than crashing.
+    cut = body.rfind(".", 0, marker.start())
+    if cut < 0:
+        cut = marker.start() - 1
+
+    article_body = body[: cut + 1].rstrip()
+    formula = body[cut + 1 :].strip() or None
+    return article_body, formula
 
 
 _VU_RE = re.compile(r"^\s*Vu\s", re.IGNORECASE)

@@ -50,6 +50,10 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "category",
     "code_subcategory",
     "status",
+    # Page-1 + post-dispositif official metadata.
+    "official_number",
+    "issuing_authority",
+    "official_formula",
 )
 
 
@@ -137,6 +141,9 @@ class EditorialService:
             promulgation_date=data.promulgation_date,
             publication_date=data.publication_date,
             moniteur_ref=data.moniteur_ref,
+            official_number=data.official_number,
+            issuing_authority=data.issuing_authority,
+            official_formula=data.official_formula,
             status=data.status,
             editorial_status=EditorialStatus.draft,  # always draft on create
         )
@@ -206,6 +213,9 @@ class EditorialService:
                     name=s.name,
                     function_fr=s.function_fr,
                     function_ht=s.function_ht,
+                    signing_capacity=s.signing_capacity,
+                    chamber=s.chamber,
+                    signed_at=s.signed_at,
                     position=s.position,
                 )
                 self.session.add(signer)

@@ -706,6 +706,11 @@ export type LegalTextMetadataPatch = {
   category?: LegalCategory
   code_subcategory?: CodeSubcategory | null
   status?: LegalStatus
+  // Page-1 + post-dispositif official metadata. Editable per-field;
+  // pass `null` to clear, `undefined` (omit) to leave untouched.
+  official_number?: string | null
+  issuing_authority?: string | null
+  official_formula?: string | null
   comment?: string | null
 }
 

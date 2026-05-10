@@ -26,6 +26,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Numeric,
+    String,
     Text,
     UniqueConstraint,
     func,
@@ -52,6 +53,8 @@ from packages.schemas.enums import (
     LegalTheme,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
+    SignatoryChamber,
+    SigningCapacity,
     ThemeSource,
     LegalStatus,
     RawDocumentStatus,
@@ -190,6 +193,22 @@ class LegalText(Base):
     promulgation_date: Mapped[Optional[date]] = mapped_column(Date)
     publication_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
     moniteur_ref: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Page-1 official metadata. Populated by the import parser
+    # (services/ingestion/header_split.py) when the document carries
+    # the standard Haitian legal-act header; editor can correct via the
+    # MetadataEditor UI. All three are nullable — old corpus rows
+    # predate the columns and many older laws lack the modern header
+    # structure entirely.
+    official_number: Mapped[Optional[str]] = mapped_column(
+        String(64), index=True
+    )  # e.g. "CL-007-09-09"
+    issuing_authority: Mapped[Optional[str]] = mapped_column(
+        Text
+    )  # multi-line for joint authorities or CPT
+    # Verbatim post-dispositif block (Votée + LIBERTÉ banner + Donné).
+    # Stored as raw text; the structured names live in `signers`.
+    official_formula: Mapped[Optional[str]] = mapped_column(Text)
 
     status: Mapped[LegalStatus] = mapped_column(
         _enum(LegalStatus, "legal_status"),
@@ -352,6 +371,22 @@ class LegalHeading(Base):
 
 
 class LegalSigner(Base):
+    """A person who signs a legal text.
+
+    `function_fr` carries the human-readable position ("Sénateur",
+    "Ministre de la Justice", "Président Provisoire de la République").
+    `signing_capacity` carries the legal *kind* of signature — distinct
+    from the position. See `SigningCapacity` enum for the rationale.
+
+    `chamber` groups the SignatureGrid on the frontend so Sénat
+    bureau members render together, Chambre bureau separately, and
+    executive (President / ministers) in their own block.
+
+    `signed_at` is per-signer because the two chambers vote on
+    different dates and the President signs months/years later — the
+    SignatureGrid renders each date next to the signer.
+    """
+
     __tablename__ = "legal_signers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -363,6 +398,15 @@ class LegalSigner(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     function_fr: Mapped[str] = mapped_column(Text, nullable=False)
     function_ht: Mapped[Optional[str]] = mapped_column(Text)
+    signing_capacity: Mapped[SigningCapacity] = mapped_column(
+        _enum(SigningCapacity, "signing_capacity"),
+        nullable=False,
+        default=SigningCapacity.other,
+    )
+    chamber: Mapped[Optional[SignatoryChamber]] = mapped_column(
+        _enum(SignatoryChamber, "signatory_chamber"),
+    )
+    signed_at: Mapped[Optional[date]] = mapped_column(Date)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     legal_text: Mapped[LegalText] = relationship(back_populates="signers")

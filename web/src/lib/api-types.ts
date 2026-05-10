@@ -1343,6 +1343,12 @@ export interface components {
             parser_confidence: number;
             /** Warnings */
             warnings: string[];
+            /** Official Number */
+            official_number?: string | null;
+            /** Issuing Authority */
+            issuing_authority?: string | null;
+            /** Official Formula */
+            official_formula?: string | null;
         };
         /**
          * EditorialStatus
@@ -1479,6 +1485,11 @@ export interface components {
             function_fr: string;
             /** Function Ht */
             function_ht?: string | null;
+            /** @default other */
+            signing_capacity: components["schemas"]["SigningCapacity"];
+            chamber?: components["schemas"]["SignatoryChamber"] | null;
+            /** Signed At */
+            signed_at?: string | null;
             /**
              * Position
              * @default 0
@@ -1493,6 +1504,11 @@ export interface components {
             function_fr: string;
             /** Function Ht */
             function_ht?: string | null;
+            /** @default other */
+            signing_capacity: components["schemas"]["SigningCapacity"];
+            chamber?: components["schemas"]["SignatoryChamber"] | null;
+            /** Signed At */
+            signed_at?: string | null;
             /**
              * Position
              * @default 0
@@ -1553,6 +1569,12 @@ export interface components {
             publication_date?: string | null;
             /** Moniteur Ref */
             moniteur_ref?: string | null;
+            /** Official Number */
+            official_number?: string | null;
+            /** Issuing Authority */
+            issuing_authority?: string | null;
+            /** Official Formula */
+            official_formula?: string | null;
             /** @default in_force */
             status: components["schemas"]["LegalStatus"];
             /** @default draft */
@@ -1626,6 +1648,12 @@ export interface components {
             category?: components["schemas"]["LegalCategory"] | null;
             code_subcategory?: components["schemas"]["CodeSubcategory"] | null;
             status?: components["schemas"]["LegalStatus"] | null;
+            /** Official Number */
+            official_number?: string | null;
+            /** Issuing Authority */
+            issuing_authority?: string | null;
+            /** Official Formula */
+            official_formula?: string | null;
             /** Comment */
             comment?: string | null;
         };
@@ -1673,6 +1701,12 @@ export interface components {
             publication_date?: string | null;
             /** Moniteur Ref */
             moniteur_ref?: string | null;
+            /** Official Number */
+            official_number?: string | null;
+            /** Issuing Authority */
+            issuing_authority?: string | null;
+            /** Official Formula */
+            official_formula?: string | null;
             /** @default in_force */
             status: components["schemas"]["LegalStatus"];
             /** @default draft */
@@ -2150,6 +2184,27 @@ export interface components {
              */
             snippet_ht: string;
         };
+        /**
+         * SignatoryChamber
+         * @description Which body the signer belongs to. Drives the SignatureGrid grouping
+         *     on the frontend (Sénat block, Chambre block, Executive block, joint
+         *     ministerial block).
+         * @enum {string}
+         */
+        SignatoryChamber: "senat" | "chambre" | "executive" | "ministerial";
+        /**
+         * SigningCapacity
+         * @description How a `LegalSigner` is signing — the legal *kind* of signature.
+         *
+         *     Distinguishes the role-on-the-page from the role-in-government,
+         *     which `function_fr` already carries (e.g. "Sénateur", "Ministre de
+         *     la Justice"). Two people with `function_fr = 'Ministre'` can be
+         *     signing in different capacities: one *authoring* the arrêté they
+         *     co-issued, another *countersigning* a presidential décret because
+         *     its execution falls in their portfolio.
+         * @enum {string}
+         */
+        SigningCapacity: "authoring" | "presiding" | "attesting" | "promulgating" | "countersigning" | "other";
         /**
          * SommaireBulkInput
          * @description Wrapper for the sommaire endpoint — N entries at once.

@@ -50,7 +50,13 @@ import {
   type CitationRow,
   type SiblingArticle,
 } from './citation-mapping'
-import { VersionsPanel, type VersionEntry } from './_panels/VersionsPanel'
+// VersionsPanel + ComparePanel are intentionally unused from this
+// file right now — the action triggers were hidden when MOCK_VERSIONS
+// was deleted. Keep the imports a click away for when the per-
+// article versions endpoint lands. (eslint-disable kept narrow.)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { VersionsPanel } from './_panels/VersionsPanel'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ComparePanel } from './_panels/ComparePanel'
 import { CitationColumn } from './_panels/CitationColumn'
 
@@ -146,53 +152,16 @@ function formatEffectiveSince(
   return lang === 'fr' ? `En vigueur depuis le ${fmt}` : `An vigè depi ${fmt}`
 }
 
-// ---- Mock data — TODO(api): replace with real backend payload ---------------
+// Modification provenance ("Modifié par X") was previously rendered
+// from a hardcoded MOCK_PROVENANCE constant. Removed — the line will
+// come back when the citation graph is wired here (inbound citations
+// of relation `modifie` against this article). Until then we don't
+// fake the provenance to visitors.
 
-interface ProvenanceEntry {
-  kind: 'created' | 'modified' | 'abrogated'
-  text_label: string
-  article_ref?: string | null
-  date: string
-  href?: string | null
-}
-
-
-const MOCK_PROVENANCE: ProvenanceEntry[] = [
-  {
-    kind: 'modified',
-    text_label: 'Loi n°2010-1487',
-    article_ref: 'art. 17',
-    date: '7 décembre 2010',
-    href: '#',
-  },
-]
-
-const MOCK_VERSIONS: VersionEntry[] = [
-  {
-    version: 3,
-    status: 'in_force',
-    effective_from: '7 déc. 2010',
-    effective_to: null,
-    amended_by: 'Loi n°2010-1487 — art. 17',
-    href: '#',
-  },
-  {
-    version: 2,
-    status: 'historical',
-    effective_from: '1 janv. 1985',
-    effective_to: '6 déc. 2010',
-    amended_by: 'Décret-loi du 14 sept 1984',
-    href: '#',
-  },
-  {
-    version: 1,
-    status: 'historical',
-    effective_from: '27 mars 1825',
-    effective_to: '31 déc. 1984',
-    amended_by: null,
-    href: '#',
-  },
-]
+// MOCK_VERSIONS deleted. VersionsPanel + ComparePanel imports remain
+// in `_panels/` so the components are ready to wire when the per-
+// article versions endpoint ships; the triggers in this file are
+// hidden in the meantime.
 
 // MOCK_OUTBOUND / MOCK_INBOUND removed: citations are now fetched live via
 // /api/v1/citations and rendered through `outboundEntries` / `inboundEntries`
@@ -811,51 +780,9 @@ export default function ArticleViewer({
           )
         )}
 
-        {/* NEW: Modification provenance */}
-        {MOCK_PROVENANCE.length > 0 && (
-          <ul className="mt-4 mb-5 space-y-1.5 text-sm">
-            {MOCK_PROVENANCE.map((entry, idx) => {
-              const verb =
-                entry.kind === 'modified'
-                  ? currentLang === 'fr'
-                    ? 'Modifié par'
-                    : 'Modifye pa'
-                  : entry.kind === 'created'
-                    ? currentLang === 'fr'
-                      ? 'Création'
-                      : 'Kreyasyon'
-                    : currentLang === 'fr'
-                      ? 'Abrogé par'
-                      : 'Abwoje pa'
-              const Icon = entry.kind === 'created' ? Layers : History
-              return (
-                <li
-                  key={idx}
-                  className="flex items-start gap-2 text-slate-700"
-                >
-                  <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
-                  <span>
-                    <span className="font-medium text-slate-500">{verb}</span>{' '}
-                    {entry.href ? (
-                      <a
-                        href={entry.href}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        {entry.text_label}
-                      </a>
-                    ) : (
-                      <span className="font-medium">{entry.text_label}</span>
-                    )}{' '}
-                    <span className="text-slate-500">
-                      du {entry.date}
-                      {entry.article_ref ? ` — ${entry.article_ref}` : ''}
-                    </span>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        {/* Modification provenance ("Modifié par …") will render here
+            once the citation graph is wired in. Hidden for now —
+            shipping the mock data confused visitors. */}
 
       </div>
 
@@ -997,104 +924,66 @@ export default function ArticleViewer({
         </article>
       </div>
 
-      {/* Action row — three accordion triggers (no top border, by request) */}
-      <div className="pt-5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <AccordionTrigger
-            icon={History}
-            label={currentLang === 'fr' ? 'Voir les versions' : 'Wè vèsyon yo'}
-            count={MOCK_VERSIONS.length}
-            open={openPanel === 'versions'}
-            onClick={() => togglePanel('versions')}
-          />
-          <AccordionTrigger
-            icon={ArrowLeftRight}
-            label={
-              currentLang === 'fr'
-                ? 'Comparer les versions'
-                : 'Konpare vèsyon'
-            }
-            open={openPanel === 'compare'}
-            onClick={() => togglePanel('compare')}
-          />
-          <AccordionTrigger
-            icon={Layers}
-            label={currentLang === 'fr' ? 'Textes liés' : 'Tèks ki gen rapò'}
-            count={outboundEntries.length + inboundEntries.length}
-            open={openPanel === 'links'}
-            onClick={() => togglePanel('links')}
-          />
-        </div>
+      {/* Action row — accordion triggers. Versions/Compare are hidden
+          until per-article versions land in the API; today they were
+          fed from MOCK_VERSIONS which always showed three fake
+          revisions on every article. "Textes liés" stays — it's
+          driven by real inbound/outbound citations from the citations
+          API — and hides itself when the total is zero. */}
+      {outboundEntries.length + inboundEntries.length > 0 && (
+        <div className="pt-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <AccordionTrigger
+              icon={Layers}
+              label={currentLang === 'fr' ? 'Textes liés' : 'Tèks ki gen rapò'}
+              count={outboundEntries.length + inboundEntries.length}
+              open={openPanel === 'links'}
+              onClick={() => togglePanel('links')}
+            />
+          </div>
 
-        <div ref={panelRef}>
-          <AnimatePresence initial={false}>
-            {openPanel === 'versions' && (
-              <motion.div
-                key="versions"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <VersionsPanel
-                  versions={MOCK_VERSIONS}
-                  currentLang={currentLang}
-                />
-              </motion.div>
-            )}
-            {openPanel === 'compare' && (
-              <motion.div
-                key="compare"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <ComparePanel
-                  versions={MOCK_VERSIONS}
-                  currentLang={currentLang}
-                />
-              </motion.div>
-            )}
-            {openPanel === 'links' && (
-              <motion.div
-                key="links"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="pt-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
-                    <CitationColumn
-                      title={tCite}
-                      subtitle={
-                        currentLang === 'fr'
-                          ? 'Cet article fait référence à'
-                          : 'Atik sa a refere ak'
-                      }
-                      entries={outboundEntries}
-                      currentLang={currentLang}
-                      direction="outbound"
-                    />
-                    <CitationColumn
-                      title={tCitedBy}
-                      subtitle={
-                        currentLang === 'fr'
-                          ? 'Textes qui s’appuient sur cet article'
-                          : 'Tèks ki baze sou atik sa a'
-                      }
-                      entries={inboundEntries}
-                      currentLang={currentLang}
-                      direction="inbound"
-                    />
+          <div ref={panelRef}>
+            <AnimatePresence initial={false}>
+              {openPanel === 'links' && (
+                <motion.div
+                  key="links"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+                      <CitationColumn
+                        title={tCite}
+                        subtitle={
+                          currentLang === 'fr'
+                            ? 'Cet article fait référence à'
+                            : 'Atik sa a refere ak'
+                        }
+                        entries={outboundEntries}
+                        currentLang={currentLang}
+                        direction="outbound"
+                      />
+                      <CitationColumn
+                        title={tCitedBy}
+                        subtitle={
+                          currentLang === 'fr'
+                            ? 'Textes qui s’appuient sur cet article'
+                            : 'Tèks ki baze sou atik sa a'
+                        }
+                        entries={inboundEntries}
+                        currentLang={currentLang}
+                        direction="inbound"
+                      />
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Article nav — prev | current article | next */}
       <div className="border-t border-gray-200 mt-6 pt-5">

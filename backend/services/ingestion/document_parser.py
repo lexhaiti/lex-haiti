@@ -66,6 +66,12 @@ class DocumentParseResult:
     preamble: str
     parser_confidence: float
     warnings: List[str]
+    # Page-1 official-header metadata, lifted from header_split. Editor
+    # confirms these in the preview before saving.
+    official_number: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    # Verbatim post-dispositif block extracted by article_split.
+    official_formula: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -294,8 +300,20 @@ def parse_document(body: str) -> DocumentParseResult:
             )
         )
 
-    # --- Step 2: Split articles ---
-    split: SplitResult = split_into_articles(body)
+    # --- Step 2a: Lift the page-1 header (official_number + issuing
+    # authority + title) so it doesn't pollute the article splitter
+    # downstream. We don't know the category at parse time (editor
+    # picks it after seeing the preview) so the default-by-category
+    # fallback in `split_header` is skipped here.
+    from services.ingestion.header_split import split_header  # noqa: PLC0415
+    header = split_header(body, category=None)
+    body_for_splitter = header.body_without_header or body
+
+    # --- Step 2b: Split articles + slice off the post-dispositif
+    # `official_formula` block. The new article_split returns the
+    # formula on the result; if the doc has no closing block (older
+    # acts, or the parser didn't recognise the markers) it stays None.
+    split: SplitResult = split_into_articles(body_for_splitter)
 
     # --- Step 3: Assign articles to headings ---
     # Re-find article positions in text so we can match against heading positions
@@ -345,6 +363,9 @@ def parse_document(body: str) -> DocumentParseResult:
         preamble=split.preamble,
         parser_confidence=confidence,
         warnings=warnings,
+        official_number=header.official_number,
+        issuing_authority=header.issuing_authority,
+        official_formula=split.official_formula,
     )
 
 

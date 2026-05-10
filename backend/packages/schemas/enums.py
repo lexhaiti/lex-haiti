@@ -167,6 +167,36 @@ class HeadingLevel(str, Enum):
     subsection = "subsection"
 
 
+class SigningCapacity(str, Enum):
+    """How a `LegalSigner` is signing — the legal *kind* of signature.
+
+    Distinguishes the role-on-the-page from the role-in-government,
+    which `function_fr` already carries (e.g. "Sénateur", "Ministre de
+    la Justice"). Two people with `function_fr = 'Ministre'` can be
+    signing in different capacities: one *authoring* the arrêté they
+    co-issued, another *countersigning* a presidential décret because
+    its execution falls in their portfolio.
+    """
+
+    authoring = "authoring"           # signs as the issuing authority itself
+    presiding = "presiding"           # bureau président of a voting chamber
+    attesting = "attesting"           # bureau secrétaire — attests the vote
+    promulgating = "promulgating"     # Pres signs a loi to make it enforceable, didn't author it
+    countersigning = "countersigning" # ministers contresignataires on a presidential décret
+    other = "other"
+
+
+class SignatoryChamber(str, Enum):
+    """Which body the signer belongs to. Drives the SignatureGrid grouping
+    on the frontend (Sénat block, Chambre block, Executive block, joint
+    ministerial block)."""
+
+    senat = "senat"
+    chambre = "chambre"
+    executive = "executive"
+    ministerial = "ministerial"
+
+
 class CourtType(str, Enum):
     cassation = "cassation"
     appel = "appel"

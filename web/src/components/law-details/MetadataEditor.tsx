@@ -65,6 +65,12 @@ export type LegalTextMetadata = {
   category: string
   code_subcategory: string | null
   status: string
+  // Page-1 + post-dispositif official metadata. All optional — old
+  // corpus rows predate the columns and many older laws lack the
+  // modern header structure entirely.
+  official_number: string | null
+  issuing_authority: string | null
+  official_formula: string | null
 }
 
 interface Props {
@@ -100,6 +106,9 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
     category: text.category,
     code_subcategory: text.code_subcategory ?? '',
     status: text.status,
+    official_number: text.official_number ?? '',
+    issuing_authority: text.issuing_authority ?? '',
+    official_formula: text.official_formula ?? '',
     comment: '',
   }))
 
@@ -117,6 +126,9 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
         category: text.category,
         code_subcategory: text.code_subcategory ?? '',
         status: text.status,
+        official_number: text.official_number ?? '',
+        issuing_authority: text.issuing_authority ?? '',
+        official_formula: text.official_formula ?? '',
         comment: '',
       })
     }
@@ -149,6 +161,9 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
       category: text.category,
       code_subcategory: text.code_subcategory ?? '',
       status: text.status,
+      official_number: text.official_number ?? '',
+      issuing_authority: text.issuing_authority ?? '',
+      official_formula: text.official_formula ?? '',
     }
     const body: LegalTextMetadataPatch = {}
     ;(Object.keys(original) as (keyof typeof original)[]).forEach((key) => {
@@ -317,6 +332,47 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
               value={form.moniteur_ref}
               onChange={(e) => patch('moniteur_ref', e.target.value)}
               placeholder="n° 47 du 4 juin 2014"
+            />
+          </Field>
+
+          {/* Official metadata block — page-1 + post-dispositif fields.
+              Editable as plain text; the parser pre-fills these on
+              import but the editor has the final word. */}
+          <Field
+            label={t('metadataEditor.officialNumber')}
+            hint={t('metadataEditor.officialNumberHint')}
+          >
+            <Input
+              value={form.official_number}
+              onChange={(e) => patch('official_number', e.target.value)}
+              placeholder="CL-007-09-09"
+              className="font-mono"
+            />
+          </Field>
+
+          <Field
+            label={t('metadataEditor.issuingAuthority')}
+            hint={t('metadataEditor.issuingAuthorityHint')}
+          >
+            <Textarea
+              rows={3}
+              value={form.issuing_authority}
+              onChange={(e) => patch('issuing_authority', e.target.value)}
+              placeholder="CORPS LÉGISLATIF"
+              className="font-mono"
+            />
+          </Field>
+
+          <Field
+            label={t('metadataEditor.officialFormula')}
+            hint={t('metadataEditor.officialFormulaHint')}
+          >
+            <Textarea
+              rows={6}
+              value={form.official_formula}
+              onChange={(e) => patch('official_formula', e.target.value)}
+              placeholder={'Votée au Sénat …\n\nDonné au Palais National …'}
+              className="font-mono text-xs"
             />
           </Field>
 
