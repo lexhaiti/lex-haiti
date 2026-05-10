@@ -67,8 +67,10 @@ make web-dev      # next dev (port 3000)
 
 Phase 0 — bootstrapping the public corpus and editorial pipeline.
 
-## License (proposed)
+## License
 
-- **Code**: Apache 2.0
-- **Legal corpus data**: CC0 (public-domain sources); CC-BY for editorial enrichments
-- **Editorial commentary**: CC-BY-SA
+- **Code** — [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution requirements.
+- **Legal corpus data** — CC0 1.0 Universal for primary sources (the law is public domain); CC-BY 4.0 for editorial enrichments (citations, headings, structural metadata).
+- **Editorial commentary** — CC-BY-SA 4.0.
+
+"LexHaïti" is a trademark of the LexHaïti project. The Apache 2.0 license does not grant rights to use the project name or logo — please ask before using either to describe a fork or derivative.
