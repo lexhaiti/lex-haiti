@@ -787,7 +787,7 @@ export default function LawDetail() {
                 opening emblem, with a max-width cap so the centered
                 composition stays compact even on wide viewports. */}
             {law.issuing_authority && (
-              <div className="my-12 lg:my-16 flex justify-center">
+              <div className="my-6 lg:my-8 flex justify-center">
                 <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
                   <DeviseBanner />
                   <IssuingAuthorityHeader value={law.issuing_authority} />
