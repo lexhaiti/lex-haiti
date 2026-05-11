@@ -607,10 +607,7 @@ export default function MoniteurDetailClient() {
               ))}
             </div>
           ) : (
-            <EmptyState
-              icon={FileText}
-              description="Aucun document indexé dans ce numéro."
-            />
+            <EmptyState description="Aucun document indexé dans ce numéro." />
           )}
         </motion.section>
 

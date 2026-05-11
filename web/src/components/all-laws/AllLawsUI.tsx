@@ -435,13 +435,17 @@ export function AllLawsUI({
             )
             return (
               <EmptyState
-                icon={hasActiveFilter ? SearchX : FileText}
                 tone={hasActiveFilter ? 'attention' : 'default'}
+                eyebrow={
+                  hasActiveFilter
+                    ? lang === 'fr' ? 'Aucun résultat' : 'Pa gen rezilta'
+                    : undefined
+                }
                 title={
                   hasActiveFilter
                     ? lang === 'fr'
-                      ? 'Aucun texte ne correspond à vos filtres.'
-                      : 'Pa gen tèks ki koresponn ak filtè ou.'
+                      ? 'Aucun texte ne correspond à vos filtres'
+                      : 'Pa gen tèks ki koresponn ak filtè ou'
                     : t?.('allLaws.empty.title') ??
                       (lang === 'fr'
                         ? 'Aucun texte trouvé'
@@ -473,7 +477,7 @@ export function AllLawsUI({
                         })
                         onThemesChange?.([])
                       }}
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary/50 hover:text-primary transition-colors"
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white px-7 py-3 text-sm font-bold transition-all active:scale-[0.99]"
                     >
                       {lang === 'fr'
                         ? 'Réinitialiser les filtres'

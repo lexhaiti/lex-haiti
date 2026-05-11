@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
+  ArrowLeft,
   ArrowRight,
   Calendar,
   FileText,
@@ -225,8 +226,15 @@ function SearchPageInner() {
       ? "Cherchez une loi par son titre, son numéro CL ou son numéro de Moniteur."
       : 'Chèche yon lwa pa tit li, nimewo CL li oswa nimewo Moniteur li.'
 
+  // When the body is just an empty / no-result state, fill the remaining
+  // viewport so the white area visually adjoins both header and footer.
+  // For loaded results, fall back to the standard padded container.
+  const isEmptySurface =
+    !query ||
+    (query && !loading && !error && data && totals.total === 0)
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       <StandardPageHeader
         title={headerTitle}
         subtitle={headerSubtitle}
@@ -238,7 +246,14 @@ function SearchPageInner() {
         <SearchBar initial={query} onSubmit={navigateToQuery} lang={lang} />
       </StandardPageHeader>
 
-      <div className="container py-12 lg:py-16">
+      <div
+        className={cn(
+          'container',
+          isEmptySurface
+            ? 'flex-1 flex items-center justify-center'
+            : 'py-12 lg:py-16',
+        )}
+      >
         {!query && (
           <EmptyPrompt lang={lang} />
         )}
@@ -364,22 +379,24 @@ function EmptyPrompt({ lang }: { lang: 'fr' | 'ht' }) {
       : ['Konstitisyon 1987', 'CL-007-09-09', 'Kòd Sivil', 'Spécial N° 5']
   return (
     <EmptyState
-      icon={Search}
+      eyebrow={lang === 'fr' ? 'Commencer' : 'Kòmanse'}
+      title={
+        lang === 'fr'
+          ? 'Explorez la législation haïtienne'
+          : 'Eksplore lejislasyon ayisyen an'
+      }
       description={
         lang === 'fr'
-          ? 'Tapez votre recherche ci-dessus pour explorer la législation.'
-          : 'Tape rechèch ou anwo a pou eksplore lejislasyon an.'
+          ? 'Tapez votre recherche dans la barre ci-dessus, ou essayez un des exemples.'
+          : "Tape rechèch ou nan ba ki anwo a, oswa eseye youn nan egzanp yo."
       }
       actions={
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            {lang === 'fr' ? 'Essayer' : 'Eseye'}
-          </span>
           {examples.map((ex) => (
             <Link
               key={ex}
               href={`/recherche?q=${encodeURIComponent(ex)}`}
-              className="px-3 py-1 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition-colors"
+              className="px-3.5 py-1.5 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-primary/30 hover:bg-slate-50 hover:text-primary transition-colors"
             >
               {ex}
             </Link>
@@ -391,19 +408,59 @@ function EmptyPrompt({ lang }: { lang: 'fr' | 'ht' }) {
 }
 
 function NoResults({ query, lang }: { query: string; lang: 'fr' | 'ht' }) {
+  const suggestions =
+    lang === 'fr'
+      ? ['Constitution 1987', 'Code Civil', 'CL-007-09-09', 'Spécial N° 5']
+      : ['Konstitisyon 1987', 'Kòd Sivil', 'CL-007-09-09', 'Spécial N° 5']
+
   return (
     <EmptyState
-      icon={SearchX}
+      eyebrow={lang === 'fr' ? 'Aucun résultat' : 'Pa gen rezilta'}
       tone="attention"
       title={
         lang === 'fr'
-          ? `Aucun résultat pour « ${query} ».`
-          : `Pa gen okenn rezilta pou « ${query} ».`
+          ? `Rien trouvé pour « ${query} »`
+          : `Anyen pa jwenn pou « ${query} »`
       }
       description={
         lang === 'fr'
-          ? "Vérifiez l'orthographe ou essayez des termes plus généraux."
-          : 'Verifye òtograf la oswa eseye mo pi jeneral.'
+          ? "Vérifiez l'orthographe, raccourcissez votre requête, ou parcourez directement le corpus."
+          : "Verifye òtograf la, kout rekèt ou a, oswa gade kòpis la dirèkteman."
+      }
+      actions={
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/lois"
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white px-7 py-3 text-sm font-bold transition-all active:scale-[0.99]"
+          >
+            {lang === 'fr' ? 'Parcourir tous les textes' : 'Gade tout tèks yo'}
+            <ArrowRight className="w-4 h-4" aria-hidden />
+          </Link>
+          <Link
+            href="/recherche/avancee"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 hover:border-slate-300 bg-white text-slate-700 px-6 py-3 text-sm font-semibold transition-all"
+          >
+            {lang === 'fr' ? 'Recherche avancée' : 'Rechèch avanse'}
+          </Link>
+        </div>
+      }
+      suggestions={
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            {lang === 'fr' ? 'Essayer plutôt' : 'Eseye olye'}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {suggestions.map((s) => (
+              <Link
+                key={s}
+                href={`/recherche?q=${encodeURIComponent(s)}`}
+                className="px-3.5 py-1.5 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:border-primary/30 hover:bg-slate-50 hover:text-primary transition-colors"
+              >
+                {s}
+              </Link>
+            ))}
+          </div>
+        </div>
       }
     />
   )

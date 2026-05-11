@@ -55,7 +55,6 @@ export default async function MoniteurRecentSection() {
 
         {!hasIssues ? (
           <EmptyState
-            icon={Newspaper}
             description={t('home.moniteurRecent.empty')}
             density="compact"
             className="bg-white"

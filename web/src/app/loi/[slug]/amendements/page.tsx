@@ -201,7 +201,6 @@ export default function AmendementsPage() {
 
         {!loading && !error && articles && articles.length === 0 && (
           <EmptyState
-            icon={History}
             title={t('amendments.empty.title')}
             description={t('amendments.empty.desc')}
             density="compact"
