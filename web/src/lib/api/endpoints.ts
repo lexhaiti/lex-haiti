@@ -534,17 +534,28 @@ export type ParsedHeadingResponse = {
 export type ParsedArticleResponse = {
   number: string
   content_fr: string
+  /** Matched HT text from bilingual parse (aligned by article number). */
+  content_ht: string | null
   heading_path: string[]
   heading_key: string | null
   title: string | null
+  title_ht: string | null
 }
 
 export type DocumentParseResponse = {
   headings: ParsedHeadingResponse[]
   articles: ParsedArticleResponse[]
   preamble: string
+  preamble_ht: string | null
   parser_confidence: number
   warnings: string[]
+  official_number?: string | null
+  issuing_authority?: string | null
+  official_formula?: string | null
+  /** Article counts — non-zero when an HT file was uploaded. */
+  fr_article_count: number
+  ht_article_count: number
+  matched_count: number
 }
 
 /**
@@ -553,9 +564,13 @@ export type DocumentParseResponse = {
  * Routes through a local Next.js API route for the same reason as
  * Moniteur uploads — large multipart uploads choke the dev rewrite.
  */
-export async function parseDocument(file: File): Promise<DocumentParseResponse> {
+export async function parseDocument(
+  file: File,
+  fileHt?: File | null,
+): Promise<DocumentParseResponse> {
   const fd = new FormData()
   fd.append('file', file)
+  if (fileHt) fd.append('file_ht', fileHt)
   const r = await fetch('/api/editorial/parse-document', {
     method: 'POST',
     body: fd,

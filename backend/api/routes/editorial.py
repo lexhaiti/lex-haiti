@@ -68,15 +68,21 @@ class ParsedHeadingResponse(BaseModel):
 class ParsedArticleResponse(BaseModel):
     number: str
     content_fr: str
+    # When the parse is bilingual, content_ht holds the matched HT text
+    # (matched by article number). Null when no HT version was uploaded
+    # or no matching HT article was found.
+    content_ht: Optional[str] = None
     heading_path: List[str] = []
     heading_key: Optional[str] = None
     title: Optional[str] = None
+    title_ht: Optional[str] = None
 
 
 class DocumentParseResponse(BaseModel):
     headings: List[ParsedHeadingResponse]
     articles: List[ParsedArticleResponse]
     preamble: str
+    preamble_ht: Optional[str] = None
     parser_confidence: float
     warnings: List[str]
     # Page-1 + post-dispositif metadata extracted by the parser. Editor
@@ -84,6 +90,12 @@ class DocumentParseResponse(BaseModel):
     official_number: Optional[str] = None
     issuing_authority: Optional[str] = None
     official_formula: Optional[str] = None
+    # Bilingual alignment counters — non-zero when an HT file was uploaded
+    # alongside the FR. Drives the "47 FR / 46 HT (45 matched)" summary
+    # in the import preview.
+    fr_article_count: int = 0
+    ht_article_count: int = 0
+    matched_count: int = 0
 
 
 # -----------------------------------------------------------------------
@@ -119,6 +131,21 @@ def create_legal_text(
 # -----------------------------------------------------------------------
 
 
+async def _save_and_parse(upload: UploadFile):
+    """Persist an UploadFile to a temp path, call parse_file, then clean up."""
+    from services.ingestion.document_parser import parse_file  # noqa: PLC0415
+
+    suffix = Path(upload.filename or "").suffix.lower() or ".txt"
+    content_type = upload.content_type
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(await upload.read())
+        tmp_path = tmp.name
+    try:
+        return parse_file(tmp_path, content_type=content_type)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
 @router.post(
     "/parse-document",
     response_model=DocumentParseResponse,
@@ -127,32 +154,31 @@ def create_legal_text(
 async def parse_document(
     user: EditorialUser,
     file: UploadFile = FastAPIFile(
-        ..., description="Legal document to parse (PDF, DOCX, or TXT)"
+        ..., description="Legal document to parse — French version"
+    ),
+    file_ht: Optional[UploadFile] = FastAPIFile(
+        default=None,
+        description="Optional Kreyòl version. When provided, articles from "
+        "both files are aligned by their numbers and returned with "
+        "content_fr + content_ht populated where matches exist.",
     ),
 ):
-    """Upload a legal document and parse it into a structured preview.
+    """Upload one or two legal-document files and parse them into a structured
+    preview.
 
-    The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION),
-    splits articles, and assigns each article to its nearest heading.
-    The editor reviews the result and then commits via POST /legal-texts.
+    The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION), splits
+    articles, and assigns each article to its nearest heading. When an HT
+    companion file is provided, ``bilingual_align`` matches articles across
+    the two parses by their numbers and returns a unified preview.
 
-    No data is persisted — this is a stateless analysis endpoint.
+    No data is persisted — this is a stateless analysis endpoint. The
+    editor reviews the result and then commits via POST /legal-texts.
     """
-    from services.ingestion.document_parser import parse_file  # noqa: PLC0415
+    from services.ingestion.bilingual_align import align_bilingual  # noqa: PLC0415
 
-    # Determine the suffix from the upload's content-type or filename
-    suffix = Path(file.filename or "").suffix.lower() or ".txt"
-    content_type = file.content_type
-
-    # Write to a temp file so the parser can use the existing OCR pipeline
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
-
-    try:
-        result = parse_file(tmp_path, content_type=content_type)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+    fr_result = await _save_and_parse(file)
+    ht_result = await _save_and_parse(file_ht) if file_ht is not None else None
+    aligned = align_bilingual(fr_result, ht_result)
 
     return DocumentParseResponse(
         headings=[
@@ -164,24 +190,30 @@ async def parse_document(
                 parent_key=h.parent_key,
                 position=h.position,
             )
-            for h in result.headings
+            for h in aligned.headings
         ],
         articles=[
             ParsedArticleResponse(
                 number=a.number,
                 content_fr=a.content_fr,
+                content_ht=a.content_ht,
                 heading_path=a.heading_path,
                 heading_key=a.heading_key,
-                title=a.title,
+                title=a.title_fr,
+                title_ht=a.title_ht,
             )
-            for a in result.articles
+            for a in aligned.articles
         ],
-        preamble=result.preamble,
-        parser_confidence=result.parser_confidence,
-        warnings=result.warnings,
-        official_number=result.official_number,
-        issuing_authority=result.issuing_authority,
-        official_formula=result.official_formula,
+        preamble=aligned.preamble_fr,
+        preamble_ht=aligned.preamble_ht,
+        parser_confidence=aligned.parser_confidence,
+        warnings=aligned.warnings,
+        official_number=aligned.official_number,
+        issuing_authority=aligned.issuing_authority,
+        official_formula=aligned.official_formula,
+        fr_article_count=aligned.fr_article_count,
+        ht_article_count=aligned.ht_article_count,
+        matched_count=aligned.matched_count,
     )
 
 

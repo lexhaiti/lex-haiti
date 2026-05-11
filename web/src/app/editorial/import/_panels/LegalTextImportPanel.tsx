@@ -53,7 +53,10 @@ interface FormState {
   publication_date: string
   moniteur_ref: string
   status: 'in_force' | 'abrogated' | 'suspended' | 'historical'
+  /** Required — French version of the document. */
   document_file: File | null
+  /** Optional — Kreyòl translation file, aligned by article number. */
+  document_file_ht: File | null
   source_file: File | null
 }
 
@@ -71,15 +74,21 @@ interface ParsedArticle {
   heading_path: string[]
   heading_key: string | null
   content_fr: string
+  content_ht: string | null
   title: string | null
+  title_ht: string | null
 }
 
 interface ParseResult {
   headings: ParsedHeading[]
   articles: ParsedArticle[]
   preamble: string
+  preamble_ht: string | null
   parser_confidence: number
   warnings: string[]
+  fr_article_count: number
+  ht_article_count: number
+  matched_count: number
 }
 
 // Copy lives at `editorial.import.legalText.*` in i18n/{fr,ht}.ts.
@@ -107,6 +116,7 @@ const DEFAULT_FORM: FormState = {
   moniteur_ref: '',
   status: 'in_force',
   document_file: null,
+  document_file_ht: null,
   source_file: null,
 }
 
@@ -169,7 +179,10 @@ export default function LegalTextImportPanel() {
     setView('parsing')
 
     try {
-      const response: DocumentParseResponse = await parseDocument(form.document_file!)
+      const response: DocumentParseResponse = await parseDocument(
+        form.document_file!,
+        form.document_file_ht ?? null,
+      )
 
       const result: ParseResult = {
         headings: response.headings.map((h) => ({
@@ -183,13 +196,19 @@ export default function LegalTextImportPanel() {
         articles: response.articles.map((a) => ({
           number: a.number,
           content_fr: a.content_fr,
+          content_ht: a.content_ht,
           heading_path: a.heading_path,
           heading_key: a.heading_key,
           title: a.title,
+          title_ht: a.title_ht,
         })),
         preamble: response.preamble,
+        preamble_ht: response.preamble_ht,
         parser_confidence: response.parser_confidence,
         warnings: response.warnings,
+        fr_article_count: response.fr_article_count,
+        ht_article_count: response.ht_article_count,
+        matched_count: response.matched_count,
       }
       setParseResult(result)
       setView('preview')
@@ -232,6 +251,7 @@ export default function LegalTextImportPanel() {
         description_fr: form.description_fr.trim() || null,
         description_ht: form.description_ht.trim() || null,
         preamble_fr: parseResult.preamble || null,
+        preamble_ht: parseResult.preamble_ht || null,
         promulgation_date: form.promulgation_date || null,
         publication_date: form.publication_date || null,
         moniteur_ref: form.moniteur_ref.trim() || null,
@@ -251,7 +271,9 @@ export default function LegalTextImportPanel() {
           position: i,
           version: {
             text_fr: a.content_fr,
+            text_ht: a.content_ht ?? null,
             title_fr: a.title,
+            title_ht: a.title_ht ?? null,
           },
         })),
       })
@@ -431,17 +453,39 @@ export default function LegalTextImportPanel() {
               help={t('editorial.import.legalText.sectionDocumentHelp')}
               icon={FileText}
             >
-              <Dropzone
-                file={form.document_file}
-                onSelect={(f) => setField('document_file', f)}
-                accept=".pdf,.docx,.txt"
-                prompt={t('editorial.import.legalText.dropzoneDocument')}
-                browseLabel={t('editorial.import.legalText.dropzoneBrowse')}
-                formatsLabel={t('editorial.import.legalText.dropzoneFormatsDoc')}
-                fileSelectedLabel={t('editorial.import.legalText.fileSelected')}
-                removeLabel={t('editorial.import.legalText.removeFile')}
-                error={errors.document_file}
-              />
+              <div className="space-y-4">
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Version française <span className="text-red-500">*</span>
+                  </p>
+                  <Dropzone
+                    file={form.document_file}
+                    onSelect={(f) => setField('document_file', f)}
+                    accept=".pdf,.docx,.txt"
+                    prompt={t('editorial.import.legalText.dropzoneDocument')}
+                    browseLabel={t('editorial.import.legalText.dropzoneBrowse')}
+                    formatsLabel={t('editorial.import.legalText.dropzoneFormatsDoc')}
+                    fileSelectedLabel={t('editorial.import.legalText.fileSelected')}
+                    removeLabel={t('editorial.import.legalText.removeFile')}
+                    error={errors.document_file}
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Version kreyòl <span className="text-slate-400 font-medium normal-case">(optionnelle — alignée par numéro d'article)</span>
+                  </p>
+                  <Dropzone
+                    file={form.document_file_ht}
+                    onSelect={(f) => setField('document_file_ht', f)}
+                    accept=".pdf,.docx,.txt"
+                    prompt="Glissez la version Kreyòl ici, ou laissez vide pour ajouter la traduction plus tard."
+                    browseLabel={t('editorial.import.legalText.dropzoneBrowse')}
+                    formatsLabel={t('editorial.import.legalText.dropzoneFormatsDoc')}
+                    fileSelectedLabel={t('editorial.import.legalText.fileSelected')}
+                    removeLabel={t('editorial.import.legalText.removeFile')}
+                  />
+                </div>
+              </div>
             </FormSection>
 
             {/* Section 3 — Moniteur source */}
@@ -663,22 +707,53 @@ function PreviewState({
               <p className="text-sm text-slate-600 leading-relaxed mb-4">
                 {t('editorial.import.legalText.resultIntro')}
               </p>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  {t('editorial.import.legalText.confidence')}
-                </span>
-                <span
-                  className={cn(
-                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold tabular-nums',
-                    result.parser_confidence >= 0.85
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : result.parser_confidence >= 0.7
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-red-100 text-red-700',
-                  )}
-                >
-                  {Math.round(result.parser_confidence * 100)}%
-                </span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    {t('editorial.import.legalText.confidence')}
+                  </span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold tabular-nums',
+                      result.parser_confidence >= 0.85
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : result.parser_confidence >= 0.7
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700',
+                    )}
+                  >
+                    {Math.round(result.parser_confidence * 100)}%
+                  </span>
+                </div>
+                {/* Bilingual alignment summary — only when a HT file was
+                    uploaded (ht_article_count > 0). Three counts: total
+                    FR articles, total HT articles, and how many matched
+                    by article number. */}
+                {result.ht_article_count > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                      Alignement
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold tabular-nums bg-slate-100 text-slate-700">
+                      <span className="text-slate-900">{result.fr_article_count}</span>
+                      <span className="text-slate-400">FR</span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-slate-900">{result.ht_article_count}</span>
+                      <span className="text-slate-400">HT</span>
+                      <span className="text-slate-300">·</span>
+                      <span
+                        className={cn(
+                          result.matched_count === result.fr_article_count
+                            ? 'text-emerald-700'
+                            : 'text-amber-700',
+                        )}
+                      >
+                        {result.matched_count}
+                      </span>
+                      <span className="text-slate-400">appariés</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -793,6 +868,17 @@ function PreviewState({
                       <span className="text-[11px] text-slate-400">
                         {a.heading_path.join(' › ')}
                       </span>
+                      {result.ht_article_count > 0 && (
+                        a.content_ht ? (
+                          <span className="inline-flex items-center px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            HT
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200" title="Traduction Kreyòl manquante pour cet article">
+                            HT manquant
+                          </span>
+                        )
+                      )}
                       {/* Edit/delete controls — visible on hover */}
                       <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -813,9 +899,20 @@ function PreviewState({
                         </button>
                       </span>
                     </div>
-                    <p className="text-sm text-slate-700 leading-relaxed line-clamp-2">
-                      {a.content_fr}
-                    </p>
+                    {a.content_ht ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+                        <p className="text-sm text-slate-700 leading-relaxed line-clamp-3">
+                          {a.content_fr}
+                        </p>
+                        <p className="text-sm text-slate-700 leading-relaxed line-clamp-3 md:border-l md:pl-5 md:border-slate-100">
+                          {a.content_ht}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-700 leading-relaxed line-clamp-2">
+                        {a.content_fr}
+                      </p>
+                    )}
                   </div>
                 )}
               </li>
