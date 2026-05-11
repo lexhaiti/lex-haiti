@@ -607,6 +607,42 @@ export type DocumentParseResponse = {
  * Routes through a local Next.js API route for the same reason as
  * Moniteur uploads — large multipart uploads choke the dev rewrite.
  */
+export type TranslationStats = {
+  legal_texts_total: number
+  legal_texts_with_ht: number
+  legal_texts_fully_translated: number
+  legal_texts_fr_only: number
+  articles_total: number
+  articles_translated: number
+  moniteur_entries_total: number
+  moniteur_entries_with_translation_pointer: number
+  moniteur_entries_pending_translation: number
+}
+
+export type TranslationWorklistItem = {
+  id: number
+  slug: string
+  title_fr: string
+  category: string
+  editorial_status: string
+  total_articles: number
+  translated_articles: number
+  pct: number
+}
+
+export async function getTranslationStats() {
+  return apiGet<TranslationStats>('/editorial/translations/stats')
+}
+
+export async function getTranslationWorklist(params?: {
+  coverage?: 'all' | 'none' | 'partial' | 'complete'
+  limit?: number
+}) {
+  return apiGet<TranslationWorklistItem[]>('/editorial/translations', {
+    params,
+  })
+}
+
 export type TranslationMatchResponse = {
   article_id: number
   article_number: string

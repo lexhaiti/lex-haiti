@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, Query, UploadFile, File as FastAPIFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File as FastAPIFile
 from pydantic import BaseModel, Field
 
 from api.deps import (
@@ -560,3 +560,235 @@ def whoami(user: EditorialUser):
         "name": user.name,
         "role": user.role.value if hasattr(user.role, "value") else user.role,
     }
+
+
+# -----------------------------------------------------------------------
+# Translation pipeline — dashboard stats + worklist
+# -----------------------------------------------------------------------
+
+
+class TranslationStats(BaseModel):
+    """High-level translation coverage stats for the editorial dashboard."""
+
+    legal_texts_total: int
+    legal_texts_with_ht: int      # at least one article has text_ht
+    legal_texts_fully_translated: int  # every article has text_ht
+    legal_texts_fr_only: int      # no article has text_ht
+    articles_total: int
+    articles_translated: int
+    moniteur_entries_total: int
+    moniteur_entries_with_translation_pointer: int
+    moniteur_entries_pending_translation: int  # promoted but no pointer
+
+
+class TranslationWorklistItem(BaseModel):
+    """One legal_text on the translation worklist."""
+
+    id: int
+    slug: str
+    title_fr: str
+    category: str
+    editorial_status: str
+    total_articles: int
+    translated_articles: int
+    pct: int  # 0-100
+
+
+@router.get("/translations/stats", response_model=TranslationStats)
+def translation_stats(db: DbSession, user: EditorialUser):
+    """Translation-pipeline counters for the editorial dashboard.
+
+    Single round-trip — a handful of count(*) queries against
+    article_versions, legal_texts, and moniteur_entries. Cheap enough
+    to render on the editorial home; should stay cheap until the
+    corpus crosses ~100K articles (then add a materialised view).
+    """
+    from sqlalchemy import case, func, select  # noqa: PLC0415
+
+    from services.corpus.models import (  # noqa: PLC0415
+        Article,
+        ArticleVersion,
+        LegalText,
+        MoniteurEntry,
+    )
+
+    # Per-text article counts (total + translated)
+    text_stats = (
+        select(
+            LegalText.id.label("text_id"),
+            func.count(Article.id).label("total"),
+            func.sum(
+                case(
+                    (
+                        (ArticleVersion.text_ht.is_not(None))
+                        & (func.length(func.trim(ArticleVersion.text_ht)) > 0),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("translated"),
+        )
+        .join(Article, Article.legal_text_id == LegalText.id, isouter=True)
+        .join(
+            ArticleVersion,
+            ArticleVersion.id == Article.current_version_id,
+            isouter=True,
+        )
+        .group_by(LegalText.id)
+        .subquery()
+    )
+
+    legal_texts_total = db.execute(select(func.count(LegalText.id))).scalar() or 0
+
+    coverage_rows = db.execute(
+        select(text_stats.c.total, text_stats.c.translated)
+    ).all()
+    legal_texts_with_ht = sum(1 for r in coverage_rows if (r.translated or 0) > 0)
+    legal_texts_fully_translated = sum(
+        1 for r in coverage_rows if (r.total or 0) > 0 and (r.translated or 0) == (r.total or 0)
+    )
+    legal_texts_fr_only = sum(
+        1 for r in coverage_rows if (r.total or 0) > 0 and (r.translated or 0) == 0
+    )
+
+    articles_total = (
+        db.execute(select(func.count(Article.id))).scalar() or 0
+    )
+    articles_translated = (
+        db.execute(
+            select(func.count(ArticleVersion.id)).where(
+                (ArticleVersion.text_ht.is_not(None))
+                & (func.length(func.trim(ArticleVersion.text_ht)) > 0)
+            )
+        ).scalar()
+        or 0
+    )
+
+    moniteur_entries_total = (
+        db.execute(select(func.count(MoniteurEntry.id))).scalar() or 0
+    )
+    moniteur_entries_with_translation_pointer = (
+        db.execute(
+            select(func.count(MoniteurEntry.id)).where(
+                MoniteurEntry.translation_issue_id.is_not(None)
+            )
+        ).scalar()
+        or 0
+    )
+    moniteur_entries_pending_translation = (
+        db.execute(
+            select(func.count(MoniteurEntry.id)).where(
+                MoniteurEntry.promoted_legal_text_id.is_not(None),
+                MoniteurEntry.translation_issue_id.is_(None),
+            )
+        ).scalar()
+        or 0
+    )
+
+    return TranslationStats(
+        legal_texts_total=legal_texts_total,
+        legal_texts_with_ht=legal_texts_with_ht,
+        legal_texts_fully_translated=legal_texts_fully_translated,
+        legal_texts_fr_only=legal_texts_fr_only,
+        articles_total=articles_total,
+        articles_translated=articles_translated,
+        moniteur_entries_total=moniteur_entries_total,
+        moniteur_entries_with_translation_pointer=moniteur_entries_with_translation_pointer,
+        moniteur_entries_pending_translation=moniteur_entries_pending_translation,
+    )
+
+
+@router.get(
+    "/translations",
+    response_model=List[TranslationWorklistItem],
+    summary="List legal texts ordered by translation gap (most missing first)",
+)
+def translation_worklist(
+    db: DbSession,
+    user: EditorialUser,
+    coverage: str = Query(
+        "all",
+        description="Filter: all | none (no HT) | partial | complete",
+    ),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Worklist for the translation editor — every legal_text with its
+    current HT coverage. Sorted by gap (least translated first) by
+    default so the editor sees the most urgent texts.
+    """
+    from sqlalchemy import case, func, select  # noqa: PLC0415
+
+    from services.corpus.models import (  # noqa: PLC0415
+        Article,
+        ArticleVersion,
+        LegalText,
+    )
+
+    translated_expr = func.sum(
+        case(
+            (
+                (ArticleVersion.text_ht.is_not(None))
+                & (func.length(func.trim(ArticleVersion.text_ht)) > 0),
+                1,
+            ),
+            else_=0,
+        )
+    )
+
+    stmt = (
+        select(
+            LegalText.id,
+            LegalText.slug,
+            LegalText.title_fr,
+            LegalText.category,
+            LegalText.editorial_status,
+            func.count(Article.id).label("total"),
+            translated_expr.label("translated"),
+        )
+        .join(Article, Article.legal_text_id == LegalText.id, isouter=True)
+        .join(
+            ArticleVersion,
+            ArticleVersion.id == Article.current_version_id,
+            isouter=True,
+        )
+        .group_by(
+            LegalText.id,
+            LegalText.slug,
+            LegalText.title_fr,
+            LegalText.category,
+            LegalText.editorial_status,
+        )
+    )
+
+    rows = db.execute(stmt).all()
+    items: list[TranslationWorklistItem] = []
+    for r in rows:
+        total = r.total or 0
+        translated = r.translated or 0
+        pct = int((translated / total) * 100) if total > 0 else 0
+        if coverage == "none" and translated > 0:
+            continue
+        if coverage == "partial" and (translated == 0 or translated == total):
+            continue
+        if coverage == "complete" and (total == 0 or translated < total):
+            continue
+        items.append(
+            TranslationWorklistItem(
+                id=r.id,
+                slug=r.slug,
+                title_fr=r.title_fr,
+                category=r.category.value if hasattr(r.category, "value") else r.category,
+                editorial_status=(
+                    r.editorial_status.value
+                    if hasattr(r.editorial_status, "value")
+                    else r.editorial_status
+                ),
+                total_articles=total,
+                translated_articles=translated,
+                pct=pct,
+            )
+        )
+
+    # Worklist sort: least translated first, then by title for stability.
+    items.sort(key=lambda x: (x.pct, x.title_fr.lower()))
+    return items[:limit]
