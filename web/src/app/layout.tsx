@@ -1,5 +1,6 @@
 // app/layout.tsx
 import type { Metadata } from 'next'
+import NextTopLoader from 'nextjs-toploader'
 import './globals.css'
 import SiteShell from '@/components/layout/SiteShell'
 import Providers from './providers'
@@ -33,6 +34,18 @@ export default async function RootLayout({
   return (
     <html lang={language} suppressHydrationWarning>
       <body>
+        {/* Slim top progress bar on route transitions — LexHaïti red,
+            no spinner, no shadow. Subtle "yes, I'm loading" signal
+            that's invisible when navigations complete instantly. */}
+        <NextTopLoader
+          color="#DC2626"
+          height={2}
+          showSpinner={false}
+          shadow="0 0 8px #DC2626, 0 0 4px #DC2626"
+          easing="ease"
+          speed={250}
+          crawlSpeed={150}
+        />
         {/* Skip-to-content link for keyboard/screen reader users */}
         <a
           href="#main-content"
