@@ -258,9 +258,41 @@ class MoniteurRepository:
         stmt = (
             select(MoniteurEntry)
             .where(MoniteurEntry.id == entry_id)
-            .options(selectinload(MoniteurEntry.promoted_legal_text))
+            .options(
+                selectinload(MoniteurEntry.promoted_legal_text),
+                selectinload(MoniteurEntry.translation_issue),
+            )
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def update_entry_translation(
+        self,
+        entry: MoniteurEntry,
+        *,
+        translation_issue_id: Optional[int],
+        translation_detected_number: Optional[str],
+        translation_title_ht: Optional[str],
+        translation_page_from: Optional[int],
+        translation_page_to: Optional[int],
+        translation_summary_ht: Optional[str],
+        companion_documents: Optional[list[dict]],
+    ) -> MoniteurEntry:
+        """Attach (or clear) the translation pointer on an entry.
+
+        Every field is overwritten — passing None to a field clears it.
+        Use this as the single source of truth for the FR-entry-side
+        translation metadata; the actual translated content lives on
+        the promoted legal_text's article_versions.text_ht.
+        """
+        entry.translation_issue_id = translation_issue_id
+        entry.translation_detected_number = translation_detected_number
+        entry.translation_title_ht = translation_title_ht
+        entry.translation_page_from = translation_page_from
+        entry.translation_page_to = translation_page_to
+        entry.translation_summary_ht = translation_summary_ht
+        entry.companion_documents = companion_documents
+        self.session.flush()
+        return entry
 
     def replace_entries(
         self, issue: MoniteurIssue, parsed: List[ParsedCandidate]

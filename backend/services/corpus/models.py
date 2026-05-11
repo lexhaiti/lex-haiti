@@ -749,6 +749,10 @@ class MoniteurIssue(Base):
         back_populates="issue",
         cascade="all, delete-orphan",
         order_by="MoniteurEntry.position",
+        # MoniteurEntry has two FKs to MoniteurIssue (issue_id and the
+        # translation_issue_id companion pointer); the sommaire-style
+        # `entries` collection follows the original-publication FK only.
+        foreign_keys="[MoniteurEntry.issue_id]",
     )
 
 
@@ -815,6 +819,26 @@ class MoniteurEntry(Base):
     reviewed_by: Mapped[Optional[int]] = mapped_column(Integer)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
+    # Translation source — when the Kreyòl version of this content is
+    # published in a companion Moniteur issue (e.g. 36 → 36-a), the editor
+    # attaches those pointers here instead of re-ingesting that issue's
+    # sommaire as duplicate candidates. The actual translation content
+    # lives on the promoted legal_text's article_versions.text_ht.
+    translation_issue_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_issues.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    translation_detected_number: Mapped[Optional[str]] = mapped_column(Text)
+    translation_title_ht: Mapped[Optional[str]] = mapped_column(Text)
+    translation_page_from: Mapped[Optional[int]] = mapped_column(Integer)
+    translation_page_to: Mapped[Optional[int]] = mapped_column(Integer)
+    translation_summary_ht: Mapped[Optional[str]] = mapped_column(Text)
+    # Side documents that come with the translation — e.g.
+    # [{"kind": "promulgation_letter", "pages": "1-3"}, ...]
+    companion_documents: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(JSONB)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -825,7 +849,12 @@ class MoniteurEntry(Base):
         nullable=False,
     )
 
-    issue: Mapped[MoniteurIssue] = relationship(back_populates="entries")
+    issue: Mapped[MoniteurIssue] = relationship(
+        back_populates="entries", foreign_keys=[issue_id]
+    )
+    translation_issue: Mapped[Optional[MoniteurIssue]] = relationship(
+        foreign_keys=[translation_issue_id]
+    )
     parent_entry: Mapped[Optional["MoniteurEntry"]] = relationship(
         remote_side="MoniteurEntry.id",
         foreign_keys=[parent_entry_id],

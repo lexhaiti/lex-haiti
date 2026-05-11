@@ -84,6 +84,16 @@ class MoniteurIssueRead(MoniteurIssueBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CompanionDocument(BaseModel):
+    """One side-document attached to a translation entry (e.g. a
+    promulgation letter or arrêté d'application that appears alongside
+    the translated text in the companion Moniteur issue)."""
+
+    kind: str  # e.g. "promulgation_letter", "decree_of_application"
+    pages: Optional[str] = None  # free-text e.g. "1-3"
+    note: Optional[str] = None
+
+
 class MoniteurEntryRead(BaseModel):
     """One entry (document) inside a Moniteur issue."""
 
@@ -112,6 +122,18 @@ class MoniteurEntryRead(BaseModel):
     review_notes: Optional[str] = None
     reviewed_at: Optional[datetime] = None
 
+    # Translation source — points to the companion (Kreyòl) Moniteur
+    # issue when the HT version of this content is published separately.
+    translation_issue_id: Optional[int] = None
+    translation_issue_number: Optional[str] = None
+    translation_issue_year: Optional[int] = None
+    translation_detected_number: Optional[str] = None
+    translation_title_ht: Optional[str] = None
+    translation_page_from: Optional[int] = None
+    translation_page_to: Optional[int] = None
+    translation_summary_ht: Optional[str] = None
+    companion_documents: Optional[List[CompanionDocument]] = None
+
     created_at: datetime
     updated_at: datetime
 
@@ -126,7 +148,27 @@ class MoniteurEntryRead(BaseModel):
             result.promoted_legal_text_title_fr = getattr(
                 promoted, "title_fr", None
             )
+        # The translation_issue relationship is loaded if eager-loaded by
+        # the repository; surface its number/year for the UI.
+        trans = getattr(obj, "translation_issue", None)
+        if trans is not None:
+            result.translation_issue_number = getattr(trans, "number", None)
+            result.translation_issue_year = getattr(trans, "year", None)
         return result
+
+
+class MoniteurEntryTranslationUpdate(BaseModel):
+    """Editor-supplied translation pointer for an entry. All fields
+    optional — pass null to a field to clear it. Used by
+    PATCH /editorial/moniteur/entries/{id}/translation."""
+
+    translation_issue_id: Optional[int] = None
+    translation_detected_number: Optional[str] = None
+    translation_title_ht: Optional[str] = None
+    translation_page_from: Optional[int] = None
+    translation_page_to: Optional[int] = None
+    translation_summary_ht: Optional[str] = None
+    companion_documents: Optional[List[CompanionDocument]] = None
 
 
 class MoniteurIssueWithEntries(MoniteurIssueRead):

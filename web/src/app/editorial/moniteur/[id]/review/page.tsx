@@ -19,15 +19,18 @@ import { ErrorBanner } from '@/components/shared/ErrorBanner'
 import { useT } from '@/i18n/useT'
 import {
   getMoniteurIssue,
+  listMoniteurIssues,
   parseMoniteurIssue,
   previewMoniteurEntrySplit,
   promoteMoniteurEntry,
   reviewMoniteurEntry,
+  type MoniteurIssueRead,
   type MoniteurIssueWithEntries,
   type MoniteurEntryRead,
   type TranscriptPreview,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
+import { EntryTranslationPanel } from './_components/EntryTranslationPanel'
 
 // Copy lives at `editorial.moniteur.review.*` in i18n/{fr,ht}.ts.
 
@@ -180,6 +183,38 @@ export default function MoniteurReviewPage() {
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
     }
+  }
+
+  // Candidate issues for the "translation source" picker — all other
+  // issues the editor can attach as a Kreyòl companion. Loaded once
+  // when the page mounts; we don't filter to "same year" because the
+  // 36-a-style companion may be published well after the original.
+  const [candidateIssues, setCandidateIssues] = useState<MoniteurIssueRead[]>([])
+  useEffect(() => {
+    let cancelled = false
+    listMoniteurIssues({ only_published: false, limit: 500 })
+      .then((res) => {
+        if (!cancelled) setCandidateIssues(res.items)
+      })
+      .catch(() => {
+        // Non-fatal — picker will just be empty.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Reflect a translation-pointer update back into the local entry list
+  // without round-tripping the whole issue.
+  const onEntryUpdated = (updated: MoniteurEntryRead) => {
+    setIssue((prev) =>
+      prev
+        ? {
+            ...prev,
+            entries: prev.entries.map((e) => (e.id === updated.id ? updated : e)),
+          }
+        : prev,
+    )
   }
 
   useEffect(() => {
@@ -618,6 +653,17 @@ export default function MoniteurReviewPage() {
                     </Link>
                   </div>
                 )}
+
+                {/* Translation-source panel — lets the editor record the
+                    companion (HT) Moniteur issue + companion documents.
+                    Visible for every entry; collapsed by default when
+                    no pointer is set. */}
+                <EntryTranslationPanel
+                  entry={c}
+                  candidateIssues={candidateIssues}
+                  lang={lang}
+                  onUpdated={onEntryUpdated}
+                />
               </article>
             )
           })}

@@ -34,6 +34,7 @@ from packages.schemas.enums import (
 from packages.schemas.moniteur import (
     EntryReviewInput,
     MoniteurEntryRead,
+    MoniteurEntryTranslationUpdate,
     MoniteurIssueCreate,
     MoniteurIssueRead,
     MoniteurIssueUpdate,
@@ -506,6 +507,64 @@ def review_entry(
         )
     elif payload.review_notes is not None:
         entry.review_notes = payload.review_notes
+    db.commit()
+    db.refresh(entry)
+    return MoniteurEntryRead.model_validate(entry)
+
+
+@router.patch(
+    "/candidates/{candidate_id}/translation",
+    response_model=MoniteurEntryRead,
+    summary="Attach (or clear) translation-source metadata on a Moniteur entry",
+)
+def update_entry_translation(
+    candidate_id: int,
+    payload: MoniteurEntryTranslationUpdate,
+    db: DbSession,
+    user: EditorialUser,
+):
+    """Set the translation pointer on a Moniteur entry.
+
+    When the HT version of this content appears in a companion issue
+    (e.g. 36 → 36-a), the editor records that here rather than
+    re-ingesting the HT issue's sommaire as duplicate candidates.
+
+    Every field on the payload is overwritten. Pass null to clear.
+    """
+    repo = MoniteurRepository(db)
+    entry = repo.get_entry(candidate_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
+
+    # Verify the companion issue exists (if provided) — return a 400
+    # rather than letting the FK fail at flush time so the editor gets
+    # a clean error.
+    if payload.translation_issue_id is not None:
+        companion = repo.get_issue(payload.translation_issue_id)
+        if companion is None:
+            raise HTTPException(400, "translation_issue_id refers to an unknown issue")
+        if companion.id == entry.issue_id:
+            raise HTTPException(
+                400,
+                "translation_issue_id must point to a different issue than the entry's own",
+            )
+
+    docs_payload = (
+        [d.model_dump(exclude_none=True) for d in payload.companion_documents]
+        if payload.companion_documents is not None
+        else None
+    )
+
+    repo.update_entry_translation(
+        entry,
+        translation_issue_id=payload.translation_issue_id,
+        translation_detected_number=payload.translation_detected_number,
+        translation_title_ht=payload.translation_title_ht,
+        translation_page_from=payload.translation_page_from,
+        translation_page_to=payload.translation_page_to,
+        translation_summary_ht=payload.translation_summary_ht,
+        companion_documents=docs_payload,
+    )
     db.commit()
     db.refresh(entry)
     return MoniteurEntryRead.model_validate(entry)

@@ -279,8 +279,37 @@ export type MoniteurEntryRead = {
   promoted_legal_text_title_fr: string | null
   review_notes: string | null
   reviewed_at: string | null
+  /** Translation source — populated when this entry has a known
+   *  Kreyòl-companion publication (the "36 → 36-a" pattern). */
+  translation_issue_id: number | null
+  translation_issue_number: string | null
+  translation_issue_year: number | null
+  translation_detected_number: string | null
+  translation_title_ht: string | null
+  translation_page_from: number | null
+  translation_page_to: number | null
+  translation_summary_ht: string | null
+  companion_documents: Array<{
+    kind: string
+    pages?: string | null
+    note?: string | null
+  }> | null
   created_at: string
   updated_at: string
+}
+
+export type MoniteurEntryTranslationPayload = {
+  translation_issue_id: number | null
+  translation_detected_number?: string | null
+  translation_title_ht?: string | null
+  translation_page_from?: number | null
+  translation_page_to?: number | null
+  translation_summary_ht?: string | null
+  companion_documents?: Array<{
+    kind: string
+    pages?: string | null
+    note?: string | null
+  }> | null
 }
 
 /** @deprecated Use MoniteurEntryRead instead */
@@ -439,6 +468,20 @@ export async function reviewMoniteurEntry(
 
 /** @deprecated Use reviewMoniteurEntry instead */
 export const reviewMoniteurCandidate = reviewMoniteurEntry
+
+/** Attach or clear the translation pointer on a Moniteur entry — used
+ *  when a Kreyòl-companion issue (e.g. 36-a) is the source of the HT
+ *  version of this content. The companion documents JSON describes any
+ *  side-documents (lettre de promulgation, etc.) that appear with it. */
+export async function setMoniteurEntryTranslation(
+  id: number,
+  payload: MoniteurEntryTranslationPayload,
+) {
+  return apiPatch<MoniteurEntryRead>(
+    `/moniteur/candidates/${id}/translation`,
+    payload,
+  )
+}
 
 export type TranscriptPreview = components['schemas']['TranscriptPreview']
 
