@@ -346,6 +346,140 @@ def update_article_content(
 
 
 # -----------------------------------------------------------------------
+# Translation parsing — late-binding Kreyòl import for an existing text
+# -----------------------------------------------------------------------
+
+
+class TranslationMatchResponse(BaseModel):
+    """One FR article paired with its HT match (if any) from the
+    parsed translation file. Returned by /parse-translation so the
+    UI can render a side-by-side preview before the editor commits."""
+
+    article_id: int
+    article_number: str
+    article_slug: str
+    existing_text_fr: Optional[str] = None
+    existing_text_ht: Optional[str] = None
+    parsed_content_ht: Optional[str] = None
+    parsed_title_ht: Optional[str] = None
+    # status: 'matched' | 'fr_only' (no HT counterpart in the parsed
+    # file) | 'existing_ht' (existing text_ht would be overwritten)
+    status: str
+
+
+class TranslationParseResponse(BaseModel):
+    """Bulk-translation preview returned by /parse-translation."""
+
+    legal_text_slug: str
+    matches: List[TranslationMatchResponse]
+    warnings: List[str] = []
+    fr_article_count: int = 0
+    parsed_ht_count: int = 0
+    matched_count: int = 0
+    preamble_ht: Optional[str] = None
+
+
+@router.post(
+    "/legal-texts/{slug}/parse-translation",
+    response_model=TranslationParseResponse,
+    summary="Parse a Kreyòl translation DOCX and align against existing FR articles",
+)
+async def parse_translation(
+    slug: str,
+    db: DbSession,
+    user: EditorialUser,
+    file: UploadFile = FastAPIFile(
+        ...,
+        description="Kreyòl translation file (PDF/DOCX/TXT) to align against "
+        "the existing FR articles of this legal text",
+    ),
+):
+    """Stateless preview — parse the uploaded HT file, then align by
+    article number against the legal_text's current FR articles.
+
+    Returns a TranslationParseResponse with one entry per FR article,
+    annotated with the matched HT text where applicable. Persistence
+    happens in a separate step (POST /legal-texts/{slug}/apply-
+    translation) once the editor confirms the alignment.
+    """
+    from services.corpus.repository import CorpusRepository  # noqa: PLC0415
+    from services.ingestion.article_split import _normalize_number  # noqa: PLC0415
+
+    repo = CorpusRepository(db)
+    text = repo.get_text_by_slug(
+        slug,
+        editorial_status=None,
+        with_articles=True,
+    )
+    if text is None:
+        raise HTTPException(404, f"LegalText not found: {slug}")
+
+    ht_result = await _save_and_parse(file)
+
+    ht_by_number: dict[str, object] = {}
+    duplicate_ht: set[str] = set()
+    for ha in ht_result.articles:
+        key = _normalize_number(ha.number)
+        if key in ht_by_number:
+            duplicate_ht.add(key)
+        ht_by_number[key] = ha
+
+    matches: list[TranslationMatchResponse] = []
+    matched = 0
+    matched_keys: set[str] = set()
+    for art in text.articles:
+        # Each article's current version holds the live text_fr/text_ht
+        cur = getattr(art, "current_version", None)
+        fr_text = getattr(cur, "text_fr", None) if cur else None
+        ht_text = getattr(cur, "text_ht", None) if cur else None
+        key = _normalize_number(art.number)
+        ha = ht_by_number.get(key)
+        status = "fr_only"
+        parsed_ht: Optional[str] = None
+        parsed_title_ht: Optional[str] = None
+        if ha is not None:
+            matched += 1
+            matched_keys.add(key)
+            parsed_ht = getattr(ha, "content_fr", None)  # parser stores raw text in content_fr regardless of language
+            parsed_title_ht = getattr(ha, "title", None)
+            status = "existing_ht" if ht_text else "matched"
+        matches.append(
+            TranslationMatchResponse(
+                article_id=art.id,
+                article_number=art.number,
+                article_slug=art.slug,
+                existing_text_fr=fr_text,
+                existing_text_ht=ht_text,
+                parsed_content_ht=parsed_ht,
+                parsed_title_ht=parsed_title_ht,
+                status=status,
+            )
+        )
+
+    warnings: list[str] = list(ht_result.warnings)
+    orphan = len(ht_result.articles) - len(matched_keys)
+    if orphan > 0:
+        warnings.append(
+            f"{orphan} article(s) HT du fichier sans équivalent FR — vérifier la numérotation."
+        )
+    if duplicate_ht:
+        warnings.append(
+            "Numéros d'article dupliqués dans le fichier HT: "
+            + ", ".join(sorted(duplicate_ht))
+        )
+
+    return TranslationParseResponse(
+        legal_text_slug=slug,
+        matches=matches,
+        warnings=warnings,
+        fr_article_count=len(text.articles),
+        parsed_ht_count=len(ht_result.articles),
+        matched_count=matched,
+        preamble_ht=ht_result.preamble or None,
+    )
+
+
+# -----------------------------------------------------------------------
 # State transitions
 # -----------------------------------------------------------------------
 

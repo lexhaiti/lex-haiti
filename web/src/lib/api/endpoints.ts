@@ -607,6 +607,56 @@ export type DocumentParseResponse = {
  * Routes through a local Next.js API route for the same reason as
  * Moniteur uploads — large multipart uploads choke the dev rewrite.
  */
+export type TranslationMatchResponse = {
+  article_id: number
+  article_number: string
+  article_slug: string
+  existing_text_fr: string | null
+  existing_text_ht: string | null
+  parsed_content_ht: string | null
+  parsed_title_ht: string | null
+  status: 'matched' | 'fr_only' | 'existing_ht'
+}
+
+export type TranslationParseResponse = {
+  legal_text_slug: string
+  matches: TranslationMatchResponse[]
+  warnings: string[]
+  fr_article_count: number
+  parsed_ht_count: number
+  matched_count: number
+  preamble_ht: string | null
+}
+
+/**
+ * Parse a Kreyòl translation DOCX and align against an existing legal
+ * text's FR articles. Returns one row per FR article with the matched
+ * HT text (if any). The caller renders a side-by-side preview before
+ * committing each row via the per-article PATCH endpoint.
+ */
+export async function parseTranslation(
+  slug: string,
+  file: File,
+): Promise<TranslationParseResponse> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch(
+    `/api/editorial/legal-texts/${encodeURIComponent(slug)}/parse-translation`,
+    { method: 'POST', body: fd },
+  )
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      const body = await r.json()
+      detail = body?.detail ?? body?.error?.message
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `Translation parse failed (HTTP ${r.status})`)
+  }
+  return (await r.json()) as TranslationParseResponse
+}
+
 export async function parseDocument(
   file: File,
   fileHt?: File | null,
