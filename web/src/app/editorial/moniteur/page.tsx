@@ -169,7 +169,7 @@ export default function MoniteurDashboardPage() {
       <div className="container py-12 lg:py-16">
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <Link
-            href="/editorial/moniteur/import"
+            href="/editorial/import?type=moniteur"
             className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-5 py-2.5 text-sm font-semibold hover:bg-primary/90 transition-colors group"
           >
             <Plus className="w-4 h-4" />

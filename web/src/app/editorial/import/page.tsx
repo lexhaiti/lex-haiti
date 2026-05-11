@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowRight, FileText, LayoutDashboard, Newspaper } from 'lucide-react'
 
@@ -17,7 +18,13 @@ type Tab = 'legal' | 'moniteur'
 
 export default function EditorialImportPage() {
   const { t } = useT()
-  const [tab, setTab] = useState<Tab>('legal')
+  // `?type=moniteur` lets the Moniteur list-page deep-link straight into
+  // the Moniteur import panel (the prior implementation pointed at a
+  // dead /editorial/moniteur/import path). Default stays "legal".
+  const searchParams = useSearchParams()
+  const initialTab: Tab =
+    searchParams?.get('type') === 'moniteur' ? 'moniteur' : 'legal'
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
     <div className="min-h-screen bg-white">

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
-import { LogOut, Plus, ShieldCheck, User as UserIcon } from 'lucide-react'
+import { LayoutDashboard, LogOut, Plus, ShieldCheck, User as UserIcon } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -101,6 +101,12 @@ export function UserMenu({ className }: { className?: string }) {
           <Link href="/profile" className="cursor-pointer">
             <UserIcon className="mr-2 h-4 w-4" />
             {t('userMenu.profile')}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/editorial" className="cursor-pointer">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            {t('userMenu.editorial')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
