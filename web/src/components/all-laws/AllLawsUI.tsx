@@ -252,28 +252,6 @@ export function AllLawsUI({
                   : 'Eksplore tout lejislasyon ayisyen an.')}
             </motion.p>
 
-            {/* Editor-only import shortcut — pre-selects the
-                legal_text path of the import wizard. Hidden from the
-                public so /lois stays focused on browsing. */}
-            {isEditor && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="mt-4"
-              >
-                <Link
-                  href="/editorial/import?type=legal_text"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 text-slate-900 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {t?.('allLaws.importButton') ??
-                    (lang === 'fr'
-                      ? 'Importer un texte juridique'
-                      : 'Enpòte yon tèks jiridik')}
-                </Link>
-              </motion.div>
-            )}
             {/* No header-level result count — the count lives in the
                 filter bar below, next to the filter controls where it
                 actually responds to filter changes. Keeping both led
@@ -326,6 +304,33 @@ export function AllLawsUI({
               </span>
             </button>
           </motion.form>
+
+          {/* Editor-only action row in the hero — sits directly under
+              the search box, mirroring the /moniteur layout. Contains
+              the Tous / Publiés / Brouillons editorial-status filter
+              and the "Importer un texte juridique" CTA side-by-side.
+              ``editorialSlot`` is removed from the filter bar below so
+              there's only one filter, not two. */}
+          {isEditor && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.32 }}
+              className="mt-4 flex flex-wrap items-center gap-3"
+            >
+              {editorialSlot}
+              <Link
+                href="/editorial/import?type=legal_text"
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 text-slate-900 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t?.('allLaws.importButton') ??
+                  (lang === 'fr'
+                    ? 'Importer un texte juridique'
+                    : 'Enpòte yon tèks jiridik')}
+              </Link>
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -341,7 +346,10 @@ export function AllLawsUI({
                 onThemesChange={onThemesChange}
                 currentLang={lang}
               />
-              {editorialSlot}
+              {/* ``editorialSlot`` (Tous / Publiés / Brouillons filter)
+                  was moved up into the hero — see the editor row right
+                  under the search box. Filter-bar stays for category
+                  + theme chips only. */}
             </div>
 
             {/* View Toggle */}

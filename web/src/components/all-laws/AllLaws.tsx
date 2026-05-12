@@ -45,7 +45,14 @@ export default function AllLaws() {
   const [editorialStatus, setEditorialStatus] =
     useState<EditorialStatusFilter>('all')
 
-  // Parse URL params once/when they change
+  // Parse URL params and seed the page's filter state. We REPLACE the
+  // entire filter object on every URL change rather than merge in —
+  // otherwise, navigating from ``/lois?category=constitution&theme=foo``
+  // to ``/lois?category=loi`` (or to plain ``/lois``) would leave the
+  // old ``category`` / ``theme`` values stuck because the conditional
+  // spread didn't clear missing params. The user-facing symptom was:
+  // clicking "Codes & Lois → Lois" while already on the constitution
+  // page didn't actually switch filters until a hard refresh.
   useEffect(() => {
     if (!searchParams) return
 
@@ -66,13 +73,19 @@ export default function AllLaws() {
 
     setThemes(themeParams)
 
-    setFilters((prev) => ({
-      ...prev,
-      ...(category ? { category } : {}),
-      ...(codeSubcategory ? { codeSubcategory } : {}),
-      ...(sort ? { sort } : {}),
-      ...(status ? { status } : {}),
-    }))
+    setFilters({
+      category: category ?? 'all',
+      codeSubcategory: codeSubcategory ?? 'all',
+      year: 'all',
+      status: status ?? 'all',
+      sort: sort ?? 'newest',
+    })
+
+    // Editorial status (Tous / Publiés / Brouillons) is editor-only
+    // state, not URL-driven — but it should also reset on a fresh
+    // nav into /lois so the editor doesn't carry over a draft filter
+    // across category switches.
+    setEditorialStatus('all')
   }, [searchParams])
 
   const { items, total, isLoading, loadMore, canLoadMore, refresh } =
