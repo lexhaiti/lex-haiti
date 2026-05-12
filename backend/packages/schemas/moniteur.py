@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,6 +21,7 @@ from packages.schemas.enums import (
     MoniteurCandidateStatus,
     MoniteurDocumentType,
     MoniteurIssueStatus,
+    ParserProfile,
 )
 
 
@@ -129,6 +130,14 @@ class MoniteurEntryRead(BaseModel):
     confidence: Optional[Decimal] = None
     page_from: Optional[int] = None
     page_to: Optional[int] = None
+
+    # Effective parser profile for this entry. NULL means "auto-pick
+    # from detected_category at parse time". Editor-overridable.
+    parser_profile: Optional[ParserProfile] = None
+    # Typed parser output (ParserOutput as dict) — read-only for the
+    # client; updated server-side when /parse runs or the editor changes
+    # the parser_profile and asks for a re-parse.
+    content_ast: Optional[Dict[str, Any]] = None
 
     review_status: MoniteurCandidateStatus
     promoted_legal_text_id: Optional[int] = None
@@ -278,3 +287,20 @@ class EntryReviewInput(BaseModel):
     # changes to the OCR text in the review page's edit mode. None means
     # "no change" — distinct from "" which would clear the field.
     raw_text: Optional[str] = None
+
+
+class MoniteurEntryParserProfileUpdate(BaseModel):
+    """Editor override for which parser profile runs on this entry.
+
+    Used by PATCH /editorial/moniteur/entries/{id}/parser-profile.
+    Sending ``parser_profile = None`` clears the override and falls back
+    to "auto-pick from detected_category" on the next parse.
+
+    When ``rerun = True``, the typ-specific parser is invoked
+    synchronously and ``content_ast`` is refreshed in the same request.
+    Otherwise the override is saved but the AST stays stale until the
+    next /parse run.
+    """
+
+    parser_profile: Optional[ParserProfile] = None
+    rerun: bool = True

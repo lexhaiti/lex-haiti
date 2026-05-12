@@ -24,6 +24,18 @@ export type SearchHit = components['schemas']['SearchHit']
 export type GlobalSearchResponse =
   components['schemas']['GlobalSearchResponse']
 export type LegalCategory = components['schemas']['LegalCategory']
+
+/** Which parser strategy runs on a normalised document. Mirrors the
+ *  backend ParserProfile enum. NULL on a MoniteurEntry means "auto-pick
+ *  from detected_category at parse time". */
+export type ParserProfile =
+  | 'generic'
+  | 'constitution'
+  | 'code'
+  | 'loi'
+  | 'executive_act'
+  | 'circulaire'
+  | 'communique'
 export type CodeSubcategory = components['schemas']['CodeSubcategory']
 export type LegalStatus = components['schemas']['LegalStatus']
 export type DecisionListItem = components['schemas']['DecisionListItem']
@@ -274,6 +286,15 @@ export type MoniteurEntryRead = {
   page_from: number | null
   page_to: number | null
   review_status: 'pending' | 'accepted' | 'rejected' | 'deferred'
+  /** Parser-profile override. NULL means "auto-pick from
+   *  detected_category at parse time". Editor-set when the auto
+   *  classification is off. */
+  parser_profile: ParserProfile | null
+  /** Typed parser output — TOC nodes, articles, signatures, parser
+   *  metadata, warnings. Read-only on the client; refreshed when /parse
+   *  runs on the parent issue or the editor changes parser_profile with
+   *  rerun=true. */
+  content_ast: Record<string, unknown> | null
   promoted_legal_text_id: number | null
   promoted_legal_text_slug: string | null
   promoted_legal_text_title_fr: string | null
@@ -520,6 +541,21 @@ export async function setMoniteurEntryTranslation(
 ) {
   return apiPatch<MoniteurEntryRead>(
     `/moniteur/candidates/${id}/translation`,
+    payload,
+  )
+}
+
+/** Pin (or clear) the parser-profile override on a Moniteur entry. When
+ *  `rerun` is true the typed parser runs synchronously and the entry's
+ *  `content_ast` is refreshed in the same request. Otherwise the
+ *  override is saved but the AST stays stale until the next /parse run
+ *  on the parent issue. */
+export async function setMoniteurEntryParserProfile(
+  id: number,
+  payload: { parser_profile: ParserProfile | null; rerun?: boolean },
+) {
+  return apiPatch<MoniteurEntryRead>(
+    `/moniteur/candidates/${id}/parser-profile`,
     payload,
   )
 }

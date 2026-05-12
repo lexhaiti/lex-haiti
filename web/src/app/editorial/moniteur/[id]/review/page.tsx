@@ -31,6 +31,7 @@ import {
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 import { EntryTranslationPanel } from './_components/EntryTranslationPanel'
+import { ParserProfileChip } from './_components/ParserProfileChip'
 
 // Copy lives at `editorial.moniteur.review.*` in i18n/{fr,ht}.ts.
 
@@ -413,6 +414,25 @@ export default function MoniteurReviewPage() {
                       </span>
                     )}
                   </div>
+                  <ParserProfileChip
+                    entry={c}
+                    disabled={isFinal}
+                    onSaved={(next) => {
+                      // Patch the entry in place so the rest of the
+                      // card (raw_text, structure preview) reflects the
+                      // refreshed content_ast without a full refetch.
+                      setIssue((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              entries: prev.entries.map((e) =>
+                                e.id === next.id ? next : e,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }}
+                  />
                 </header>
 
                 {editingFields?.candidateId === c.id ? (

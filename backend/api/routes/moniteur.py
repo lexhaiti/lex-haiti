@@ -33,6 +33,7 @@ from packages.schemas.enums import (
 )
 from packages.schemas.moniteur import (
     EntryReviewInput,
+    MoniteurEntryParserProfileUpdate,
     MoniteurEntryRead,
     MoniteurEntryTranslationUpdate,
     MoniteurIssueCreate,
@@ -634,6 +635,50 @@ def update_entry_translation(
         translation_summary_ht=payload.translation_summary_ht,
         companion_documents=docs_payload,
     )
+    db.commit()
+    db.refresh(entry)
+    return MoniteurEntryRead.model_validate(entry)
+
+
+@router.patch(
+    "/candidates/{candidate_id}/parser-profile",
+    response_model=MoniteurEntryRead,
+    summary="Override which parser profile runs on a Moniteur entry",
+)
+def update_entry_parser_profile(
+    candidate_id: int,
+    payload: MoniteurEntryParserProfileUpdate,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — auth dep
+):
+    """Set (or clear) the parser-profile override on a Moniteur entry.
+
+    When the auto-classification picks the wrong profile (e.g. an
+    arrêté that's structurally closer to a circulaire), the editor can
+    pin a specific profile here. ``None`` clears the override and falls
+    back to ``profile_for_category(detected_category)`` on the next
+    parse.
+
+    When ``rerun`` is true (default), the typed parser runs
+    synchronously and ``content_ast`` is refreshed in the same request.
+    Otherwise the override is saved but the AST stays stale until the
+    next /parse run on the parent issue.
+    """
+    repo = MoniteurRepository(db)
+    entry = repo.get_entry(candidate_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
+    if entry.promoted_legal_text_id is not None:
+        raise HTTPException(
+            400,
+            "Entry has already been promoted — re-parsing is not allowed. "
+            "Delete the promoted LegalText first if you need to re-parse.",
+        )
+
+    entry.parser_profile = payload.parser_profile
+    if payload.rerun:
+        repo.run_typed_parser_for_entry(entry, entry.raw_text or "")
+
     db.commit()
     db.refresh(entry)
     return MoniteurEntryRead.model_validate(entry)

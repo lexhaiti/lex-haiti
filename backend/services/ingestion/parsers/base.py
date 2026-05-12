@@ -120,6 +120,54 @@ class ParserOutput:
     warnings: list[str] = field(default_factory=list)
     parser_confidence: float = 0.0
 
+    def to_dict(self) -> dict:
+        """JSONB-friendly representation — flattens enums to their string
+        values and dataclasses to plain dicts. Use this when persisting
+        the output to a JSONB column or sending it over the wire.
+        """
+        return {
+            "profile": self.profile.value,
+            "category_guess": (
+                self.category_guess.value if self.category_guess else None
+            ),
+            "title_fr": self.title_fr,
+            "title_ht": self.title_ht,
+            "metadata": dict(self.metadata),
+            "toc": [
+                {
+                    "block_kind": n.block_kind,
+                    "level": n.level,
+                    "key": n.key,
+                    "number": n.number,
+                    "title_fr": n.title_fr,
+                    "title_ht": n.title_ht,
+                    "body_fr": n.body_fr,
+                    "body_ht": n.body_ht,
+                    "position": n.position,
+                    "parent_key": n.parent_key,
+                    "confidence": n.confidence,
+                }
+                for n in self.toc
+            ],
+            "articles": [
+                {
+                    "number": a.number,
+                    "toc_node_key": a.toc_node_key,
+                    "title_fr": a.title_fr,
+                    "title_ht": a.title_ht,
+                    "text_fr": a.text_fr,
+                    "text_ht": a.text_ht,
+                    "confidence": a.confidence,
+                    "heading_path": list(a.heading_path),
+                }
+                for a in self.articles
+            ],
+            "promulgation": self.promulgation,
+            "signatures": list(self.signatures),
+            "warnings": list(self.warnings),
+            "parser_confidence": self.parser_confidence,
+        }
+
 
 # ---------------------------------------------------------------------------
 # Shared regex — kept in one place

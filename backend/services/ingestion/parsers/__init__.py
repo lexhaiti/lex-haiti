@@ -20,7 +20,12 @@ Usage:
 from __future__ import annotations
 
 from .base import BaseParser, ParserContext, ParserOutput
-from .registry import select_parser, get_parser, available_profiles
+from .registry import (
+    available_profiles,
+    get_parser,
+    profile_for_category,
+    select_parser,
+)
 
 __all__ = [
     "BaseParser",
@@ -28,5 +33,6 @@ __all__ = [
     "ParserOutput",
     "select_parser",
     "get_parser",
+    "profile_for_category",
     "available_profiles",
 ]

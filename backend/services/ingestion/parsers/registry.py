@@ -13,7 +13,11 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from packages.schemas.enums import LegalCategory, ParserProfile
+from packages.schemas.enums import (
+    LegalCategory,
+    MoniteurDocumentType,
+    ParserProfile,
+)
 
 from .base import BaseParser
 from .circulaire import CirculaireParser
@@ -43,6 +47,45 @@ def available_profiles() -> list[ParserProfile]:
 def get_parser(profile: ParserProfile) -> BaseParser:
     cls = _REGISTRY[profile]
     return cls()
+
+
+# ---------------------------------------------------------------------------
+# Category → Profile mapping
+# ---------------------------------------------------------------------------
+
+
+# Mapping shared between LegalCategory and MoniteurDocumentType — both
+# enums use the same string values for the overlapping types, so a
+# single string-keyed table covers both. Anything not in the map (or
+# explicitly mapped to ``None``) falls back to the generic profile —
+# convention / errata / promulgation / autre / other_regulatory.
+_CATEGORY_TO_PROFILE: dict[str, ParserProfile] = {
+    "constitution": ParserProfile.constitution,
+    "code": ParserProfile.code,
+    "loi": ParserProfile.loi,
+    "decret": ParserProfile.executive_act,
+    "arrete": ParserProfile.executive_act,
+    "ordonnance": ParserProfile.executive_act,
+    "circulaire": ParserProfile.circulaire,
+    "communique": ParserProfile.communique,
+    "avis": ParserProfile.communique,
+}
+
+
+def profile_for_category(
+    category: LegalCategory | MoniteurDocumentType | str | None,
+) -> ParserProfile:
+    """Return the parser profile to use for a given document category.
+
+    Accepts ``LegalCategory``, ``MoniteurDocumentType``, the raw string
+    value of either, or ``None``. Unmapped values (convention, errata,
+    promulgation, autre, other_regulatory, ``None``) fall back to the
+    generic profile.
+    """
+    if category is None:
+        return ParserProfile.generic
+    key = category.value if hasattr(category, "value") else str(category)
+    return _CATEGORY_TO_PROFILE.get(key, ParserProfile.generic)
 
 
 # ---------------------------------------------------------------------------
@@ -135,5 +178,6 @@ def select_parser(
 __all__ = [
     "available_profiles",
     "get_parser",
+    "profile_for_category",
     "select_parser",
 ]

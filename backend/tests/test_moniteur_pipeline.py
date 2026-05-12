@@ -135,3 +135,67 @@ def test_extract_issue_metadata_returns_blank_for_unstructured_text(tmp_path):
     md = extract_issue_metadata(str(fake_pdf))
     from services.ingestion.moniteur.metadata import IssueMetadata
     assert isinstance(md, IssueMetadata)
+
+
+# --------------------------------------------------------------------------- #
+# profile_for_category: type-hint → typ-spezifischer Parser                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_profile_for_category_maps_legal_categories():
+    """The category-to-profile table must cover the LegalCategory values
+    the Moniteur pipeline actually emits — anything missing falls back to
+    generic, which is fine but means the typ-specific logic doesn't run."""
+    from packages.schemas.enums import MoniteurDocumentType, ParserProfile
+    from services.ingestion.parsers import profile_for_category
+
+    # Direct mappings — the ones that have a dedicated profile.
+    assert profile_for_category(LegalCategory.constitution) == ParserProfile.constitution
+    assert profile_for_category(LegalCategory.code) == ParserProfile.code
+    assert profile_for_category(LegalCategory.loi) == ParserProfile.loi
+    assert profile_for_category(LegalCategory.decret) == ParserProfile.executive_act
+    assert profile_for_category(LegalCategory.arrete) == ParserProfile.executive_act
+    assert profile_for_category(LegalCategory.circulaire) == ParserProfile.circulaire
+    assert profile_for_category(LegalCategory.communique) == ParserProfile.communique
+
+    # MoniteurDocumentType values (separate enum, same string values for
+    # the overlap) must resolve to the same profiles.
+    assert profile_for_category(MoniteurDocumentType.loi) == ParserProfile.loi
+    assert profile_for_category(MoniteurDocumentType.decret) == ParserProfile.executive_act
+
+    # Unmapped / no hint → generic (rather than raising).
+    assert profile_for_category(None) == ParserProfile.generic
+    assert profile_for_category(MoniteurDocumentType.errata) == ParserProfile.generic
+    assert profile_for_category(MoniteurDocumentType.autre) == ParserProfile.generic
+
+
+def test_parser_output_to_dict_roundtrip():
+    """``ParserOutput.to_dict`` must produce a structure that survives
+    JSON serialisation — enums collapse to their string values, dataclass
+    children become plain dicts. This is what gets persisted on
+    ``MoniteurEntry.content_ast``."""
+    import json
+
+    from services.ingestion.parsers import (
+        ParserContext,
+        get_parser,
+        profile_for_category,
+    )
+
+    text = (
+        "LOI N° 2026-01 portant test.\n"
+        "Le Corps législatif a voté la loi suivante :\n"
+        "Article 1er. — Première disposition.\n\n"
+        "Article 2. — Seconde disposition.\n"
+    )
+    parser = get_parser(profile_for_category(LegalCategory.loi))
+    output = parser.parse(ParserContext(normalized_text=text))
+    payload = output.to_dict()
+
+    # Round-trip through JSON to catch any non-serialisable leftovers.
+    encoded = json.dumps(payload)
+    assert "loi" in encoded  # profile value made it through
+    decoded = json.loads(encoded)
+    assert decoded["profile"] == "loi"
+    assert isinstance(decoded["articles"], list)
+    assert len(decoded["articles"]) >= 1

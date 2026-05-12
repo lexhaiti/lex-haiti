@@ -6,6 +6,7 @@ orchestration, and promotion of entries to LegalText.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
@@ -14,11 +15,13 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.types import String
 
 from packages.schemas.enums import (
+    BlockKind,
     EditorialStatus,
     LegalCategory,
     LegalStatus,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
+    ParserProfile,
 )
 from services.corpus.models import (
     Article,
@@ -38,6 +41,12 @@ from services.ingestion.moniteur.parser import (
     run_pipeline,
 )
 from services.ingestion.ocr import extract_text_from_pdf
+from services.ingestion.parsers import (
+    ParserContext,
+    ParserOutput,
+    get_parser,
+    profile_for_category,
+)
 
 
 class MoniteurRepository:
@@ -307,7 +316,14 @@ class MoniteurRepository:
     def replace_entries(
         self, issue: MoniteurIssue, parsed: List[ParsedCandidate]
     ) -> List[MoniteurEntry]:
-        """Drop existing unpromoted entries and write new parser output."""
+        """Drop existing unpromoted entries and write new parser output.
+
+        For each newly-created entry, also run the typ-specific parser
+        on its sliced ``raw_text`` and persist the structured output as
+        ``content_ast`` — same logic as the pre-filled path, just on
+        chunks produced by the heuristic boundary detector instead of
+        the editor's declared page ranges.
+        """
         for old in list(issue.entries):
             if old.promoted_legal_text_id is None:
                 self.session.delete(old)
@@ -328,6 +344,8 @@ class MoniteurRepository:
                 page_to=p.page_to,
             )
             self.session.add(row)
+            self.session.flush()  # materialise so .id exists for later refs
+            self.run_typed_parser_for_entry(row, p.raw_text)
             out.append(row)
         self.session.flush()
         return out
@@ -375,12 +393,20 @@ class MoniteurRepository:
         issue: MoniteurIssue,
         pages: List[str],
     ) -> List[MoniteurEntry]:
-        """Populate raw_text + provenance for pre-filled sommaire entries.
+        """Populate raw_text + content_ast for pre-filled sommaire entries.
 
         Pages are 1-indexed in the Moniteur's printed numbering, so we
         translate to the 0-indexed pages array. If page_from / page_to
         are out of range we silently clamp — the editor will see the
         anomaly on review.
+
+        After slicing each entry's text out of the page range, runs the
+        typ-specific parser for that entry's category (or its
+        editor-overridden ``parser_profile``) and persists the structured
+        ``ParserOutput`` as ``content_ast``. This is the bridge between
+        "the sommaire knows the type and page range" and "the typed
+        parser registry exists" — the type hint becomes a real parser
+        invocation, not just a label.
         """
         total = len(pages)
         for entry in issue.entries:
@@ -394,10 +420,52 @@ class MoniteurRepository:
                 pages[i] for i in range(lo - 1, hi) if pages[i].strip()
             )
             entry.raw_text = chunk
+            # Run the typ-specific parser on the sliced chunk.
+            self.run_typed_parser_for_entry(entry, chunk)
             # Confidence is high — the boundaries were declared, not guessed.
             entry.confidence = None
         self.session.flush()
         return list(issue.entries)
+
+    def run_typed_parser_for_entry(
+        self, entry: MoniteurEntry, text: str
+    ) -> Optional[ParserOutput]:
+        """Run the parser profile associated with this entry on ``text``
+        and persist the structured output on ``entry.content_ast``.
+
+        Profile precedence:
+          1. ``entry.parser_profile`` (editor override) when set
+          2. ``profile_for_category(entry.detected_category)`` otherwise
+
+        Failures are swallowed and recorded as a warning in
+        ``content_ast.warnings`` — a parse error on one entry must not
+        abort the whole issue. Returns the ``ParserOutput`` for callers
+        that want to use it inline (e.g. backfilling
+        ``detected_title``).
+        """
+        if not text or not text.strip():
+            entry.content_ast = None
+            return None
+
+        profile = entry.parser_profile or profile_for_category(
+            entry.detected_category
+        )
+        try:
+            parser = get_parser(profile)
+            output = parser.parse(ParserContext(normalized_text=text))
+        except Exception as exc:  # noqa: BLE001 — per-entry fault isolation
+            entry.content_ast = {
+                "profile": profile.value,
+                "warnings": [f"{type(exc).__name__}: {exc}"],
+                "parser_confidence": 0.0,
+            }
+            return None
+
+        entry.content_ast = output.to_dict()
+        # Auto-fill detected_title when blank and the parser found one.
+        if not entry.detected_title and output.title_fr:
+            entry.detected_title = output.title_fr[:240]
+        return output
 
     # -------------------------------------------------------------------
     # Pipeline orchestration
@@ -508,15 +576,25 @@ class MoniteurRepository:
     ) -> LegalText:
         """Create a draft LegalText from an entry and link it back.
 
-        Uses the full document parser so structural headings (TITRE,
-        CHAPITRE, SECTION …) are detected and stored as LegalHeading
-        rows, giving the law detail page a proper table of contents.
+        Two parsing paths, the first one preferred:
+
+        - **AST-driven** — when ``entry.content_ast`` was produced by a
+          typ-specific parser at parse time. We read the structured
+          formal blocks, structural headings, and articles straight out
+          of the AST. This is the path that benefits from profile-aware
+          quirks (CodeParser strips formal blocks, ConstitutionParser
+          handles DISPOSITIONS TRANSITOIRES as annex, etc.).
+        - **Legacy** — when no AST is available (older entries from
+          before 0018, or entries whose typed parser failed). Falls back
+          to the generic ``parse_document`` + ``split_preamble`` flow.
         """
-        doc = parse_document(entry.raw_text or "")
-        has_articles = len(doc.articles) > 0
-        parts = split_preamble(doc.preamble)
-        if parts.preamble and _is_heading_only(parts.preamble):
-            parts.preamble = None
+        ast = entry.content_ast or None
+        if ast and (ast.get("articles") or ast.get("toc")):
+            promotion = _promotion_from_ast(ast)
+        else:
+            promotion = _promotion_from_legacy(entry.raw_text or "")
+
+        has_articles = len(promotion.articles) > 0
         legal_text = LegalText(
             slug=slug,
             category=category,
@@ -525,11 +603,11 @@ class MoniteurRepository:
             description_fr=description_fr or (
                 None if has_articles else (entry.raw_text or "")[:500]
             ),
-            preamble_fr=parts.preamble,
-            visas_fr=parts.visas,
-            considerants_fr=parts.considerants,
-            enacting_formula_fr=parts.enacting_formula,
-            official_formula=doc.official_formula,
+            preamble_fr=promotion.preamble,
+            visas_fr=promotion.visas,
+            considerants_fr=promotion.considerants,
+            enacting_formula_fr=promotion.enacting_formula,
+            official_formula=promotion.official_formula,
             publication_date=publication_date or entry.detected_date,
             status=LegalStatus.in_force,
             editorial_status=EditorialStatus.draft,
@@ -540,7 +618,7 @@ class MoniteurRepository:
 
         # --- Structural headings (Titre / Chapitre / Section / …) ---
         key_to_id: dict[str, int] = {}
-        for h in doc.headings:
+        for h in promotion.headings:
             parent_id = key_to_id.get(h.parent_key) if h.parent_key else None
             heading = LegalHeading(
                 legal_text_id=legal_text.id,
@@ -557,7 +635,7 @@ class MoniteurRepository:
 
         # --- Articles (linked to their nearest heading) ---
         seen_slugs: set[str] = set()
-        for position, parsed in enumerate(doc.articles):
+        for position, parsed in enumerate(promotion.articles):
             base_slug = f"art-{_slugify_article_number(parsed.number)}"
             # Deduplicate: the Constitution has sub-articles (60, 60-1)
             # whose numbers can collide after slugification. Use `--`
@@ -647,6 +725,140 @@ def _slugify_article_number(num: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", s)
     s = s.strip("-")
     return s or "n"
+
+
+# ---------------------------------------------------------------------------
+# Promotion bridge — feeds `promote_entry` from either content_ast or legacy
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _PromotionHeading:
+    key: str
+    level: str
+    number: str
+    title_fr: Optional[str]
+    parent_key: Optional[str]
+    position: int
+
+
+@dataclass
+class _PromotionArticle:
+    number: str
+    content_fr: Optional[str]
+    title: Optional[str]
+    heading_key: Optional[str]
+
+
+@dataclass
+class _PromotionPayload:
+    """Shape consumed by ``promote_entry``. Produced either from the
+    typed parser's ``content_ast`` or from the legacy ``parse_document``
+    flow — both paths populate the same fields so the promotion loop
+    doesn't need to know which path it came from."""
+
+    preamble: Optional[str] = None
+    visas: Optional[str] = None
+    considerants: Optional[str] = None
+    enacting_formula: Optional[str] = None
+    official_formula: Optional[str] = None
+    headings: list[_PromotionHeading] = field(default_factory=list)
+    articles: list[_PromotionArticle] = field(default_factory=list)
+
+
+def _promotion_from_ast(ast: dict) -> _PromotionPayload:
+    """Build a ``_PromotionPayload`` straight from a stored
+    ``ParserOutput`` (the JSONB dict on ``MoniteurEntry.content_ast``).
+
+    Filters the TOC by block_kind to lift the four formal blocks plus
+    structural headings; maps articles 1:1. No heuristic fallback —
+    the typed parser already did the work.
+    """
+    payload = _PromotionPayload()
+    toc = ast.get("toc") or []
+
+    def _first_body(kind: str) -> Optional[str]:
+        for node in toc:
+            if node.get("block_kind") == kind:
+                body = node.get("body_fr")
+                if body and body.strip():
+                    return body
+        return None
+
+    payload.preamble = _first_body(BlockKind.preamble.value)
+    payload.visas = _first_body(BlockKind.visa.value)
+    payload.considerants = _first_body(BlockKind.considerant.value)
+    payload.enacting_formula = _first_body(BlockKind.enacting_formula.value)
+    payload.official_formula = _first_body(BlockKind.closing_formula.value)
+
+    if payload.preamble and _is_heading_only(payload.preamble):
+        payload.preamble = None
+
+    for node in toc:
+        if node.get("block_kind") != BlockKind.structural.value:
+            continue
+        payload.headings.append(
+            _PromotionHeading(
+                key=node.get("key") or "",
+                level=node.get("level") or "",
+                number=node.get("number") or "",
+                title_fr=node.get("title_fr"),
+                parent_key=node.get("parent_key"),
+                position=int(node.get("position") or 0),
+            )
+        )
+
+    for a in ast.get("articles") or []:
+        payload.articles.append(
+            _PromotionArticle(
+                number=a.get("number") or "",
+                content_fr=a.get("text_fr"),
+                title=a.get("title_fr"),
+                heading_key=a.get("toc_node_key"),
+            )
+        )
+
+    return payload
+
+
+def _promotion_from_legacy(raw_text: str) -> _PromotionPayload:
+    """Legacy path: feed the raw OCR text through ``parse_document`` +
+    ``split_preamble`` and adapt the result into the same payload
+    shape. Used when ``content_ast`` is empty (older entries from
+    before migration 0018) or the typed parser failed."""
+    doc = parse_document(raw_text)
+    parts = split_preamble(doc.preamble)
+    if parts.preamble and _is_heading_only(parts.preamble):
+        parts.preamble = None
+
+    payload = _PromotionPayload(
+        preamble=parts.preamble,
+        visas=parts.visas,
+        considerants=parts.considerants,
+        enacting_formula=parts.enacting_formula,
+        official_formula=doc.official_formula,
+        headings=[
+            _PromotionHeading(
+                key=h.key,
+                level=h.level,
+                number=h.number,
+                title_fr=h.title_fr,
+                parent_key=h.parent_key,
+                position=h.position,
+            )
+            for h in doc.headings
+        ],
+        articles=[
+            _PromotionArticle(
+                number=a.number,
+                content_fr=a.content_fr,
+                title=a.title,
+                heading_key=a.heading_key,
+            )
+            for a in doc.articles
+        ],
+    )
+    return payload
 
 
 _HEADING_KEYWORD_RE = re.compile(

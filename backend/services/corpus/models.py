@@ -868,6 +868,21 @@ class MoniteurEntry(Base):
     page_from: Mapped[Optional[int]] = mapped_column(Integer)
     page_to: Mapped[Optional[int]] = mapped_column(Integer)
 
+    # Which parser profile to run on this entry's raw_text. NULL means
+    # "auto-pick from detected_category". The editor sets this explicitly
+    # when the classification is off (e.g. a décret that's structurally
+    # closer to a code, or an arrêté that should be treated as a
+    # circulaire). Persisted so re-parses stay deterministic.
+    parser_profile: Mapped[Optional[ParserProfile]] = mapped_column(
+        _enum(ParserProfile, "parser_profile")
+    )
+    # Full typed parser output (ParserOutput serialised) — TOC nodes,
+    # articles, signatures, parser metadata, warnings. Populated at parse
+    # time by the typ-specific parser, consumed by the editor's review
+    # preview and (later) by promote_entry as the source of truth instead
+    # of re-running the legacy parse_document on raw_text.
+    content_ast: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+
     review_status: Mapped[MoniteurCandidateStatus] = mapped_column(
         _enum(MoniteurCandidateStatus, "moniteur_candidate_status"),
         nullable=False,
