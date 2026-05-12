@@ -239,7 +239,7 @@ export function AllLawsUI({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6"
+              className="text-slate-300 text-lg lg:text-xl leading-relaxed"
             >
               {filterSubtitle(themes, lang) ??
                 t?.('allLaws.subtitle') ??

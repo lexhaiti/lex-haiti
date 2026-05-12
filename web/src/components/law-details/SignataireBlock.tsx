@@ -167,20 +167,25 @@ export function SignataireBlock({
               </div>
             </div>
           ) : hasFormula ? (
-            <div className="mb-6 border-l-2 border-amber-300 pl-4">
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {officialFormula}
-              </p>
-            </div>
+            /* Closing formula rendered as italic prose — classic French
+               legal-document convention for "Donné au … le …" formulas.
+               Italic + slightly muted slate + small letter-tracking marks
+               the text as formal-block content without needing a coloured
+               left-rail. */
+            <p className="mb-6 text-sm italic text-slate-600 leading-relaxed tracking-[0.005em] whitespace-pre-wrap">
+              {officialFormula}
+            </p>
           ) : null}
 
-          {/* Lead caption from the structured signers — sits between
-              the formula prose and the names list, like an italic
-              transition sentence. Only renders for the structured
-              case (signers populated), since it derives its phrasing
-              from their capacities. */}
+          {/* Lead caption from the structured signers — italic
+              transition sentence between the formula prose and the
+              names list. Only renders for the structured case
+              (signers populated), since it derives its phrasing from
+              their capacities. Small-caps letter-spacing reinforces
+              its "summary annotation" role vs. the closing prose
+              above and the names below. */}
           {lead && (
-            <p className="text-sm italic text-slate-600 leading-relaxed mb-4 border-l-2 border-amber-300 pl-4">
+            <p className="text-sm italic text-slate-500 leading-relaxed mb-4 tracking-[0.005em]">
               {lead}
             </p>
           )}

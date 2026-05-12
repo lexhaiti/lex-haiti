@@ -83,7 +83,7 @@ export default async function Page() {
             {t('about.title', { fallback: isFr ? 'À Propos' : 'Konsènan' })}
           </h1>
 
-          <p className="text-slate-300 text-lg lg:text-xl leading-relaxed border-l-2 border-red-600 pl-6 animate-in fade-in duration-700 [animation-delay:120ms]">
+          <p className="text-slate-300 text-lg lg:text-xl leading-relaxed animate-in fade-in duration-700 [animation-delay:120ms]">
             {t('about.subtitle', {
               fallback: isFr
                 ? 'Découvrez LexHaiti, la plateforme de référence pour le droit numérique en Haïti.'
