@@ -11,6 +11,7 @@ import {
   type LegalSignerPatch,
   type LegalSignerRead,
 } from '@/lib/api/endpoints'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 /**
  * Editor UI for manually managing the signers list on a legal text.
@@ -127,23 +128,30 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
     }
   }
 
-  async function removeSigner(s: LegalSignerRead) {
-    const ok =
-      typeof window === 'undefined'
-        ? true
-        : window.confirm(
-            lang === 'fr'
-              ? `Supprimer le signataire « ${s.name} » ?`
-              : `Efase siyatè « ${s.name} » ?`,
-          )
-    if (!ok) return
+  // Pending-delete state: when the user clicks the Trash icon we
+  // stash the signer here and open the custom ConfirmDialog. The
+  // actual delete fires when the dialog's "Supprimer" button is
+  // clicked. Lets us show name + a styled modal instead of the
+  // browser's native confirm prompt.
+  const [pendingDelete, setPendingDelete] = useState<LegalSignerRead | null>(
+    null,
+  )
+
+  function requestDelete(s: LegalSignerRead) {
+    setPendingDelete(s)
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
     setBusy(true)
     setError(null)
     try {
-      await deleteLegalSigner(s.id)
+      await deleteLegalSigner(pendingDelete.id)
       onChanged()
+      setPendingDelete(null)
     } catch (e: any) {
       setError(e?.body?.detail ?? String(e))
+      setPendingDelete(null)
     } finally {
       setBusy(false)
     }
@@ -199,7 +207,7 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => removeSigner(s)}
+                    onClick={() => requestDelete(s)}
                     disabled={busy || draft !== null}
                     className="text-slate-400 hover:text-red-600 disabled:opacity-30"
                     aria-label={
@@ -244,6 +252,38 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
       {error && draft === null && (
         <p className="text-xs text-red-600">{error}</p>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setPendingDelete(null)
+        }}
+        onConfirm={confirmDelete}
+        title={
+          lang === 'fr'
+            ? 'Supprimer le signataire ?'
+            : 'Efase siyatè a ?'
+        }
+        description={
+          pendingDelete ? (
+            <>
+              {lang === 'fr'
+                ? 'Le signataire'
+                : 'Siyatè'}{' '}
+              <span className="font-semibold text-slate-900">
+                « {pendingDelete.name} »
+              </span>{' '}
+              {lang === 'fr'
+                ? 'sera retiré de ce texte. Cette action est immédiate.'
+                : 'pral retire nan tèks sa. Aksyon sa imedya.'}
+            </>
+          ) : null
+        }
+        confirmLabel={lang === 'fr' ? 'Supprimer' : 'Efase'}
+        cancelLabel={lang === 'fr' ? 'Annuler' : 'Anile'}
+        destructive
+        loading={busy}
+      />
     </div>
   )
 }
