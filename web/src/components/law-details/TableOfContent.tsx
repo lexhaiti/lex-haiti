@@ -317,41 +317,62 @@ export default function TableOfContents({
 
   const collapseAll = () => setExpandedSections({})
 
-  // Scroll to selected article in TOC
-  React.useEffect(() => {
-    if (selectedArticle) {
-      const el = document.getElementById(`toc-article-${selectedArticle}`)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [selectedArticle])
-
-  // Auto-expand every heading on the active path when the selection
-  // changes. Without this, opening Article 47 (under Titre II ›
-  // Chapitre III) leaves Titre II and Chapitre III collapsed — the
-  // user clicks the article from outside the tree, the tree shows the
-  // red highlight but the article row itself stays hidden inside the
-  // collapsed ancestors. Auto-expansion makes the breadcrumb visible.
+  // Accordion-style expansion: when an article is selected, ONLY the
+  // headings on the path to that article stay expanded. Every other
+  // branch closes. The intent is "let me see exactly where I am, no
+  // distractions" — clicking Article 89 in Titre III shouldn't leave
+  // Titre II's full subtree open and forcing the user to scroll past
+  // it.
   //
-  // We only ADD to expandedSections (never collapse) so the user's
-  // manual collapses on unrelated branches survive. The keys we
-  // expand are the headings' ``key`` strings (the tree is keyed by
-  // ``heading.key``, not ``heading.id``).
+  // Manual user actions (toggleSection / expandAll / collapseAll)
+  // override the accordion: once you click a chevron to open or close
+  // a branch, that survives until the NEXT article selection. The
+  // accordion only re-applies when `activeHeadingIds` changes, i.e.
+  // when a new article is picked — not on every render.
   React.useEffect(() => {
     if (!activeHeadingIds || activeHeadingIds.length === 0) return
     const idToKey = new Map(headings.map((h) => [h.id, h.key]))
-    setExpandedSections((prev) => {
-      const next = { ...prev }
-      let touched = false
-      for (const id of activeHeadingIds) {
-        const key = idToKey.get(id)
-        if (key && !next[key]) {
-          next[key] = true
-          touched = true
-        }
+    const activeKeys = new Set(
+      activeHeadingIds
+        .map((id) => idToKey.get(id))
+        .filter((k): k is string => Boolean(k)),
+    )
+    setExpandedSections(() => {
+      const next: Record<string, boolean> = {}
+      for (const key of activeKeys) {
+        next[key] = true
       }
-      return touched ? next : prev
+      return next
     })
   }, [activeHeadingIds, headings])
+
+  // Scroll the selected article into view inside the TOC. Two
+  // requestAnimationFrame ticks let React + framer-motion settle the
+  // expand-collapse from the accordion effect above before we measure
+  // the target's position — otherwise the target is still offscreen
+  // (or doesn't yet exist in the DOM) when scrollIntoView fires.
+  //
+  // ``block: 'center'`` keeps the row visually centred in the scroll
+  // viewport with surrounding context — ``nearest`` would skip the
+  // scroll when the target is already barely on-screen, which feels
+  // sticky when navigating sequentially through articles.
+  React.useEffect(() => {
+    if (!selectedArticle) return
+    let raf1 = 0
+    let raf2 = 0
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = document.getElementById(`toc-article-${selectedArticle}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [selectedArticle, expandedSections])
 
   /** Render a single heading node recursively */
   const renderNode = (node: TocNode, depth: number = 0) => {
