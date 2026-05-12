@@ -50,6 +50,43 @@ def test_constitution_extracts_labelled_preamble():
     assert p.confidence >= 0.9
 
 
+def test_constitution_keeps_articles_when_dispositions_is_a_titre_title():
+    """Real Haitian constitutions (1987 onward) wrap their transitional
+    dispositions in a regular structural heading:
+
+        TITRE XIV
+
+        DES DISPOSITIONS TRANSITOIRES
+
+        Article 285: ...
+
+    Articles 285–298 in this case ARE normative articles of the
+    constitution, not an annex. ``ConstitutionParser.finalize`` must
+    detect that DISPOSITIONS TRANSITOIRES is the title of a structural
+    heading and leave the articles + TOC untouched. Earlier code
+    (pre-fix) stripped these as if they were always an orphan annex,
+    losing 19+ articles from the 1987 import.
+    """
+    text = (
+        "CONSTITUTION DE LA RÉPUBLIQUE D'HAÏTI\n\n"
+        "TITRE I\n\nDE LA REPUBLIQUE D'HAITI\n\n"
+        "Article 1er. — Haïti est une République indivisible.\n\n"
+        "TITRE XIV\n\nDES DISPOSITIONS TRANSITOIRES\n\n"
+        "Article 285: La présente Constitution entrera en vigueur.\n\n"
+        "Article 298: Toutes les Lois antérieures sont abrogées.\n"
+    )
+    parser = get_parser(profile_for_category(LegalCategory.constitution))
+    out = parser.parse(ParserContext(normalized_text=text))
+
+    numbers = [a.number for a in out.articles]
+    assert "285" in numbers, "Article 285 must survive — it's normative"
+    assert "298" in numbers, "Article 298 must survive — it's normative"
+
+    # And no annex block should be emitted (the TITRE captures it).
+    annex_blocks = [n for n in out.toc if n.block_kind == BlockKind.annex.value]
+    assert annex_blocks == []
+
+
 def test_constitution_strips_dispositions_transitoires_annex():
     """A standalone ``DISPOSITIONS TRANSITOIRES`` header marks the
     transitional dispositions annex. The articles before it stay

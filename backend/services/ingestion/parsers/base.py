@@ -232,47 +232,72 @@ class ParserOutput:
 # ---------------------------------------------------------------------------
 
 
+# Structural heading patterns. Two design constraints learned from
+# real corpora (Constitution 1987, Codes haïtiens):
+#
+# 1. **Title capture must NOT cross newlines.** The 1987 Constitution
+#    has bare ``TITRE IX`` on its own line, followed by ``CHAPITRE I``
+#    on the next. Earlier ``\s*(.+)?$`` patterns swallowed the
+#    next-line content as the title; ``[ \t]*([^\n]+?)?[ \t]*$``
+#    keeps the title on the same physical line.
+# 2. **SECTION identifiers can be letters.** Haitian Codes (and the
+#    1987 Constitution) number sections ``SECTION A``, ``SECTION B``,
+#    ``SECTION C`` … through ``SECTION J``. Earlier
+#    ``[IVXLCDM\d]+`` only matched Roman numerals + digits, silently
+#    dropping ``A``, ``B``, ``E``, ``F``, ``G``, ``H``, ``J``. Now
+#    accepts any single capital letter OR a digit/Roman run.
+#
+# Both constraints apply across all levels — even though only SECTION
+# uses letter identifiers in practice, keeping the same identifier
+# regex everywhere reduces surprise for future profiles.
+_IDENT_RE = r"(?:[IVXLCDM\d]+(?:er|ère|e|re)?|[A-Z])"
+# Word-boundary after the identifier prevents false positives like
+# "Section Communale" matching as "Section C" + tail "ommunale les …" —
+# the ``\b`` rejects the run because "C" → "o" has no boundary
+# between two word chars.
+_TITLE_TAIL_RE = r"\b[\s\.\-—:]*[ \t]*([^\n]+?)?[ \t]*$"
+
 _HEADING_PATTERNS_DEFAULT: list[tuple[HeadingLevel, Pattern[str]]] = [
     # Most-specific first so a "PARTIE I" doesn't match the "TITRE" pattern.
     (
         HeadingLevel.part,
         re.compile(
-            r"^\s*PARTIE\s+([IVXLCDM\d]+)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*PARTIE\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
     (
         HeadingLevel.book,
         re.compile(
-            r"^\s*LIVRE\s+([IVXLCDM\d]+(?:er|ère|e)?)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*LIVRE\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
     (
         HeadingLevel.title,
         re.compile(
-            r"^\s*TITRE\s+([IVXLCDM\d]+(?:er|ère|e)?)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*TITRE\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
     (
         HeadingLevel.chapter,
         re.compile(
-            r"^\s*CHAPITRE\s+([IVXLCDM\d]+(?:er|ère|e)?)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*CHAPITRE\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
     (
         HeadingLevel.section,
         re.compile(
-            r"^\s*SECTION\s+([IVXLCDM\d]+(?:re|ère|e)?)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*SECTION\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
     (
         HeadingLevel.subsection,
         re.compile(
-            r"^\s*SOUS-SECTION\s+([IVXLCDM\d]+(?:re|ère|e)?)\s*[\.\-—]?\s*(.+)?$",
+            r"^\s*SOUS-SECTION\s+(" + _IDENT_RE + r")" + _TITLE_TAIL_RE,
             re.IGNORECASE | re.MULTILINE,
         ),
     ),
@@ -640,10 +665,24 @@ class BaseParser:
             return None
         return preamble_body, body_end
 
+    # Headings that, when found on a line by themselves, must NOT be
+    # mistaken for the title of the previous heading. Used by the
+    # "next non-empty line is the title" fallback below.
+    _HEADING_KEYWORD_LINE_RE = re.compile(
+        r"^\s*(?:PARTIE|LIVRE|TITRE|CHAPITRE|SECTION|SOUS-SECTION|Article|Art\.?)\b",
+        re.IGNORECASE,
+    )
+
     def _extract_structural_headings(self, text: str) -> list[ParsedTocNode]:
         """Walk the text for structural headings using ``HEADING_PATTERNS``.
         Builds parent/child relationships by remembering the most recent
         header at each depth.
+
+        When a heading line carries no inline title (very common in
+        Haitian texts: ``TITRE IX`` alone on its line), we look at the
+        next non-empty line and use it as the title — unless that line
+        is itself a structural heading or article header, in which
+        case the heading stays title-less.
         """
         nodes: list[ParsedTocNode] = []
         most_recent: dict[HeadingLevel, str] = {}
@@ -661,6 +700,11 @@ class BaseParser:
         for _, level, m in events:
             number = m.group(1) or ""
             title = (m.group(2) or "").strip() if m.lastindex and m.lastindex >= 2 else ""
+            # Fallback: no inline title → scan forward to the next
+            # non-empty line. Accept it as title only when it isn't
+            # itself a structural heading or article keyword.
+            if not title:
+                title = self._title_from_next_line(text, m.end())
             key = self._make_structural_key(level, number)
             # Find parent: the most recent heading shallower than this one
             parent_key: Optional[str] = None
@@ -695,6 +739,29 @@ class BaseParser:
                 )
             )
         return nodes
+
+    def _title_from_next_line(self, text: str, start_offset: int) -> str:
+        """Scan ``text`` starting at ``start_offset`` for the first
+        non-empty line. Return it as the heading title, unless it
+        looks like another heading or article keyword — in which case
+        we leave the title blank rather than capturing a sibling.
+
+        Used as a fallback when a structural heading line carries only
+        the keyword + number (typical bare ``TITRE IX`` formatting).
+        """
+        # Cap the scan to a few hundred chars after the heading so we
+        # don't accidentally walk into the next article body when a
+        # heading is missing its title entirely.
+        chunk = text[start_offset : start_offset + 500]
+        for line in chunk.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if self._HEADING_KEYWORD_LINE_RE.match(stripped):
+                # Next non-empty line is itself a heading — bail.
+                return ""
+            return stripped
+        return ""
 
     @staticmethod
     def _make_structural_key(level: HeadingLevel, number: str) -> str:

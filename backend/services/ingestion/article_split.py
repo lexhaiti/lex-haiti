@@ -135,11 +135,17 @@ _TRANSITIONAL_ANNEX_HEADER_RE = re.compile(
 # / SOUS-SECTION) — used as a soft boundary inside the article splitter
 # so an article's body never silently swallows the next TITRE / CHAPITRE
 # header. Inline references ("Le présent TITRE concerne…") don't match
-# because the regex is line-anchored and requires a Roman/digit number
-# right after the keyword.
+# because the regex is line-anchored and requires an identifier right
+# after the keyword.
+#
+# Identifier grammar mirrors ``base._IDENT_RE``: Roman numerals + digits
+# + the single capital letter form used by Haitian Code sections
+# (SECTION A, SECTION B, … SECTION J). Without the letter branch the
+# article splitter would let an article body consume a whole block of
+# letter-numbered sections as prose.
 _STRUCTURAL_HEADING_RE = re.compile(
     r"^\s*(?:PARTIE|LIVRE|TITRE|CHAPITRE|SECTION|SOUS-SECTION)"
-    r"\s+[IVXLCDM\d]+(?:er|ère|e)?\b",
+    r"\s+(?:[IVXLCDM\d]+(?:er|ère|e|re)?|[A-Z](?=\s|$|[.,;:\-—]))",
     re.IGNORECASE | re.MULTILINE,
 )
 
