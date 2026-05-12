@@ -30,6 +30,11 @@ from packages.schemas.enums import (
 )
 from packages.schemas.heading import LegalHeadingRead
 from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
+from packages.schemas.signer import (
+    LegalSignerCreate,
+    LegalSignerRead,
+    LegalSignerUpdate,
+)
 from packages.schemas.theme import LegalThemeTagWrite
 from services.corpus.repository import CorpusRepository
 from services.editorial.service import EditorialService
@@ -440,6 +445,106 @@ def update_heading_title(
     db.commit()
     db.refresh(heading)
     return LegalHeadingRead.model_validate(heading)
+
+
+# -----------------------------------------------------------------------
+# Signers — manual CRUD for the editor
+# -----------------------------------------------------------------------
+
+
+@router.get(
+    "/legal-texts/{slug}/signers",
+    response_model=List[LegalSignerRead],
+    summary="List signers attached to a legal text",
+)
+def list_signers(slug: str, db: DbSession, user: EditorialUser):  # noqa: ARG001
+    """Editor-facing list (no public mirror). The public detail endpoint
+    already includes signers inline on the LegalText payload — this
+    route only exists so the manual editor UI can refetch the list
+    after add/edit/delete without re-pulling the whole law payload.
+    """
+    repo = CorpusRepository(db)
+    text = repo.get_text_by_slug(slug)
+    if text is None:
+        raise HTTPException(404, "Legal text not found")
+    rows = repo.list_signers_by_text(text.id)
+    return [LegalSignerRead.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/legal-texts/{slug}/signers",
+    response_model=LegalSignerRead,
+    status_code=201,
+    summary="Add a signer to a legal text (editor-driven, not parser-driven)",
+)
+def create_signer(
+    slug: str,
+    body: LegalSignerCreate,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001
+):
+    """Add one signer to a legal text. Used when the parser missed
+    structured signatories (typical for the 1987 Constitution and
+    other non-standard closing-formula layouts) and the editor wants
+    to enter them by hand.
+
+    Position defaults to "append to the end" when not specified — most
+    editor workflows want chronological insertion order, not arbitrary
+    re-shuffling of existing signers.
+    """
+    repo = CorpusRepository(db)
+    text = repo.get_text_by_slug(slug)
+    if text is None:
+        raise HTTPException(404, "Legal text not found")
+    payload = body.model_dump(exclude_unset=True)
+    signer = repo.create_signer(text.id, payload)
+    db.commit()
+    db.refresh(signer)
+    return LegalSignerRead.model_validate(signer)
+
+
+@router.patch(
+    "/signers/{signer_id}",
+    response_model=LegalSignerRead,
+    summary="Edit a signer's name / function / capacity / chamber",
+)
+def update_signer(
+    signer_id: int,
+    body: LegalSignerUpdate,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001
+):
+    """Partial update. Only the fields the editor actually changed
+    flow through (``exclude_unset=True``)."""
+    repo = CorpusRepository(db)
+    signer = repo.get_signer_by_id(signer_id)
+    if signer is None:
+        raise HTTPException(404, "Signer not found")
+    patch = body.model_dump(exclude_unset=True)
+    if patch:
+        repo.update_signer(signer, patch)
+    db.commit()
+    db.refresh(signer)
+    return LegalSignerRead.model_validate(signer)
+
+
+@router.delete(
+    "/signers/{signer_id}",
+    status_code=204,
+    summary="Remove a signer from a legal text",
+)
+def delete_signer(
+    signer_id: int,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001
+):
+    repo = CorpusRepository(db)
+    signer = repo.get_signer_by_id(signer_id)
+    if signer is None:
+        raise HTTPException(404, "Signer not found")
+    repo.delete_signer(signer)
+    db.commit()
+    return None
 
 
 @router.post(

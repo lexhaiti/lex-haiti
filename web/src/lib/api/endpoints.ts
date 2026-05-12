@@ -5,7 +5,7 @@
  * `http://localhost:8000/api/v1`. All paths here are relative to that base.
  */
 import type { components, paths } from '@/lib/api-types'
-import { apiGet, apiPatch, apiPost, apiPostForm } from '@/lib/api/client'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPostForm } from '@/lib/api/client'
 
 // Re-exported types — what consumers reach for.
 export type LegalTextRead = components['schemas']['LegalTextRead']
@@ -981,6 +981,61 @@ export type LegalHeadingRead = {
   title_fr: string | null
   title_ht: string | null
   position: number | null
+}
+
+/** Signer of a legal text — one person + their role + capacity. */
+export type LegalSignerRead = {
+  id: number
+  legal_text_id: number
+  name: string
+  function_fr: string
+  function_ht: string | null
+  signing_capacity:
+    | 'authoring'
+    | 'presiding'
+    | 'attesting'
+    | 'promulgating'
+    | 'countersigning'
+    | 'other'
+  chamber: 'senat' | 'chambre' | 'executive' | 'ministerial' | null
+  signed_at: string | null
+  position: number
+}
+
+export type LegalSignerInput = {
+  name: string
+  function_fr: string
+  function_ht?: string | null
+  signing_capacity?: LegalSignerRead['signing_capacity']
+  chamber?: LegalSignerRead['chamber']
+  signed_at?: string | null
+  position?: number | null
+}
+
+export type LegalSignerPatch = Partial<LegalSignerInput>
+
+export async function listLegalSigners(slug: string) {
+  return apiGet<LegalSignerRead[]>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/signers`,
+  )
+}
+
+export async function createLegalSigner(slug: string, body: LegalSignerInput) {
+  return apiPost<LegalSignerRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/signers`,
+    body,
+  )
+}
+
+export async function updateLegalSigner(
+  signerId: number,
+  patch: LegalSignerPatch,
+) {
+  return apiPatch<LegalSignerRead>(`/editorial/signers/${signerId}`, patch)
+}
+
+export async function deleteLegalSigner(signerId: number): Promise<void> {
+  return apiDelete(`/editorial/signers/${signerId}`)
 }
 
 /** Inline-edit for a heading title in the TOC tree. Bilingual — pass

@@ -30,6 +30,19 @@ class LegalSignerCreate(LegalSignerBase):
     pass
 
 
+class LegalSignerUpdate(BaseModel):
+    """Editor-supplied patch for an existing signer row. Every field is
+    optional — only the fields the editor actually changed are sent."""
+
+    name: Optional[str] = None
+    function_fr: Optional[str] = None
+    function_ht: Optional[str] = None
+    signing_capacity: Optional[SigningCapacity] = None
+    chamber: Optional[SignatoryChamber] = None
+    signed_at: Optional[date] = None
+    position: Optional[int] = None
+
+
 class LegalSignerRead(LegalSignerBase):
     id: int
     legal_text_id: int

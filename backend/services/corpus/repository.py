@@ -40,6 +40,7 @@ from services.corpus.models import (
     Citation,
     Decision,
     LegalHeading,
+    LegalSigner,
     LegalText,
     LegalThemeTag,
 )
@@ -736,6 +737,63 @@ class CorpusRepository:
             heading.title_ht = title_ht.strip() or None
         self.session.flush()
         return heading
+
+    # -------------------------------------------------------------------
+    # LegalSigner — manual CRUD for the editor (parser fills these too,
+    # but the editor needs add / patch / delete for cases where the
+    # parser missed something or the source carries no structured
+    # signatory block).
+    # -------------------------------------------------------------------
+
+    def get_signer_by_id(self, signer_id: int) -> Optional[LegalSigner]:
+        return self.session.get(LegalSigner, signer_id)
+
+    def list_signers_by_text(self, text_id: int) -> list[LegalSigner]:
+        stmt = (
+            select(LegalSigner)
+            .where(LegalSigner.legal_text_id == text_id)
+            .order_by(LegalSigner.position, LegalSigner.id)
+        )
+        return list(self.session.execute(stmt).scalars().all())
+
+    def create_signer(
+        self,
+        legal_text_id: int,
+        data: dict,
+    ) -> LegalSigner:
+        """Insert a new signer. ``data`` carries any LegalSignerCreate
+        fields. ``position`` defaults to "last in the list" so editor
+        appends behave intuitively without explicit ordering.
+        """
+        if data.get("position") is None:
+            existing = self.list_signers_by_text(legal_text_id)
+            data["position"] = (
+                max((s.position for s in existing), default=-1) + 1
+            )
+        signer = LegalSigner(
+            legal_text_id=legal_text_id,
+            **{k: v for k, v in data.items() if v is not None},
+        )
+        self.session.add(signer)
+        self.session.flush()
+        return signer
+
+    def update_signer(
+        self,
+        signer: LegalSigner,
+        patch: dict,
+    ) -> LegalSigner:
+        """Apply partial update — only keys present in ``patch`` are
+        touched. Caller owns the commit.
+        """
+        for key, value in patch.items():
+            setattr(signer, key, value)
+        self.session.flush()
+        return signer
+
+    def delete_signer(self, signer: LegalSigner) -> None:
+        self.session.delete(signer)
+        self.session.flush()
 
     # -------------------------------------------------------------------
     # Article

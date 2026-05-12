@@ -136,6 +136,16 @@ export async function apiPatch<T>(
   return apiSend<T>('PATCH', path, body, opts)
 }
 
+export async function apiDelete<T = void>(
+  path: string,
+  opts?: {
+    signal?: AbortSignal
+    headers?: Record<string, string>
+  },
+): Promise<T> {
+  return apiSend<T>('DELETE', path, undefined, opts)
+}
+
 /**
  * POST a multipart/form-data body. Used for file uploads (Moniteur PDFs,
  * raw documents in the editorial import flow). Don't set Content-Type —
