@@ -156,13 +156,33 @@ function SommaireCard({
   children: MoniteurEntryRead[]
 }) {
   const [expanded, setExpanded] = useState(false)
-  const title = candidate.display_title || candidate.detected_title || 'Sans titre'
   const isPromoted = !!candidate.promoted_legal_text_slug
   const isPromulgation = candidate.detected_category === 'promulgation'
   const hasRawText = !!candidate.raw_text && !isPromoted
   const meta = candidate.detected_category
     ? CATEGORY_META[candidate.detected_category]
     : null
+
+  // Promulgations don't carry their own titles — they're accompanying
+  // letters, not standalone documents. Render with the dedicated
+  // PromulgationRow (no card chrome, no "Sans titre" placeholder, just
+  // a label + page range + inline expand). Used at both top-level and
+  // nested-under-parent positions; the row is intentionally identical
+  // in both contexts so the eye doesn't have to learn two layouts.
+  if (isPromulgation) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.04 }}
+        className="rounded-lg border border-slate-200/60 bg-slate-50/40 px-3 py-1"
+      >
+        <PromulgationRow candidate={candidate} />
+      </motion.div>
+    )
+  }
+
+  const title = candidate.display_title || candidate.detected_title || 'Sans titre'
 
   return (
     <motion.article
@@ -172,12 +192,12 @@ function SommaireCard({
       className={cn(
         'group rounded-2xl border bg-white overflow-hidden transition-all duration-300',
         'hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]',
-        isPromulgation ? 'ml-0 sm:ml-10 border-slate-100 bg-slate-50/40' : 'border-slate-200/80',
+        'border-slate-200/80',
       )}
     >
       <div className="flex">
         {/* Left color bar — category indicator */}
-        {meta && !isPromulgation && (
+        {meta && (
           <div className={cn('w-1 flex-shrink-0', meta.bar)} aria-hidden="true" />
         )}
 
@@ -185,12 +205,10 @@ function SommaireCard({
           {/* Header strip: index + category badge + page range */}
           <div className="flex items-center justify-between gap-3 px-5 sm:px-6 pt-4 pb-2">
             <div className="flex items-center gap-3 min-w-0">
-              {!isPromulgation && (
-                <span className="text-[11px] font-mono font-semibold text-slate-300 tabular-nums">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-              )}
-              {meta && !isPromulgation && (
+              <span className="text-[11px] font-mono font-semibold text-slate-300 tabular-nums">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              {meta && (
                 <span
                   className={cn(
                     'inline-flex items-center px-2 py-0.5 rounded border',
@@ -199,12 +217,6 @@ function SommaireCard({
                   )}
                 >
                   {meta.label}
-                </span>
-              )}
-              {isPromulgation && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <ChevronRight className="w-3 h-3" />
-                  Promulgation
                 </span>
               )}
             </div>
@@ -243,26 +255,12 @@ function SommaireCard({
                 >
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </span>
-                <span
-                  className={cn(
-                    'font-bold leading-snug hover:text-primary transition-colors',
-                    isPromulgation
-                      ? 'text-sm text-slate-500'
-                      : 'text-base sm:text-lg text-slate-900',
-                  )}
-                >
+                <span className="font-bold leading-snug hover:text-primary transition-colors text-base sm:text-lg text-slate-900">
                   {title}
                 </span>
               </button>
             ) : (
-              <p
-                className={cn(
-                  'font-bold leading-snug',
-                  isPromulgation
-                    ? 'text-sm text-slate-500'
-                    : 'text-base sm:text-lg text-slate-900',
-                )}
-              >
+              <p className="font-bold leading-snug text-base sm:text-lg text-slate-900">
                 {title}
               </p>
             )}
@@ -320,20 +318,94 @@ function SommaireCard({
         </div>
       </div>
 
-      {/* Child candidates (promulgation letters grouped under parent) */}
+      {/* Child candidates (promulgation letters grouped under parent).
+          Promulgations don't carry their own structural identity — they
+          accompany the law they promulgate. Render as flat rows inside
+          the parent card (no nested rounded-2xl border, no second
+          chevron) instead of full SommaireCard chrome. */}
       {childCandidates.length > 0 && (
-        <div className="px-5 sm:px-6 pb-5 space-y-3 border-t border-slate-100 pt-4 bg-slate-50/30">
-          {childCandidates.map((child, i) => (
-            <SommaireCard
-              key={child.id}
-              candidate={child}
-              index={i}
-              children={[]}
-            />
+        <div className="px-5 sm:px-6 pb-5 border-t border-slate-100 pt-3">
+          {childCandidates.map((child) => (
+            <PromulgationRow key={child.id} candidate={child} />
           ))}
         </div>
       )}
     </motion.article>
+  )
+}
+
+
+/**
+ * Flat row renderer for a promulgation candidate, rendered as a child of
+ * its parent SommaireCard. Promulgations never carry titles of their own
+ * (they're letters/notes accompanying the promoted law), so we don't
+ * show a "Sans titre" placeholder — just the label, the page range, and
+ * an optional inline expansion of the raw text on click.
+ */
+function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasRawText = !!candidate.raw_text
+
+  return (
+    <div className="-mx-1">
+      <button
+        type="button"
+        onClick={() => hasRawText && setExpanded((v) => !v)}
+        disabled={!hasRawText}
+        className={cn(
+          'w-full flex items-center justify-between gap-3 px-2 py-2 text-left rounded-md',
+          hasRawText
+            ? 'hover:bg-slate-50 cursor-pointer'
+            : 'cursor-default',
+        )}
+      >
+        <span className="inline-flex items-center gap-2 min-w-0">
+          {hasRawText && (
+            <ChevronRight
+              className={cn(
+                'w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200',
+                expanded && 'rotate-90',
+              )}
+            />
+          )}
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Promulgation
+          </span>
+          {candidate.detected_number && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px]">
+              N° {candidate.detected_number}
+            </span>
+          )}
+        </span>
+        {candidate.page_from != null && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0">
+            <BookOpen className="w-3 h-3" />
+            p. {candidate.page_from}
+            {candidate.page_to != null && candidate.page_to !== candidate.page_from
+              ? `–${candidate.page_to}`
+              : ''}
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {hasRawText && expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {/* Inline text — no inner card chrome, just indented prose
+                under the row's label. */}
+            <div className="mt-2 ml-6 pr-2 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+              {candidate.raw_text}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
