@@ -672,21 +672,45 @@ class MoniteurRepository:
         self.session.flush()
 
         # --- Structural headings (Titre / Chapitre / Section / …) ---
+        # The parser keys headings by ``level-number`` (e.g. "chapter-i").
+        # Real corpora reuse the same numbers across siblings: a
+        # constitution has CHAPITRE I under TITRE I and a separate
+        # CHAPITRE I under TITRE II — same key, two distinct rows.
+        # uq_legal_headings_text_key forbids collisions; we dedupe the
+        # DB key with a ``--N`` suffix and keep an ``original → db``
+        # map so a child heading's ``parent_key`` still resolves to
+        # the correct parent row after dedup. Article rows below use
+        # the same strategy.
         key_to_id: dict[str, int] = {}
+        original_to_db_key: dict[str, str] = {}
+        seen_db_keys: set[str] = set()
         for h in promotion.headings:
-            parent_id = key_to_id.get(h.parent_key) if h.parent_key else None
+            db_key = h.key
+            counter = 1
+            while db_key in seen_db_keys:
+                counter += 1
+                db_key = f"{h.key}--{counter}"
+            seen_db_keys.add(db_key)
+            original_to_db_key[h.key] = db_key
+
+            parent_db_key = (
+                original_to_db_key.get(h.parent_key) if h.parent_key else None
+            )
+            parent_id = (
+                key_to_id.get(parent_db_key) if parent_db_key else None
+            )
             heading = LegalHeading(
                 legal_text_id=legal_text.id,
                 parent_id=parent_id,
                 level=h.level,
-                key=h.key,
+                key=db_key,
                 number=h.number,
                 title_fr=h.title_fr,
                 position=h.position,
             )
             self.session.add(heading)
             self.session.flush()
-            key_to_id[h.key] = heading.id
+            key_to_id[db_key] = heading.id
 
         # --- Articles (linked to their nearest heading) ---
         seen_slugs: set[str] = set()
@@ -702,10 +726,16 @@ class MoniteurRepository:
                 article_slug = f"{base_slug}--{counter}"
             seen_slugs.add(article_slug)
 
-            heading_id = (
-                key_to_id.get(parsed.heading_key)
+            # Resolve the article's parent heading through the same
+            # original→db key map used during heading insertion, so
+            # post-dedup links stay correct.
+            heading_db_key = (
+                original_to_db_key.get(parsed.heading_key)
                 if parsed.heading_key
                 else None
+            )
+            heading_id = (
+                key_to_id.get(heading_db_key) if heading_db_key else None
             )
             article = Article(
                 legal_text_id=legal_text.id,
