@@ -796,6 +796,22 @@ class CorpusRepository:
         self.session.flush()
 
     # -------------------------------------------------------------------
+    # LegalText delete — used by the editor to remove a draft before
+    # promotion to ``published``. Most dependent tables are declared with
+    # ``ondelete=CASCADE`` (legal_theme_tags, legal_headings,
+    # legal_signers, articles → article_versions) so a single DB-level
+    # DELETE removes the whole subtree. MoniteurEntry.promoted_legal_text_id
+    # is ``ondelete=SET NULL`` which is what we want — the source entry
+    # in Le Moniteur should survive the deletion of its promoted draft
+    # so the editor can re-promote it later.
+    # -------------------------------------------------------------------
+
+    def delete_text(self, text: LegalText) -> None:
+        """Delete a LegalText row + everything that cascades from it."""
+        self.session.delete(text)
+        self.session.flush()
+
+    # -------------------------------------------------------------------
     # Article
     # -------------------------------------------------------------------
 

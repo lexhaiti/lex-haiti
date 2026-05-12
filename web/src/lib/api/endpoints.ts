@@ -954,6 +954,13 @@ export async function updateLegalTextMetadata(
   )
 }
 
+/** Hard-delete a draft legal text (and cascade its dependents). The
+ *  backend refuses on published texts; the editor must unpublish
+ *  first via ``unpublishLegalText``. */
+export async function deleteLegalText(slug: string): Promise<void> {
+  return apiDelete(`/editorial/legal-texts/${encodeURIComponent(slug)}`)
+}
+
 /**
  * Editor article-content update — bilingual title + body. Send only the
  * fields you want to change; unset keys leave the version untouched.

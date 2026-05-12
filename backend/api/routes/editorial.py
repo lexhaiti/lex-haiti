@@ -313,6 +313,43 @@ def get_legal_text(
 # -----------------------------------------------------------------------
 
 
+@router.delete(
+    "/legal-texts/{slug}",
+    status_code=204,
+    summary="Delete a draft legal text (and cascade its dependents)",
+)
+def delete_legal_text(
+    slug: str,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — auth gate
+):
+    """Hard-delete a draft legal text + everything that depends on it
+    (headings, articles, signers, theme tags). Refuses to act on
+    published texts — promotion to ``published`` is a signal that
+    permalinks may be in use externally, and silently breaking those
+    is the worst thing this platform can do (per CLAUDE.md
+    "Permalinks are forever").
+
+    The Moniteur source entry that promoted this text keeps its
+    ``promoted_legal_text_id`` set to NULL (FK is ON DELETE SET NULL),
+    so the editor can re-promote from the original sommaire entry
+    after the failed draft is gone.
+    """
+    repo = CorpusRepository(db)
+    text = repo.get_text_by_slug(slug, editorial_status=None)
+    if text is None:
+        raise HTTPException(404, "Legal text not found")
+    if text.editorial_status == EditorialStatus.published:
+        raise HTTPException(
+            409,
+            "Refusing to delete a published legal text. Unpublish first "
+            "(POST /editorial/legal-texts/{slug}/unpublish), then delete.",
+        )
+    repo.delete_text(text)
+    db.commit()
+    return None
+
+
 @router.patch("/legal-texts/{slug}/metadata", response_model=LegalTextRead)
 def update_legal_text_metadata(
     slug: str,
