@@ -626,6 +626,7 @@ export default function LawDetail() {
                           await updateHeadingTitle(id, { [field]: next })
                           refetch()
                         }}
+                        activeHeadingIds={articleBreadcrumb.map((h) => h.id)}
                       />
                     </div>
                   </motion.div>
@@ -710,6 +711,7 @@ export default function LawDetail() {
                       await updateHeadingTitle(id, { [field]: next })
                       refetch()
                     }}
+                    activeHeadingIds={articleBreadcrumb.map((h) => h.id)}
                   />
                 </div>
               </motion.div>

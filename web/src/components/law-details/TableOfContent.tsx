@@ -73,6 +73,13 @@ interface TableOfContentsProps {
     field: 'title_fr' | 'title_ht',
     next: string,
   ) => Promise<void>
+  /** Ordered list of heading ids on the path from the LegalText root
+   *  down to the currently selected article (Titre → Chapitre → …).
+   *  Every heading in this set is rendered in the active colour (red)
+   *  so the path stays visible even if the article isn't scrolled
+   *  into view — like a breadcrumb embedded in the tree.
+   *  Auto-expanded on selection so the path is always visible. */
+  activeHeadingIds?: number[]
 }
 
 /** Build a tree from flat headings + attach articles to their heading nodes */
@@ -227,7 +234,15 @@ export default function TableOfContents({
   onConsiderantsClick,
   isEditor = false,
   onHeadingTitleSave,
+  activeHeadingIds,
 }: TableOfContentsProps) {
+  // Lookup-friendly set for "is this heading on the active path?"
+  // checks during render. Memoised so we don't rebuild it on every
+  // mouseenter / keystroke.
+  const activePathSet = useMemo(
+    () => new Set(activeHeadingIds ?? []),
+    [activeHeadingIds],
+  )
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({})
@@ -310,10 +325,44 @@ export default function TableOfContents({
     }
   }, [selectedArticle])
 
+  // Auto-expand every heading on the active path when the selection
+  // changes. Without this, opening Article 47 (under Titre II ›
+  // Chapitre III) leaves Titre II and Chapitre III collapsed — the
+  // user clicks the article from outside the tree, the tree shows the
+  // red highlight but the article row itself stays hidden inside the
+  // collapsed ancestors. Auto-expansion makes the breadcrumb visible.
+  //
+  // We only ADD to expandedSections (never collapse) so the user's
+  // manual collapses on unrelated branches survive. The keys we
+  // expand are the headings' ``key`` strings (the tree is keyed by
+  // ``heading.key``, not ``heading.id``).
+  React.useEffect(() => {
+    if (!activeHeadingIds || activeHeadingIds.length === 0) return
+    const idToKey = new Map(headings.map((h) => [h.id, h.key]))
+    setExpandedSections((prev) => {
+      const next = { ...prev }
+      let touched = false
+      for (const id of activeHeadingIds) {
+        const key = idToKey.get(id)
+        if (key && !next[key]) {
+          next[key] = true
+          touched = true
+        }
+      }
+      return touched ? next : prev
+    })
+  }, [activeHeadingIds, headings])
+
   /** Render a single heading node recursively */
   const renderNode = (node: TocNode, depth: number = 0) => {
     const { heading, articles: nodeArticles, children } = node
     const isExpanded = !!expandedSections[heading.key]
+    // True when this heading is an ancestor of (or contains) the
+    // currently selected article. Used to red-highlight the entire
+    // path from the root down to the article, so the user always
+    // sees the structural context — like a breadcrumb embedded in
+    // the tree, not just on the article row itself.
+    const isOnActivePath = activePathSet.has(heading.id)
 
     const headingLabel =
       currentLang === 'ht' && heading.title_ht
@@ -341,14 +390,24 @@ export default function TableOfContents({
             {isExpanded ? (
               <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-red-600 flex-shrink-0 transition-colors" />
+              <ChevronRight
+                className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                  isOnActivePath
+                    ? 'text-red-600'
+                    : 'text-gray-400 group-hover:text-red-600'
+                }`}
+              />
             )}
 
             <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-2">
               {heading.number && (
                 <span
-                  className={`font-black uppercase tracking-widest text-gray-900 group-hover:text-red-600 transition-colors flex-shrink-0 ${
+                  className={`font-black uppercase tracking-widest transition-colors flex-shrink-0 ${
                     isTopLevel ? 'text-xs' : 'text-[10px]'
+                  } ${
+                    isOnActivePath
+                      ? 'text-red-600'
+                      : 'text-gray-900 group-hover:text-red-600'
                   }`}
                 >
                   {heading.number}
@@ -417,7 +476,13 @@ export default function TableOfContents({
               ) : (
                 <>
                   {headingLabel ? (
-                    <span className="text-sm font-semibold text-gray-700 group-hover:text-red-600 transition-colors line-clamp-2 min-w-0">
+                    <span
+                      className={`text-sm font-semibold transition-colors line-clamp-2 min-w-0 ${
+                        isOnActivePath
+                          ? 'text-red-600'
+                          : 'text-gray-700 group-hover:text-red-600'
+                      }`}
+                    >
                       {headingLabel}
                     </span>
                   ) : isEditor ? (
