@@ -103,9 +103,7 @@ export function SignataireBlock({
       >
         <PenLine className="w-4 h-4 text-slate-400" />
         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex-1">
-          {lang === 'fr'
-            ? 'Signataires et formule de clôture'
-            : 'Siyatè ak fòmil fèmti'}
+          {lang === 'fr' ? 'Signataires' : 'Siyatè'}
         </h3>
         <ChevronDown
           className={cn(
@@ -117,55 +115,16 @@ export function SignataireBlock({
 
       {open && (
         <>
-          {lead && (
-            <p className="text-sm italic text-slate-600 leading-relaxed mb-6 border-l-2 border-amber-300 pl-4">
-              {lead}
-            </p>
-          )}
-
-          {/* Signataires sub-section */}
-          {isEditor ? (
-            <SignersEditor
-              slug={slug}
-              signers={signers}
-              lang={lang}
-              onChanged={onChanged}
-            />
-          ) : signers.length > 0 ? (
-            /* flex-wrap: each signer takes only its natural width, two or
-               three short names share one row, long names wrap to their
-               own. ``min-w-0`` on the inner card lets long surnames
-               truncate instead of forcing the row to expand. */
-            <div className="flex flex-wrap gap-x-8 gap-y-4">
-              {signers.map((signer) => (
-                <div
-                  key={signer.id}
-                  className="flex flex-col gap-0.5 min-w-0"
-                >
-                  <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
-                    {signer.name}
-                  </span>
-                  <span className="text-xs text-slate-500 whitespace-nowrap">
-                    {lang === 'ht' && signer.function_ht
-                      ? signer.function_ht
-                      : signer.function_fr}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {/* Formule de clôture sub-section. Public: verbatim text in
-              an amber-bordered panel matching the lead-caption styling.
-              Editor: inline textarea with save/cancel; or a "+ Ajouter
-              une formule de clôture" button when empty. */}
+          {/* Formule de clôture first — narrative comes before the
+              list of names. No sub-label: the block title already
+              groups everything in this section, and the verbatim
+              "Donné au … le … " text identifies itself by content.
+              When editing, we show an inline textarea with its own
+              save/cancel; otherwise the formula renders as read-only
+              prose with the amber left-border (matches the lead
+              caption styling). */}
           {editFormula ? (
-            <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50/40 p-3">
-              <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-primary/70">
-                {lang === 'fr'
-                  ? 'Formule de clôture'
-                  : 'Fòmil fèmti'}
-              </div>
+            <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50/40 p-3">
               <textarea
                 value={formulaDraft}
                 disabled={formulaSaving}
@@ -177,6 +136,7 @@ export function SignataireBlock({
                     : 'Bay nan Pale Lejislatif…'
                 }
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary leading-relaxed font-mono"
+                autoFocus
               />
               {formulaError && (
                 <p className="mt-2 text-xs text-red-600">{formulaError}</p>
@@ -207,48 +167,74 @@ export function SignataireBlock({
               </div>
             </div>
           ) : hasFormula ? (
-            <>
-              <div className="mt-6 border-l-2 border-amber-300 pl-4">
-                <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {lang === 'fr'
-                    ? 'Formule de clôture'
-                    : 'Fòmil fèmti'}
-                </div>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {officialFormula}
-                </p>
-              </div>
-              {/* Editor always sees a visible action below the formula.
-                  We keep the dashed-amber button style consistent with
-                  the empty-state add button + the signers add button —
-                  the editor learns one affordance, not two. */}
-              {isEditor && (
-                <div className="mt-3">
+            <div className="mb-6 border-l-2 border-amber-300 pl-4">
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                {officialFormula}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Lead caption from the structured signers — sits between
+              the formula prose and the names list, like an italic
+              transition sentence. Only renders for the structured
+              case (signers populated), since it derives its phrasing
+              from their capacities. */}
+          {lead && (
+            <p className="text-sm italic text-slate-600 leading-relaxed mb-4 border-l-2 border-amber-300 pl-4">
+              {lead}
+            </p>
+          )}
+
+          {/* Signataires list. Editor: SignersEditor with the formula
+              action passed as ``extraActions`` so both buttons live in
+              the same row at the bottom of the section. Public: just
+              the flex-wrap signer cards. */}
+          {isEditor ? (
+            <SignersEditor
+              slug={slug}
+              signers={signers}
+              lang={lang}
+              onChanged={onChanged}
+              extraActions={
+                editFormula ? null : (
                   <button
                     type="button"
                     onClick={startFormulaEdit}
                     className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:border-amber-400 hover:bg-amber-50"
                   >
-                    <PenLine className="w-3.5 h-3.5" />
-                    {lang === 'fr'
-                      ? 'Modifier la formule de clôture'
-                      : 'Modifye fòmil fèmti'}
+                    {hasFormula ? (
+                      <PenLine className="w-3.5 h-3.5" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                    {hasFormula
+                      ? lang === 'fr'
+                        ? 'Modifier la formule de clôture'
+                        : 'Modifye fòmil fèmti'
+                      : lang === 'fr'
+                      ? 'Ajouter une formule de clôture'
+                      : 'Ajoute yon fòmil fèmti'}
                   </button>
+                )
+              }
+            />
+          ) : signers.length > 0 ? (
+            <div className="flex flex-wrap gap-x-8 gap-y-4">
+              {signers.map((signer) => (
+                <div
+                  key={signer.id}
+                  className="flex flex-col gap-0.5 min-w-0"
+                >
+                  <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
+                    {signer.name}
+                  </span>
+                  <span className="text-xs text-slate-500 whitespace-nowrap">
+                    {lang === 'ht' && signer.function_ht
+                      ? signer.function_ht
+                      : signer.function_fr}
+                  </span>
                 </div>
-              )}
-            </>
-          ) : isEditor ? (
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={startFormulaEdit}
-                className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:border-amber-400 hover:bg-amber-50"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {lang === 'fr'
-                  ? 'Ajouter une formule de clôture'
-                  : 'Ajoute yon fòmil fèmti'}
-              </button>
+              ))}
             </div>
           ) : null}
         </>

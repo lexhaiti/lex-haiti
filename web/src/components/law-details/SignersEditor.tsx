@@ -56,9 +56,21 @@ type Props = {
   lang: 'fr' | 'ht'
   /** Refetch the parent law after a successful add / edit / delete. */
   onChanged: () => void
+  /** Extra buttons rendered to the right of "+ Ajouter un signataire"
+   *  on the same flex row. SignataireBlock uses this to put the
+   *  "Modifier la formule de clôture" button next to the signer add
+   *  button so editors see one unified action row at the bottom of
+   *  the block. */
+  extraActions?: React.ReactNode
 }
 
-export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
+export function SignersEditor({
+  slug,
+  signers,
+  lang,
+  onChanged,
+  extraActions,
+}: Props) {
   const [draft, setDraft] = useState<DraftState | null>(null)
   const [busy, setBusy] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -236,7 +248,10 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
       )}
 
       {draft === null && (
-        <div>
+        /* flex-wrap so the formula button (passed via extraActions)
+           sits next to the signer add button on a wide row, and wraps
+           to its own line on narrow viewports. */
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={startNew}
@@ -246,6 +261,7 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
             <Plus className="w-3.5 h-3.5" />
             {lang === 'fr' ? 'Ajouter un signataire' : 'Ajoute yon siyatè'}
           </button>
+          {extraActions}
         </div>
       )}
 
