@@ -273,6 +273,60 @@ class MoniteurRepository:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
+    # Inverse French-month map for slug parsing. Mirrors the one in
+    # ``packages.schemas.moniteur`` so slugs round-trip cleanly.
+    _SLUG_MONTHS = {
+        "janvier": 1, "fevrier": 2, "fevrier": 2, "mars": 3,
+        "avril": 4, "mai": 5, "juin": 6, "juillet": 7,
+        "aout": 8, "septembre": 9, "octobre": 10,
+        "novembre": 11, "decembre": 12,
+    }
+
+    def get_issue_by_slug_with_entries(
+        self, slug: str
+    ) -> Optional[MoniteurIssue]:
+        """Resolve a date-based slug (e.g. ``28-avril-1987``) to its
+        MoniteurIssue. Returns the issue with eager-loaded entries, the
+        same shape ``get_issue_with_entries`` returns by ID.
+
+        Slug grammar: ``{day}-{month_fr}-{year}``. Parsing is lenient
+        on case + extra trailing parts (the route allows future
+        ``28-avril-1987-extraordinaire``-style disambiguators without
+        breaking older links). When multiple issues share the same
+        publication_date — rare but possible for paired regular +
+        special issues — returns the first by ascending ``id``.
+        Returns None on parse failure or no match.
+        """
+        from datetime import date as _date
+
+        parts = slug.strip().lower().split("-")
+        if len(parts) < 3:
+            return None
+        try:
+            day = int(parts[0])
+            year = int(parts[2])
+        except ValueError:
+            return None
+        month_name = parts[1]
+        month = self._SLUG_MONTHS.get(month_name)
+        if month is None:
+            return None
+        try:
+            target_date = _date(year, month, day)
+        except ValueError:
+            return None
+        stmt = (
+            select(MoniteurIssue)
+            .where(MoniteurIssue.publication_date == target_date)
+            .order_by(MoniteurIssue.id)
+            .options(
+                selectinload(MoniteurIssue.entries).selectinload(
+                    MoniteurEntry.promoted_legal_text
+                )
+            )
+        )
+        return self.session.execute(stmt).scalars().first()
+
     def get_entry(self, entry_id: int) -> Optional[MoniteurEntry]:
         stmt = (
             select(MoniteurEntry)

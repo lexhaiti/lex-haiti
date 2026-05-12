@@ -190,6 +190,34 @@ def get_issue(issue_id: int, db: DbSession):
 
 
 @router.get(
+    "/issues/by-slug/{slug}",
+    response_model=MoniteurIssueWithEntries,
+)
+def get_issue_by_slug(slug: str, db: DbSession):
+    """Resolve a date-based slug (``28-avril-1987``) to the full issue
+    payload. Used by the public ``/moniteur/{slug}`` route — the
+    numeric-ID route at ``/issues/{issue_id}`` keeps working as a
+    permalink, but the public link generation now prefers the
+    human-readable slug.
+    """
+    repo = MoniteurRepository(db)
+    issue = repo.get_issue_by_slug_with_entries(slug)
+    if not issue:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
+    payload = MoniteurIssueWithEntries.model_validate(issue)
+    payload.entries_count = len(issue.entries)
+    payload.accepted_count = sum(
+        1
+        for e in issue.entries
+        if e.review_status == MoniteurCandidateStatus.accepted
+    )
+    payload.entries = [
+        MoniteurEntryRead.model_validate(e) for e in issue.entries
+    ]
+    return payload
+
+
+@router.get(
     "/issues/{issue_id}/export",
     response_class=Response,
 )

@@ -81,6 +81,12 @@ class MoniteurIssueRead(MoniteurIssueBase):
     """Response shape for a Moniteur issue."""
 
     id: int
+    # Human-friendly URL slug derived from publication_date — used by the
+    # public detail route ``/moniteur/{slug}``. Always returned by the
+    # API; the legacy numeric ID still works as a permalink. None when
+    # publication_date is null (rare — only happens for half-imported
+    # issues mid-editorial-review).
+    slug: Optional[str] = None
     file_url: Optional[str] = None
     transcript_url: Optional[str] = None
     page_count: Optional[int] = None
@@ -98,6 +104,31 @@ class MoniteurIssueRead(MoniteurIssueBase):
     sommaire: List[SommaireEntry] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):  # type: ignore[override]
+        result = super().model_validate(obj, *args, **kwargs)
+        # Derive the slug from publication_date + number. Lazy-computed
+        # here rather than stored on the row — slugs are deterministic
+        # functions of (publication_date, number) and don't need their
+        # own column.
+        pd = getattr(obj, "publication_date", None)
+        if pd is not None:
+            month_fr = _MONTHS_FR_INVERSE.get(pd.month)
+            if month_fr:
+                result.slug = f"{pd.day}-{month_fr}-{pd.year}"
+        return result
+
+
+# Inverse of MONTHS_FR (date → French month name) used to generate the
+# URL slug for ``/moniteur/{slug}``. Kept lowercase + accent-free so
+# slugs stay URL-safe (28-avril-1987 not 28-Avril-1987 or 28-août-…
+# which would need percent-encoding).
+_MONTHS_FR_INVERSE: dict[int, str] = {
+    1: "janvier", 2: "fevrier", 3: "mars", 4: "avril",
+    5: "mai", 6: "juin", 7: "juillet", 8: "aout",
+    9: "septembre", 10: "octobre", 11: "novembre", 12: "decembre",
+}
 
 
 class CompanionDocument(BaseModel):

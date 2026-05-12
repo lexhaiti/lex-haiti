@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowRight, BookOpen, Calendar, FileText } from 'lucide-react'
-import type { MoniteurIssueRead } from '@/lib/api/endpoints'
+import { moniteurIssueSlug, type MoniteurIssueRead } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
 import { HighlightText } from '@/lib/text/highlight'
 import { formatLongDate } from '@/lib/format/date'
@@ -61,7 +61,7 @@ export function MoniteurIssueCard({
    *  surfaced for their query. */
   query?: string
 }) {
-  const target = href ?? `/moniteur/${issue.id}`
+  const target = href ?? `/moniteur/${moniteurIssueSlug(issue)}`
   const numberDisplay = smartIssueNumber(issue.number)
   const sommaire = issue.sommaire ?? []
   const visible = sommaire.slice(0, sommaireLimit)

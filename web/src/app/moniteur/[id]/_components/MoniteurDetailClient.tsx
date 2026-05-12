@@ -17,6 +17,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   getMoniteurIssue,
+  getMoniteurIssueBySlug,
   type MoniteurIssueWithEntries,
   type MoniteurEntryRead,
 } from '@/lib/api/endpoints'
@@ -415,20 +416,30 @@ function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
 
 export default function MoniteurDetailClient() {
   const params = useParams()
-  const id = Number(params.id)
+  // Route param is named "id" for backwards compatibility, but it can
+  // now be either:
+  //   - numeric (e.g. ``/moniteur/11``) — legacy permalink, kept working
+  //   - a date slug (e.g. ``/moniteur/28-avril-1987``) — preferred,
+  //     surfaced everywhere new links are generated.
+  // Dispatch on the shape: pure-digit string → ID lookup, else slug.
+  const rawParam = String(params.id ?? '')
+  const isNumeric = /^\d+$/.test(rawParam)
 
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id || Number.isNaN(id)) return
+    if (!rawParam) return
     setLoading(true)
-    getMoniteurIssue(id)
+    const promise = isNumeric
+      ? getMoniteurIssue(Number(rawParam))
+      : getMoniteurIssueBySlug(rawParam)
+    promise
       .then(setIssue)
       .catch(() => setError('Numéro introuvable'))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [rawParam, isNumeric])
 
   // Group entries — must be called before any conditional return so hook order is stable.
   const { topLevel, childrenByParent, categoryCounts } = useMemo(() => {

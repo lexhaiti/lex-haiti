@@ -362,6 +362,36 @@ export async function getMoniteurIssue(id: number) {
   return apiGet<MoniteurIssueWithEntries>(`/moniteur/issues/${id}`)
 }
 
+/** Resolve a date-based slug (``28-avril-1987``) to the full issue
+ *  payload. Used by the public ``/moniteur/{slug}`` route. */
+export async function getMoniteurIssueBySlug(slug: string) {
+  return apiGet<MoniteurIssueWithEntries>(
+    `/moniteur/issues/by-slug/${encodeURIComponent(slug)}`,
+  )
+}
+
+/** Build the human-readable URL slug for a Moniteur issue. Falls back
+ *  to the numeric ID when ``publication_date`` is null (rare — happens
+ *  only for half-imported issues that haven't been processed yet). */
+export function moniteurIssueSlug(issue: {
+  id: number
+  publication_date?: string | null
+  slug?: string | null
+}): string {
+  if (issue.slug) return issue.slug
+  if (!issue.publication_date) return String(issue.id)
+  // Reconstruct on the client when the backend response predates the
+  // slug-emitting Pydantic update. Same format the backend uses.
+  const [y, m, d] = issue.publication_date.split('-')
+  const months = [
+    'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
+  ]
+  const idx = parseInt(m, 10) - 1
+  if (idx < 0 || idx > 11) return String(issue.id)
+  return `${parseInt(d, 10)}-${months[idx]}-${y}`
+}
+
 export async function createMoniteurIssue(payload: {
   number: string
   year: number

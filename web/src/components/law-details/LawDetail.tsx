@@ -40,6 +40,7 @@ import TableOfContents from '@/components/law-details/TableOfContent'
 import { EditorBar } from './EditorBar'
 import { EditableFormalBlock } from './EditableFormalBlock'
 import {
+  moniteurIssueSlug,
   updateHeadingTitle,
   updateLegalTextMetadata,
 } from '@/lib/api/endpoints'
@@ -547,7 +548,10 @@ export default function LawDetail() {
                     const dateStr = formatted ? `du ${formatted}` : ''
                     return (
                       <Link
-                        href={`/moniteur/${law.moniteur_issue_id}`}
+                        href={`/moniteur/${moniteurIssueSlug({
+                          id: law.moniteur_issue_id,
+                          publication_date: law.moniteur_issue_publication_date ?? null,
+                        })}`}
                         className="flex items-center gap-4 min-w-0 max-w-full group/moniteur"
                       >
                         <div className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/moniteur:bg-white/10 transition-colors">

@@ -18,6 +18,7 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import {
   listMoniteurIssues,
+  moniteurIssueSlug,
   type MoniteurIssueRead,
 } from '@/lib/api/endpoints'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
@@ -201,7 +202,7 @@ export default function MoniteurListClient() {
               const isDraft = issue.processing_status !== 'published'
               const href = isEditor
                 ? `/editorial/moniteur/${issue.id}/review`
-                : `/moniteur/${issue.id}`
+                : `/moniteur/${moniteurIssueSlug(issue)}`
 
               return (
                 <motion.div

@@ -19,6 +19,7 @@ import { LawCard } from '@/components/shared/LawCard'
 import { useT } from '@/i18n/useT'
 import {
   globalSearch,
+  moniteurIssueSlug,
   type GlobalSearchResponse,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
@@ -107,7 +108,7 @@ function MoniteurCard({
   const numberDisplay = smartIssueNumber(issue.number)
   return (
     <Link
-      href={`/moniteur/${issue.id}`}
+      href={`/moniteur/${moniteurIssueSlug(issue)}`}
       className="group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 transition-all hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]"
     >
       <div className="flex-shrink-0 p-3 rounded-xl bg-primary/5 border border-primary/10 text-primary">
