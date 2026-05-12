@@ -123,3 +123,75 @@ def test_returns_parsed_article_dataclass():
     assert isinstance(r, SplitResult)
     assert isinstance(r.articles[0], ParsedArticle)
     assert r.articles[0].title is None  # default — no title detection yet
+
+
+# --------------------------------------------------------------------------- #
+# Hard / soft boundaries: DISPOSITIONS TRANSITOIRES + structural headings     #
+# --------------------------------------------------------------------------- #
+
+
+def test_dispositions_transitoires_is_a_hard_stop():
+    """A standalone DISPOSITIONS TRANSITOIRES header must cut the body
+    before its position — articles inside the transitional block are
+    handled separately by the parser profile (as an `annex`) and must
+    never leak into the preceding article's body."""
+    body = (
+        "Article 11. — Possède la nationalité haïtienne tout enfant.\n\n"
+        "DISPOSITIONS TRANSITOIRES\n\n"
+        "Article 282. — La présente Constitution entrera en vigueur."
+    )
+    r = split_into_articles(body)
+    assert [a.number for a in r.articles] == ["11"]
+    assert "DISPOSITIONS" not in r.articles[0].body
+    assert "282" not in r.articles[0].body
+    assert r.articles[0].body.endswith("tout enfant.")
+
+
+def test_inline_dispositions_transitoires_does_not_trigger_cut():
+    """An inline reference to "dispositions transitoires" inside an
+    article body must NOT trigger the hard stop — only the standalone
+    header form on its own line cuts. Otherwise prose like "la loi
+    prévoit des dispositions transitoires…" would silently truncate
+    every loi that mentions them."""
+    body = (
+        "Article 1. — La loi prévoit des dispositions transitoires "
+        "applicables aux contrats en cours.\n\n"
+        "Article 2. — Cette disposition entre en vigueur."
+    )
+    r = split_into_articles(body)
+    assert [a.number for a in r.articles] == ["1", "2"]
+    assert "dispositions transitoires" in r.articles[0].body
+
+
+def test_structural_heading_between_articles_ends_previous_body():
+    """When a TITRE / CHAPITRE header sits between two articles, the
+    previous article's body must end at the heading — otherwise the
+    structural label silently becomes prose trailing the article body."""
+    body = (
+        "Article 2. — Les couleurs nationales sont le bleu et le rouge.\n\n"
+        "TITRE II\n"
+        "DES HAÏTIENS ET DE LEURS DROITS\n\n"
+        "CHAPITRE Ier — De la nationalité haïtienne\n\n"
+        "Article 11. — Possède la nationalité haïtienne tout enfant."
+    )
+    r = split_into_articles(body)
+    assert [a.number for a in r.articles] == ["2", "11"]
+    # Article 2's body must NOT swallow TITRE II / CHAPITRE Ier
+    assert "TITRE" not in r.articles[0].body
+    assert "CHAPITRE" not in r.articles[0].body
+    assert r.articles[0].body.endswith("bleu et le rouge.")
+
+
+def test_structural_heading_in_prose_does_not_cut():
+    """Inline prose references like "Le présent TITRE concerne…" must
+    NOT be mistaken for a structural-heading boundary. The regex is
+    line-anchored and requires a Roman/digit number right after the
+    keyword — "Le présent TITRE concerne" doesn't match."""
+    body = (
+        "Article 1. — Le présent TITRE concerne les droits fondamentaux "
+        "et garantit la liberté d'expression.\n\n"
+        "Article 2. — La suite."
+    )
+    r = split_into_articles(body)
+    assert [a.number for a in r.articles] == ["1", "2"]
+    assert "TITRE concerne" in r.articles[0].body

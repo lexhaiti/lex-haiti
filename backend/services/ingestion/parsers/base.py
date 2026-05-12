@@ -241,6 +241,16 @@ ENACTING_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+# Explicit "PRÉAMBULE" header on its own line — typical for
+# Constitutions and some Codes which carry a labelled preamble block
+# rather than the implicit "everything before the enacting formula"
+# preamble used by lois. Matched as a standalone line so prose
+# references like "le préambule de la Constitution" don't trigger.
+PREAMBLE_HEADER_RE = re.compile(
+    r"^\s*PR[ÉE]AMBULE\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 # ---------------------------------------------------------------------------
 # BaseParser
@@ -439,11 +449,33 @@ class BaseParser:
                 )
             )
 
-        # Preamble = everything in head that isn't sovereignty / visa /
-        # considérant. Heuristic: if head still has ≥80 chars of prose
-        # after stripping the matched lines, treat the original head
-        # (minus sovereignty) as a preamble block.
-        if head.strip():
+        # Explicit ``PRÉAMBULE`` header — Constitutions and many Codes
+        # carry a labelled preamble block instead of the implicit
+        # "everything before the enacting formula" preamble used by lois.
+        # When the label is present, extract its body (up to the first
+        # structural heading) and DROP that region from `body` so the
+        # article splitter doesn't pull the preamble prose back in.
+        preamble_explicit = self._extract_labelled_preamble(text)
+        if preamble_explicit is not None:
+            preamble_text, preamble_end = preamble_explicit
+            blocks.append(
+                ParsedTocNode(
+                    block_kind=BlockKind.preamble.value,
+                    key="preamble",
+                    title_fr="Préambule",
+                    body_fr=preamble_text,
+                    confidence=0.95,
+                )
+            )
+            # When no enacting formula was found, `body` was the whole
+            # text; chop the preamble region off the front.
+            if not enacting and preamble_end is not None:
+                body = text[preamble_end:]
+
+        # Heuristic preamble = everything in `head` that isn't
+        # sovereignty / visa / considérant. Only runs when no explicit
+        # PRÉAMBULE label was found above, otherwise we'd double-count.
+        if head.strip() and preamble_explicit is None:
             stripped = SOVEREIGNTY_RE.sub("", head)
             stripped = VISA_LINE_RE.sub("", stripped)
             stripped = CONSIDERANT_LINE_RE.sub("", stripped).strip()
@@ -468,6 +500,47 @@ class BaseParser:
             )
 
         return blocks, body
+
+    def _extract_labelled_preamble(
+        self, text: str
+    ) -> Optional[tuple[str, int]]:
+        """Find an explicit ``PRÉAMBULE`` header and return
+        ``(preamble_body, preamble_end_offset)``, or ``None`` if no
+        labelled preamble is present.
+
+        The body runs from just after the label to whichever comes
+        first: the next structural heading (PARTIE / LIVRE / TITRE /
+        CHAPITRE / SECTION / SOUS-SECTION), the next formal-block
+        marker (visa / considérant / enacting / sovereignty), or end
+        of text. ``preamble_end_offset`` is the character offset where
+        the preamble body ends — the caller uses it to chop the
+        preamble region out of the post-formal-blocks body so the
+        article splitter doesn't see the preamble prose.
+        """
+        marker = PREAMBLE_HEADER_RE.search(text)
+        if not marker:
+            return None
+        body_start = marker.end()
+
+        end_candidates: list[int] = [len(text)]
+        for _level, pat in self.HEADING_PATTERNS:
+            m = pat.search(text, body_start)
+            if m:
+                end_candidates.append(m.start())
+        for marker_re in (
+            SOVEREIGNTY_RE,
+            VISA_LINE_RE,
+            CONSIDERANT_LINE_RE,
+            ENACTING_RE,
+        ):
+            m = marker_re.search(text, body_start)
+            if m:
+                end_candidates.append(m.start())
+        body_end = min(end_candidates)
+        preamble_body = text[body_start:body_end].strip()
+        if not preamble_body:
+            return None
+        return preamble_body, body_end
 
     def _extract_structural_headings(self, text: str) -> list[ParsedTocNode]:
         """Walk the text for structural headings using ``HEADING_PATTERNS``.

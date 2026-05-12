@@ -119,6 +119,31 @@ _ARTICLE_HEADING_RE = re.compile(
 )
 
 
+# Standalone "DISPOSITIONS TRANSITOIRES" header — must be its own line.
+# We require the line-anchored form so prose references like
+# "des dispositions transitoires de la loi" don't trigger the cut.
+# Used as a hard stop for the article splitter: transitional dispositions
+# (typical for Constitutions and some Codes) are handled separately by
+# the consuming parser profile as an `annex` block, never merged into
+# the preceding article's body.
+_TRANSITIONAL_ANNEX_HEADER_RE = re.compile(
+    r"^\s*DISPOSITIONS\s+TRANSITOIRES\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Structural-heading line (PARTIE / LIVRE / TITRE / CHAPITRE / SECTION
+# / SOUS-SECTION) — used as a soft boundary inside the article splitter
+# so an article's body never silently swallows the next TITRE / CHAPITRE
+# header. Inline references ("Le présent TITRE concerne…") don't match
+# because the regex is line-anchored and requires a Roman/digit number
+# right after the keyword.
+_STRUCTURAL_HEADING_RE = re.compile(
+    r"^\s*(?:PARTIE|LIVRE|TITRE|CHAPITRE|SECTION|SOUS-SECTION)"
+    r"\s+[IVXLCDM\d]+(?:er|ère|e)?\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
 def split_into_articles(body: str) -> SplitResult:
     """Split a law body into preamble + list of articles + optional formula.
 
@@ -135,6 +160,17 @@ def split_into_articles(body: str) -> SplitResult:
     """
     if not body or not body.strip():
         return SplitResult(preamble="", articles=[], official_formula=None)
+
+    # Hard stop on a standalone "DISPOSITIONS TRANSITOIRES" header. The
+    # transitional dispositions are handled separately by the consuming
+    # parser profile (e.g. ConstitutionParser.finalize lifts them as an
+    # `annex` block), and must NOT be merged into the preceding article's
+    # body. Inline references like "des dispositions transitoires de…"
+    # don't match the line-anchored regex, so this is safe for lois that
+    # only mention transitional dispositions in prose.
+    annex_marker = _TRANSITIONAL_ANNEX_HEADER_RE.search(body)
+    if annex_marker:
+        body = body[: annex_marker.start()].rstrip()
 
     # Slice off the post-dispositif formula first, so the article matcher
     # below doesn't see the "Article" mentions sometimes hidden inside the
@@ -155,7 +191,17 @@ def split_into_articles(body: str) -> SplitResult:
     for i, m in enumerate(matches):
         number = _normalize_number(m.group(1))
         body_start = m.end()
-        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(body)
+        next_article_start = (
+            matches[i + 1].start() if i + 1 < len(matches) else len(body)
+        )
+        body_end = next_article_start
+        # A structural heading (TITRE / CHAPITRE / SECTION …) sitting
+        # between two articles is the start of a new structural region,
+        # not part of the previous article's body — cut at the heading
+        # so the article body ends cleanly.
+        struct = _STRUCTURAL_HEADING_RE.search(body, body_start, body_end)
+        if struct:
+            body_end = struct.start()
         article_body = body[body_start:body_end].strip()
         # Drop articles whose body is empty (the parser caught the heading
         # but nothing followed before the next heading — usually OCR noise).
