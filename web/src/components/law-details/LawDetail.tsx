@@ -44,6 +44,7 @@ import {
   updateLegalTextMetadata,
 } from '@/lib/api/endpoints'
 import { SignataireBlock } from '@/components/law-details/SignataireBlock'
+import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { useT } from '@/i18n/useT'
@@ -372,12 +373,41 @@ export default function LawDetail() {
                   intrinsic identifier of the act, conceptually a third
                   badge (after category + status). The devise +
                   issuing-authority block is rendered later, in the body. */}
-              {law.official_number && (
-                <OfficialNumberTab
-                  value={law.official_number}
-                  category={law.category}
-                  lang={currentLang}
-                />
+              {(law.official_number || isEditor) && (
+                <EditableHeroField
+                  value={law.official_number ?? ''}
+                  isEditor={isEditor}
+                  editAriaLabel={
+                    currentLang === 'fr'
+                      ? 'Modifier le numéro officiel'
+                      : 'Modifye nimewo ofisyèl'
+                  }
+                  emptyPlaceholder={
+                    currentLang === 'fr'
+                      ? '+ Ajouter un numéro'
+                      : '+ Ajoute yon nimewo'
+                  }
+                  onSave={async (next) => {
+                    await updateLegalTextMetadata(law.slug, {
+                      official_number: next || null,
+                    } as any)
+                    refetch()
+                  }}
+                >
+                  {law.official_number ? (
+                    <OfficialNumberTab
+                      value={law.official_number}
+                      category={law.category}
+                      lang={currentLang}
+                    />
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/50 italic">
+                      {currentLang === 'fr'
+                        ? '+ Ajouter un numéro'
+                        : '+ Ajoute yon nimewo'}
+                    </span>
+                  )}
+                </EditableHeroField>
               )}
             </motion.div>
 
@@ -389,7 +419,24 @@ export default function LawDetail() {
                 transition={{ delay: 0.1 }}
                 className="text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm"
               >
-                {title}
+                <EditableHeroField
+                  value={title}
+                  isEditor={isEditor}
+                  editAriaLabel={
+                    currentLang === 'fr' ? 'Modifier le titre' : 'Modifye tit la'
+                  }
+                  inputClassName="text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight w-full"
+                  onSave={async (next) => {
+                    if (!next) throw new Error('Le titre ne peut pas être vide')
+                    const field = currentLang === 'ht' ? 'title_ht' : 'title_fr'
+                    await updateLegalTextMetadata(law.slug, {
+                      [field]: next,
+                    } as any)
+                    refetch()
+                  }}
+                >
+                  {title}
+                </EditableHeroField>
               </motion.h1>
 
               <motion.p
@@ -420,7 +467,31 @@ export default function LawDetail() {
                       {t('lawDetail.meta.year')}
                     </p>
                     <p className="text-white font-bold">
-                      {law.publication_date?.slice(0, 4) ?? '—'}
+                      <EditableHeroField
+                        value={law.publication_date?.slice(0, 4) ?? ''}
+                        isEditor={isEditor}
+                        kind="year"
+                        emptyPlaceholder="—"
+                        editAriaLabel={
+                          currentLang === 'fr'
+                            ? "Modifier l'année"
+                            : 'Modifye ane a'
+                        }
+                        inputClassName="w-20 text-center font-bold"
+                        onSave={async (next) => {
+                          // 4-digit year → store as YYYY-01-01 on the
+                          // publication_date column. Editing this field is
+                          // a year-only intent; finer-grained dates live
+                          // in the MetadataEditor sheet.
+                          const value = next ? `${next}-01-01` : null
+                          await updateLegalTextMetadata(law.slug, {
+                            publication_date: value,
+                          } as any)
+                          refetch()
+                        }}
+                      >
+                        {law.publication_date?.slice(0, 4) ?? '—'}
+                      </EditableHeroField>
                     </p>
                   </div>
                 </div>
