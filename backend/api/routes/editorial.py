@@ -464,7 +464,11 @@ def list_signers(slug: str, db: DbSession, user: EditorialUser):  # noqa: ARG001
     after add/edit/delete without re-pulling the whole law payload.
     """
     repo = CorpusRepository(db)
-    text = repo.get_text_by_slug(slug)
+    # editorial_status=None → editor sees drafts, pending, published,
+    # rejected — the editorial UI lives on draft texts most of the
+    # time. The default in get_text_by_slug is "published only" which
+    # is the public read path, not the editorial one.
+    text = repo.get_text_by_slug(slug, editorial_status=None)
     if text is None:
         raise HTTPException(404, "Legal text not found")
     rows = repo.list_signers_by_text(text.id)
@@ -493,7 +497,7 @@ def create_signer(
     re-shuffling of existing signers.
     """
     repo = CorpusRepository(db)
-    text = repo.get_text_by_slug(slug)
+    text = repo.get_text_by_slug(slug, editorial_status=None)
     if text is None:
         raise HTTPException(404, "Legal text not found")
     payload = body.model_dump(exclude_unset=True)

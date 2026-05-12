@@ -11,43 +11,23 @@ import {
   type LegalSignerPatch,
   type LegalSignerRead,
 } from '@/lib/api/endpoints'
-import { cn } from '@/lib/utils'
 
 /**
  * Editor UI for manually managing the signers list on a legal text.
  *
- * Used in two layouts:
- *  - Inline replacement of the structured signers block when the editor
- *    is signed in and either the parser missed signers OR the editor
- *    wants to correct them. Sits in the same vertical slot as the
- *    public Signataires block.
- *  - Renders the same rows as the public view when not editing, plus
- *    a per-row Pencil button to enter edit mode for that row and a
- *    "+ Ajouter" button at the bottom of the list.
+ * Minimal model — a signer is just **Name + Function**. The signing
+ * capacity is redundant with what the editor types in the function
+ * field ("Président" / "Secrétaire" / "Ministre…"), the chamber is
+ * rarely needed for Haitian texts, and the per-signer date already
+ * lives in the closing formula. So the editor form has two text
+ * fields, both free-form. Backend stores ``signing_capacity='other'``
+ * and ``chamber=null`` by default; if the parser populates them later
+ * with stronger heuristics, that's fine — the editor's manual entries
+ * just sit there with the loose defaults.
  *
- * State model: only one row is in edit mode at a time (or one new-row
- * draft). The draft is local — only flushed to the server on Save.
+ * State model: one row in edit mode at a time (or one new-row draft).
+ * The draft is local — only flushed on Save.
  */
-
-type Capacity = LegalSignerRead['signing_capacity']
-type Chamber = NonNullable<LegalSignerRead['chamber']> | 'none'
-
-const CAPACITY_OPTIONS: { value: Capacity; labelFr: string; labelHt: string }[] = [
-  { value: 'authoring', labelFr: 'Auteur', labelHt: 'Otè' },
-  { value: 'presiding', labelFr: 'Président de séance', labelHt: 'Prezidan seyans' },
-  { value: 'attesting', labelFr: 'Secrétaire', labelHt: 'Sekretè' },
-  { value: 'promulgating', labelFr: 'Promulgateur', labelHt: 'Pwomilgatè' },
-  { value: 'countersigning', labelFr: 'Contresignataire', labelHt: 'Kontresiyatè' },
-  { value: 'other', labelFr: 'Autre', labelHt: 'Lòt' },
-]
-
-const CHAMBER_OPTIONS: { value: Chamber; labelFr: string; labelHt: string }[] = [
-  { value: 'none', labelFr: '— Aucune —', labelHt: '— Okenn —' },
-  { value: 'senat', labelFr: 'Sénat', labelHt: 'Sena' },
-  { value: 'chambre', labelFr: 'Chambre', labelHt: 'Chanm' },
-  { value: 'executive', labelFr: 'Exécutif', labelHt: 'Egzekitif' },
-  { value: 'ministerial', labelFr: 'Ministériel', labelHt: 'Ministeryèl' },
-]
 
 type DraftState = {
   // null = new row, number = signer.id being edited
@@ -268,8 +248,14 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
   )
 }
 
-/** Inline form for both new + edit. Two columns: name + function_fr,
- *  with capacity / chamber / function_ht as secondary fields. */
+/** Inline form for both new + edit. Just two fields: Name + Function
+ *  (FR), with the Kreyòl translation of the function as an optional
+ *  third field. Capacity / chamber / signed_at are not surfaced —
+ *  capacity is redundant with what the editor types in the function
+ *  field, chamber is rarely meaningful for Haitian texts, and the
+ *  per-signer date already lives in the closing formula. Backend
+ *  stores ``signing_capacity='other'`` + ``chamber=null`` from the
+ *  default emptyDraft() so this is purely a UI simplification. */
 function SignerDraftCard({
   draft,
   setDraft,
@@ -311,7 +297,7 @@ function SignerDraftCard({
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            {lang === 'fr' ? 'Fonction (FR)' : 'Fonksyon (FR)'} *
+            {lang === 'fr' ? 'Fonction' : 'Fonksyon'} *
           </span>
           <input
             type="text"
@@ -319,14 +305,18 @@ function SignerDraftCard({
             disabled={busy}
             onChange={(e) => patch({ function_fr: e.target.value })}
             placeholder={
-              lang === 'fr' ? "Président de l'Assemblée…" : "Prezidan…"
+              lang === 'fr'
+                ? "Président, Ministre, Secrétaire…"
+                : 'Prezidan, Minis, Sekretè…'
             }
             className={inputCls}
           />
         </label>
-        <label className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            {lang === 'fr' ? 'Fonction (HT)' : 'Fonksyon (HT)'}
+            {lang === 'fr'
+              ? 'Fonction (Kreyòl, facultatif)'
+              : 'Fonksyon (Kreyòl, opsyonèl)'}
           </span>
           <input
             type="text"
@@ -334,64 +324,6 @@ function SignerDraftCard({
             disabled={busy}
             onChange={(e) =>
               patch({ function_ht: e.target.value || null })
-            }
-            className={inputCls}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            {lang === 'fr' ? 'Capacité' : 'Kapasite'}
-          </span>
-          <select
-            value={draft.values.signing_capacity ?? 'other'}
-            disabled={busy}
-            onChange={(e) =>
-              patch({ signing_capacity: e.target.value as Capacity })
-            }
-            className={cn(inputCls, 'pr-2')}
-          >
-            {CAPACITY_OPTIONS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {lang === 'fr' ? c.labelFr : c.labelHt}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            {lang === 'fr' ? 'Chambre' : 'Chanm'}
-          </span>
-          <select
-            value={draft.values.chamber ?? 'none'}
-            disabled={busy}
-            onChange={(e) => {
-              const v = e.target.value
-              patch({
-                chamber:
-                  v === 'none'
-                    ? null
-                    : (v as LegalSignerRead['chamber']),
-              })
-            }}
-            className={cn(inputCls, 'pr-2')}
-          >
-            {CHAMBER_OPTIONS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {lang === 'fr' ? c.labelFr : c.labelHt}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-            {lang === 'fr' ? 'Date de signature' : 'Dat siyati'}
-          </span>
-          <input
-            type="date"
-            value={draft.values.signed_at ?? ''}
-            disabled={busy}
-            onChange={(e) =>
-              patch({ signed_at: e.target.value || null })
             }
             className={inputCls}
           />
