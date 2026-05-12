@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FileText, Grid3X3, List, Loader2, Search, SearchX } from 'lucide-react'
+import { FileText, Grid3X3, List, Loader2, Plus, Search, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import LawFilters from '@/components/all-laws/LawFilter'
 import type { components } from '@/lib/api-types'
@@ -11,6 +12,7 @@ import type { DisplayItem } from '@/lib/hooks/useAllTexts'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { themeDescription, themeLabel } from '@/lib/themes'
+import { useEditorMode } from '@/lib/hooks/useEditorMode'
 // Reuse the centralised label maps. Keep these renamed locals so the
 // downstream code (existence checks, indexed reads) stays untouched.
 import {
@@ -185,6 +187,8 @@ export function AllLawsUI({
   activeSearchTerm,
   editorialSlot,
 }: Props) {
+  const { isEditor } = useEditorMode()
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -247,6 +251,29 @@ export function AllLawsUI({
                   ? "Explorez l'ensemble de la législation haïtienne."
                   : 'Eksplore tout lejislasyon ayisyen an.')}
             </motion.p>
+
+            {/* Editor-only import shortcut — pre-selects the
+                legal_text path of the import wizard. Hidden from the
+                public so /lois stays focused on browsing. */}
+            {isEditor && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="mt-4"
+              >
+                <Link
+                  href="/editorial/import?type=legal_text"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 text-slate-900 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {t?.('allLaws.importButton') ??
+                    (lang === 'fr'
+                      ? 'Importer un texte juridique'
+                      : 'Enpòte yon tèks jiridik')}
+                </Link>
+              </motion.div>
+            )}
             {/* No header-level result count — the count lives in the
                 filter bar below, next to the filter controls where it
                 actually responds to filter changes. Keeping both led

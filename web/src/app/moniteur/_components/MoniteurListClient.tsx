@@ -12,6 +12,7 @@ import {
   FileText,
   Loader2,
   Newspaper,
+  Plus,
   Search,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -162,11 +163,24 @@ export default function MoniteurListClient() {
         </motion.div>
 
         {isEditor && (
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <EditorialFilter
               value={editorialFilter}
               onChange={setEditorialFilter}
             />
+            {/* Editor-only quick action — opens the Moniteur side of
+                the import flow directly with the type pre-selected.
+                Visible only when ``isEditor`` is true, so the public
+                /moniteur page stays clean. */}
+            <Link
+              href="/editorial/import?type=moniteur"
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 text-slate-900 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('moniteurList.importButton', {
+                fallback: 'Importer un numéro',
+              })}
+            </Link>
           </div>
         )}
       </StandardPageHeader>
