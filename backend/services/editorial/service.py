@@ -164,15 +164,40 @@ class EditorialService:
         self.session.flush()
 
         # --- Create headings (resolve parent_key → parent_id) ---
+        # Dedupe heading keys: a constitution / code reuses the same
+        # Roman numbers across siblings (CHAPITRE I under TITRE I + under
+        # TITRE II), and ``uq_legal_headings_text_key`` forbids
+        # collisions per (legal_text_id, key). Suffix with ``--N`` on
+        # collision; carry an ``original_to_db_key`` map so child
+        # headings' ``parent_key`` (and articles' ``heading_key``)
+        # resolve to the correct parent after dedup. Same strategy as
+        # ``MoniteurRepository.promote_entry``.
         key_to_id: dict[str, int] = {}
+        original_to_db_key: dict[str, str] = {}
+        seen_db_keys: set[str] = set()
         if data.headings:
             for h in data.headings:
-                parent_id = key_to_id.get(h.parent_key) if h.parent_key else None
+                db_key = h.key
+                counter = 1
+                while db_key in seen_db_keys:
+                    counter += 1
+                    db_key = f"{h.key}--{counter}"
+                seen_db_keys.add(db_key)
+                original_to_db_key[h.key] = db_key
+
+                parent_db_key = (
+                    original_to_db_key.get(h.parent_key)
+                    if h.parent_key
+                    else None
+                )
+                parent_id = (
+                    key_to_id.get(parent_db_key) if parent_db_key else None
+                )
                 heading = LegalHeading(
                     legal_text_id=legal_text.id,
                     parent_id=parent_id,
                     level=h.level,
-                    key=h.key,
+                    key=db_key,
                     number=h.number,
                     title_fr=h.title_fr,
                     title_ht=h.title_ht,
@@ -182,12 +207,21 @@ class EditorialService:
                 )
                 self.session.add(heading)
                 self.session.flush()
-                key_to_id[h.key] = heading.id
+                key_to_id[db_key] = heading.id
 
         # --- Create articles (resolve heading_key → heading_id) ---
         if data.articles:
             for position, art in enumerate(data.articles):
-                heading_id = key_to_id.get(art.heading_key) if art.heading_key else None
+                # Same original-to-db key mapping as headings — keeps
+                # article→heading links intact after dedup.
+                heading_db_key = (
+                    original_to_db_key.get(art.heading_key)
+                    if art.heading_key
+                    else None
+                )
+                heading_id = (
+                    key_to_id.get(heading_db_key) if heading_db_key else None
+                )
                 article = Article(
                     legal_text_id=legal_text.id,
                     heading_id=heading_id,
