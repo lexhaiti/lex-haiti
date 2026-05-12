@@ -29,6 +29,13 @@ class ParsedArticle:
     number: str
     body: str
     title: Optional[str] = None  # Reserved — most Haitian laws don't title articles.
+    # Offset of the article heading within the original ``body`` string
+    # passed to ``split_into_articles``. Lets the caller compare article
+    # positions to structural-heading positions without re-searching the
+    # text (a substring search would return the first match, which is
+    # wrong when the same heading number appears multiple times — e.g.
+    # CHAPITRE I under TITRE I and again under TITRE II).
+    source_offset: Optional[int] = None
 
 
 @dataclass
@@ -213,7 +220,11 @@ def split_into_articles(body: str) -> SplitResult:
         # but nothing followed before the next heading — usually OCR noise).
         if not article_body:
             continue
-        articles.append(ParsedArticle(number=number, body=article_body))
+        articles.append(
+            ParsedArticle(
+                number=number, body=article_body, source_offset=m.start()
+            )
+        )
 
     return SplitResult(
         preamble=preamble,

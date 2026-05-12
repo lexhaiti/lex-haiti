@@ -255,7 +255,15 @@ _IDENT_RE = r"(?:[IVXLCDM\d]+(?:er|ère|e|re)?|[A-Z])"
 # "Section Communale" matching as "Section C" + tail "ommunale les …" —
 # the ``\b`` rejects the run because "C" → "o" has no boundary
 # between two word chars.
-_TITLE_TAIL_RE = r"\b[\s\.\-—:]*[ \t]*([^\n]+?)?[ \t]*$"
+#
+# Separator class is ``[ \t.\-—:]*`` (horizontal whitespace + a few
+# punctuation chars), explicitly NOT ``\s`` because ``\s`` includes
+# ``\n`` — and a separator that spans newlines makes the title capture
+# leak onto the next line. The 1987 Constitution has bare ``TITRE IX``
+# directly followed by ``CHAPITRE I``; with ``\s`` the regex would
+# happily match "TITRE IX\n\nCHAPITRE I" and capture "CHAPITRE I" as
+# the title of TITRE IX.
+_TITLE_TAIL_RE = r"\b[ \t.\-—:]*([^\n]+?)?[ \t]*$"
 
 _HEADING_PATTERNS_DEFAULT: list[tuple[HeadingLevel, Pattern[str]]] = [
     # Most-specific first so a "PARTIE I" doesn't match the "TITRE" pattern.
@@ -393,8 +401,16 @@ class BaseParser:
             block.position = i
         output.toc.extend(formal_blocks)
 
-        # 3. Structural TOC
-        structural = self._extract_structural_headings(body_after_formals)
+        # 3. Structural TOC. ``_extract_structural_headings`` also
+        # returns the parallel list of (regex_match_offset, key) pairs
+        # within ``body_after_formals`` — used below to assign each
+        # article to its nearest preceding heading by real byte
+        # position (more reliable than line-based lookup, since the
+        # same heading text — e.g. "CHAPITRE I" — repeats across
+        # different TITRE branches).
+        structural, structural_offsets = self._extract_structural_headings_with_offsets(
+            body_after_formals
+        )
         # Position offset = after formal blocks
         for i, node in enumerate(structural, start=len(formal_blocks)):
             node.position = i
@@ -415,7 +431,7 @@ class BaseParser:
                     # article_split.py uses `body` for the article body
                     text_fr=art.body,
                     toc_node_key=self._nearest_structural_key(
-                        art, structural
+                        art.source_offset, structural_offsets
                     ),
                     confidence=1.0,
                     source_start_line=start_line,
@@ -674,9 +690,26 @@ class BaseParser:
     )
 
     def _extract_structural_headings(self, text: str) -> list[ParsedTocNode]:
+        """Backwards-compatible wrapper around
+        ``_extract_structural_headings_with_offsets`` — returns only the
+        nodes. Kept for callers that don't need byte offsets."""
+        nodes, _ = self._extract_structural_headings_with_offsets(text)
+        return nodes
+
+    def _extract_structural_headings_with_offsets(
+        self, text: str
+    ) -> tuple[list[ParsedTocNode], list[tuple[int, str]]]:
         """Walk the text for structural headings using ``HEADING_PATTERNS``.
         Builds parent/child relationships by remembering the most recent
         header at each depth.
+
+        Returns ``(nodes, offsets)`` where ``offsets`` is the parallel
+        list of ``(match_start_offset_within_text, deduped_key)`` pairs
+        in source order. Callers (the article-to-heading mapper) use
+        these offsets to disambiguate repeated headings (e.g. CHAPITRE
+        I that occurs under multiple TITRE branches) — line-number
+        lookups via ``_locate_lines`` collapse to the FIRST occurrence
+        for every duplicate, which is incorrect.
 
         When a heading line carries no inline title (very common in
         Haitian texts: ``TITRE IX`` alone on its line), we look at the
@@ -688,6 +721,15 @@ class BaseParser:
         most_recent: dict[HeadingLevel, str] = {}
         levels_in_order = [lvl for lvl, _ in self.HEADING_PATTERNS]
         depth_index = {lvl: i for i, lvl in enumerate(levels_in_order)}
+        # Each structural key must be globally unique within the
+        # document — multiple SECTION E headings under different
+        # chapters would otherwise collide and every "section-e"
+        # article would point at the SAME DB row after the
+        # promote_entry dedup. Tracking seen keys here and suffixing
+        # ``--N`` on collision keeps the parser's output already-
+        # unambiguous; promote_entry's own dedup is then a no-op for
+        # any key the parser produced.
+        seen_keys: set[str] = set()
 
         # Walk in source order — interleave matches from all patterns.
         # Use a single pass collecting (start, level, match) and sort.
@@ -697,7 +739,8 @@ class BaseParser:
                 events.append((m.start(), level, m))
         events.sort(key=lambda e: e[0])
 
-        for _, level, m in events:
+        offsets: list[tuple[int, str]] = []
+        for match_start, level, m in events:
             number = m.group(1) or ""
             title = (m.group(2) or "").strip() if m.lastindex and m.lastindex >= 2 else ""
             # Fallback: no inline title → scan forward to the next
@@ -705,7 +748,13 @@ class BaseParser:
             # itself a structural heading or article keyword.
             if not title:
                 title = self._title_from_next_line(text, m.end())
-            key = self._make_structural_key(level, number)
+            base_key = self._make_structural_key(level, number)
+            key = base_key
+            counter = 1
+            while key in seen_keys:
+                counter += 1
+                key = f"{base_key}--{counter}"
+            seen_keys.add(key)
             # Find parent: the most recent heading shallower than this one
             parent_key: Optional[str] = None
             this_depth = depth_index[level]
@@ -738,7 +787,8 @@ class BaseParser:
                     source_end_line=end_line,
                 )
             )
-        return nodes
+            offsets.append((match_start, key))
+        return nodes, offsets
 
     def _title_from_next_line(self, text: str, start_offset: int) -> str:
         """Scan ``text`` starting at ``start_offset`` for the first
@@ -769,17 +819,43 @@ class BaseParser:
         return f"{level.value}-{normalized}" if normalized else level.value
 
     def _nearest_structural_key(
-        self, article, structural: list[ParsedTocNode]
+        self,
+        article_offset: Optional[int],
+        structural_offsets: list[tuple[int, str]],
     ) -> Optional[str]:
-        """Find the deepest structural TOC node whose text the article
-        sits under. Uses character offsets when available, falls back
-        to "last seen" structural key."""
-        if not structural:
+        """Return the key of the structural heading that immediately
+        precedes the article at byte ``article_offset`` in the same
+        text that produced ``structural_offsets``.
+
+        Earlier versions:
+        - Returned ``structural[-1].key`` unconditionally, which
+          assigned every article to the LAST heading in the document.
+        - Compared via line numbers from ``_locate_lines``, but
+          ``_locate_lines`` returns the FIRST occurrence of a
+          substring — so multiple "CHAPITRE I" headings (one per
+          TITRE) all collapsed to line 56, and the walker couldn't
+          disambiguate.
+
+        Now uses the regex matches' actual ``m.start()`` byte
+        offsets (passed in as ``structural_offsets``: list of
+        ``(offset, key)`` pairs in source order). Walks the list and
+        picks the heading with the largest offset still
+        ``<= article_offset``. Falls back to the first heading when
+        nothing precedes (article above the first heading); returns
+        the last heading when ``article_offset`` is None (legacy
+        fixture compat).
+        """
+        if not structural_offsets:
             return None
-        # The current article_split doesn't expose offsets cleanly, so
-        # we fall back to the last-seen heading. Profiles that need
-        # offset-accurate parent assignment can override this hook.
-        return structural[-1].key
+        if article_offset is None:
+            return structural_offsets[-1][1]
+        best_key: Optional[str] = None
+        for off, key in structural_offsets:
+            if off <= article_offset:
+                best_key = key
+            else:
+                break
+        return best_key or structural_offsets[0][1]
 
     def _extract_promulgation(self, text: str) -> Optional[dict]:
         """Default promulgation extractor — look for a "Le Président de
