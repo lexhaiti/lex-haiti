@@ -543,7 +543,7 @@ export default function MoniteurDetailClient() {
                 transition={{ delay: 0.18 }}
                 className="flex flex-wrap items-center gap-3"
               >
-                <div className="inline-flex items-center gap-2 text-base lg:text-lg text-white/90 font-medium border-l-2 border-red-500 pl-4">
+                <div className="inline-flex items-center gap-2 text-base lg:text-lg text-white/90 font-medium">
                   <Calendar className="w-4 h-4 text-white/60" />
                   {formattedDate}
                 </div>
