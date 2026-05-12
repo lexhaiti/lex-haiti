@@ -677,6 +677,9 @@ export const fr = {
         editionHint: 'Ex. Numéro spécial',
         director: 'Directeur',
         directorHint: 'Directeur du Moniteur pour ce numéro',
+        directorRole: 'Fonction du directeur (facultatif)',
+        directorRoleHint:
+          "Titre institutionnel entre parenthèses sous le nom (ex. : Major des Forces Armées d'Haïti).",
         s3Title: 'Sommaire (facultatif)',
         s3Help:
           "Pré-remplissez le sommaire pour donner à l'OCR la structure exacte du numéro. Sinon, l'analyse heuristique tentera de détecter les bornes seule.",

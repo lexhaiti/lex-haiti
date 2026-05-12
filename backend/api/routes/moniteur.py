@@ -275,6 +275,7 @@ def extract_metadata(
         ),
         "edition_label": md.edition_label,
         "director": md.director,
+        "director_role": md.director_role,
         "confidence": md.confidence,
         "suggested_sommaire": [
             {
@@ -308,6 +309,7 @@ def create_issue(
             publication_date=payload.publication_date,
             edition_label=payload.edition_label,
             director=payload.director,
+            director_role=payload.director_role,
             uploaded_by=user.id,
         )
         db.commit()

@@ -347,6 +347,7 @@ export async function createMoniteurIssue(payload: {
   publication_date?: string | null
   edition_label?: string | null
   director?: string | null
+  director_role?: string | null
 }) {
   return apiPost<MoniteurIssueRead>(`/moniteur/issues`, payload)
 }
@@ -405,6 +406,10 @@ export type ExtractedMoniteurMetadata = {
   publication_date: string | null
   edition_label: string | null
   director: string | null
+  /** Director's institutional title — what appears in parens after the
+   *  name on the cover page (e.g. "Major Forces Armées d'Haïti",
+   *  "Secrétaire d'État à la Communication"). */
+  director_role: string | null
   confidence: Record<string, number>
   /** Auto-detected sommaire entries — the import form pre-fills its
    *  sommaire step when this is non-empty. */

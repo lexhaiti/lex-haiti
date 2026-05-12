@@ -120,6 +120,10 @@ export default function MoniteurImportPanel() {
   const [pubDate, setPubDate] = useState(today)
   const [edition, setEdition] = useState('')
   const [director, setDirector] = useState('')
+  // Director's institutional title in parens on the cover page — e.g.
+  // "Major Forces Armées d'Haïti", "Secrétaire d'État à la Communication".
+  // Auto-filled from the PDF/DOCX when present.
+  const [directorRole, setDirectorRole] = useState('')
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [err, setErr] = useState<string | null>(null)
@@ -157,6 +161,7 @@ export default function MoniteurImportPanel() {
       if (md.publication_date) setPubDate(md.publication_date)
       if (md.edition_label) setEdition(md.edition_label)
       if (md.director) setDirector(md.director)
+      if (md.director_role) setDirectorRole(md.director_role)
       if (md.suggested_sommaire?.length) {
         setSommaireAutoFilled(true)
         setSommaireRows(
@@ -203,6 +208,7 @@ export default function MoniteurImportPanel() {
     setPubDate(today)
     setEdition('')
     setDirector('')
+    setDirectorRole('')
     setPhase('idle')
     setErr(null)
     setIssueId(null)
@@ -227,6 +233,7 @@ export default function MoniteurImportPanel() {
         publication_date: pubDate || null,
         edition_label: edition.trim() || null,
         director: director.trim() || null,
+        director_role: directorRole.trim() || null,
       })
       setIssueId(issue.id)
 
@@ -452,6 +459,25 @@ export default function MoniteurImportPanel() {
                 disabled={phase !== 'review' && phase !== 'idle'}
                 className={inputCls}
                 placeholder={director ? undefined : 'Ex. : Henry Robert MARC-CHARLES'}
+              />
+            </Field>
+            <Field
+              label={t('editorial.import.moniteur.directorRole')}
+              hint={t('editorial.import.moniteur.directorRoleHint')}
+              autoFilled={metadata?.confidence?.director_role}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
+            >
+              <input
+                type="text"
+                value={directorRole}
+                onChange={(e) => setDirectorRole(e.target.value)}
+                disabled={phase !== 'review' && phase !== 'idle'}
+                className={inputCls}
+                placeholder={
+                  directorRole
+                    ? undefined
+                    : "Ex. : Major des Forces Armées d'Haïti"
+                }
               />
             </Field>
 

@@ -37,9 +37,11 @@ EDITION_RE = re.compile(
 )
 
 # "Directeur : Henry Robert MARC-CHARLES (Major …)" — captures the name
-# up to a parenthetical, "Date :" suffix, or end-of-line.
+# AND the optional role-in-parens. Group 1 = name, Group 2 = role-or-None.
+# Real-world Haitian Moniteur headers carry the director's institutional
+# title in parens ("(Major Forces Armées d'Haïti)" / "(Secrétaire d'État)").
 DIRECTOR_RE = re.compile(
-    r"Directeur\s*:\s*(.+?)(?:\s*\(|\s+Date\s*:|$)",
+    r"Directeur\s*:\s*(?P<name>[^\n(]+?)\s*(?:\((?P<role>[^)]+)\))?\s*(?:Date\s*:|$)",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -120,6 +122,11 @@ class IssueMetadata:
     publication_date: date | None = None
     edition_label: str | None = None
     director: str | None = None
+    # Director's institutional title in parens — e.g. "Major Forces
+    # Armées d'Haiti", "Secrétaire d'État à la Communication". May
+    # change with every administration; surfaced as a separate field
+    # so the editor can edit it without rewriting the name.
+    director_role: str | None = None
     confidence: dict[str, float] = field(default_factory=dict)
     suggested_sommaire: list[SommaireSuggestion] = field(default_factory=list)
 
@@ -186,11 +193,17 @@ def _run_metadata_heuristics(head: str) -> IssueMetadata:
         md.edition_label = em.group(1).strip().capitalize()
         md.confidence["edition_label"] = 0.7
 
-    # Director
+    # Director (name + optional role-in-parens)
     dm = DIRECTOR_RE.search(head)
     if dm:
-        md.director = dm.group(1).strip()
-        md.confidence["director"] = 0.8
+        name = dm.group("name").strip().rstrip(",;").strip()
+        if name:
+            md.director = name
+            md.confidence["director"] = 0.85
+        role = dm.group("role")
+        if role:
+            md.director_role = role.strip()
+            md.confidence["director_role"] = 0.8
 
     return md
 

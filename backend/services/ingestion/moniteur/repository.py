@@ -56,6 +56,7 @@ class MoniteurRepository:
         publication_date=None,
         edition_label: Optional[str] = None,
         director: Optional[str] = None,
+        director_role: Optional[str] = None,
         uploaded_by: Optional[int] = None,
     ) -> MoniteurIssue:
         issue = MoniteurIssue(
@@ -64,6 +65,7 @@ class MoniteurRepository:
             publication_date=publication_date,
             edition_label=edition_label,
             director=director,
+            director_role=director_role,
             uploaded_by=uploaded_by,
             processing_status=MoniteurIssueStatus.uploaded,
         )

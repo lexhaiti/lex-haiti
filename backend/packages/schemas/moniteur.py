@@ -38,6 +38,14 @@ class MoniteurIssueBase(BaseModel):
         default=None,
         description="Director of Le Moniteur for this issue.",
     )
+    director_role: Optional[str] = Field(
+        default=None,
+        description=(
+            "Director's institutional title (e.g. 'Major Forces Armées "
+            "d'Haïti', 'Secrétaire d'État à la Communication') — what "
+            "appears in parens after the director's name on the cover page."
+        ),
+    )
 
 
 class MoniteurIssueCreate(MoniteurIssueBase):
@@ -52,6 +60,7 @@ class MoniteurIssueUpdate(BaseModel):
     publication_date: Optional[date] = None
     edition_label: Optional[str] = None
     director: Optional[str] = None
+    director_role: Optional[str] = None
 
 
 class SommaireEntry(BaseModel):

@@ -768,6 +768,13 @@ class MoniteurIssue(Base):
     director: Mapped[Optional[str]] = mapped_column(
         Text, doc="Director of Le Moniteur for this issue"
     )
+    # Director's institutional title — what appears in parens after the
+    # name on the cover page (e.g. "Major Forces Armées d'Haïti",
+    # "Secrétaire d'État à la Communication"). Optional: not every issue
+    # carries one, and older issues sometimes only have the name.
+    director_role: Mapped[Optional[str]] = mapped_column(
+        Text, doc="Director's institutional title (role in parens after name)"
+    )
 
     # Where the source PDF lives. Local path during dev; should become an
     # s3:// URL when MinIO/B2 wiring is added.

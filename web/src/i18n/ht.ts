@@ -665,6 +665,9 @@ export const ht = {
         editionHint: 'Egz. Nimewo espesyal',
         director: 'Direktè',
         directorHint: 'Direktè Monitè pou nimewo sa a',
+        directorRole: 'Fonksyon direktè a (opsyonèl)',
+        directorRoleHint:
+          "Tit enstitisyonèl ki ekri ant parantèz anba non an (egz. : Majò Fòs Lame Ayiti).",
         s3Title: 'Somè (opsyonèl)',
         s3Help:
           "Pre-ranpli somè a pou bay OCR a estrikti egzakt nimewo a. Si non, analiz otomatik la ap eseye detekte yo pou kont li.",
