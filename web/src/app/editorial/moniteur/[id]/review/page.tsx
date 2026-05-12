@@ -287,6 +287,47 @@ export default function MoniteurReviewPage() {
     }
   }
 
+  /** Attach a non-promotable entry (promulgation, communiqué, errata)
+   *  to a parent entry in the same issue and mark it accepted. The
+   *  parent is the legal text this entry accompanies — a promulgation
+   *  letter attaches to the law it promulgates, an errata to the text
+   *  it corrects. Setting parent_entry_id surfaces the child below
+   *  the parent in the public sommaire (MoniteurDetailClient already
+   *  renders child entries as flat rows under their parent card). */
+  async function handleAttachToParent(c: MoniteurEntryRead, parentId: number) {
+    setBusyId(c.id)
+    setError(null)
+    try {
+      await reviewMoniteurEntry(c.id, {
+        parent_entry_id: parentId,
+        review_status: 'accepted',
+      })
+      await refresh()
+    } catch (e: any) {
+      setError(e?.body?.detail ?? String(e))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  /** Detach: drop the parent + flip back to pending so the editor can
+   *  reconsider. Used when an attachment was wrong. */
+  async function handleDetachFromParent(c: MoniteurEntryRead) {
+    setBusyId(c.id)
+    setError(null)
+    try {
+      await reviewMoniteurEntry(c.id, {
+        parent_entry_id: null,
+        review_status: 'pending',
+      })
+      await refresh()
+    } catch (e: any) {
+      setError(e?.body?.detail ?? String(e))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
@@ -625,7 +666,7 @@ export default function MoniteurReviewPage() {
 
                 {!isFinal && editingFields?.candidateId !== c.id && (
                   <div className="mt-5 flex items-center gap-2 flex-wrap">
-                    {PROMOTABLE_CATEGORIES.has(c.detected_category ?? '') && (
+                    {PROMOTABLE_CATEGORIES.has(c.detected_category ?? '') ? (
                       <button
                         onClick={() => handleAccept(c)}
                         disabled={isBusy}
@@ -638,6 +679,20 @@ export default function MoniteurReviewPage() {
                         )}
                         {t('editorial.moniteur.review.accept')}
                       </button>
+                    ) : (
+                      /* Non-promotable categories (promulgation, communiqué,
+                         errata, autre) don't get their own LegalText. They
+                         attach to a parent entry in the same issue —
+                         a promulgation letter rides along with the law it
+                         promulgates. The select lets the editor pick which
+                         entry is the parent; selection auto-accepts. */
+                      <AttachToParentSelect
+                        candidate={c}
+                        candidates={issue?.entries ?? []}
+                        disabled={isBusy}
+                        lang={lang}
+                        onAttach={(parentId) => handleAttachToParent(c, parentId)}
+                      />
                     )}
                     <button
                       onClick={() => handleReject(c)}
@@ -662,6 +717,40 @@ export default function MoniteurReviewPage() {
                     >
                       <Pencil className="w-4 h-4" />
                       {t('editorial.moniteur.review.edit')}
+                    </button>
+                  </div>
+                )}
+
+                {/* Attached-to-parent indicator — surfaced when a non-
+                    promotable entry has been accepted with a parent_entry_id.
+                    Lets the editor detach (clear the link + flip back to
+                    pending) if the attachment was wrong. */}
+                {c.parent_entry_id && (
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                    <span className="text-xs text-slate-500">
+                      {(() => {
+                        const parent = issue?.entries.find(
+                          (e) => e.id === c.parent_entry_id,
+                        )
+                        const parentLabel =
+                          parent?.display_title ||
+                          parent?.detected_title ||
+                          (parent?.detected_number
+                            ? `N° ${parent.detected_number}`
+                            : `#${c.parent_entry_id}`)
+                        return lang === 'fr'
+                          ? `Joint au texte parent : « ${parentLabel} »`
+                          : `Jwenn ak tèks paran : « ${parentLabel} »`
+                      })()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDetachFromParent(c)}
+                      disabled={isBusy}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 text-slate-700 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      {lang === 'fr' ? 'Détacher' : 'Detache'}
                     </button>
                   </div>
                 )}
@@ -822,5 +911,91 @@ function Detail({
       </p>
       <div className="text-slate-700">{children}</div>
     </div>
+  )
+}
+
+
+/**
+ * Action control for non-promotable entries (promulgation / communiqué
+ * / errata / autre). Renders a "select a parent" dropdown limited to
+ * promotable entries in the same issue. Selecting one fires onAttach,
+ * which sets parent_entry_id + accepts the entry.
+ *
+ * Hides itself if no promotable parents are available (in that case
+ * the editor can only reject / defer the entry).
+ */
+function AttachToParentSelect({
+  candidate,
+  candidates,
+  disabled,
+  lang,
+  onAttach,
+}: {
+  candidate: MoniteurEntryRead
+  candidates: MoniteurEntryRead[]
+  disabled: boolean
+  lang: 'fr' | 'ht'
+  onAttach: (parentId: number) => void | Promise<void>
+}) {
+  // Eligible parents: any entry in the same issue with a promotable
+  // category, that isn't the candidate itself, and that isn't already
+  // a child of someone else. Surfaces the natural attachment target
+  // for "this promulgation belongs to the [loi / décret / …] above".
+  const parents = candidates.filter((e) => {
+    if (e.id === candidate.id) return false
+    if (e.parent_entry_id) return false
+    const cat = e.detected_category ?? ''
+    return (
+      cat === 'constitution' ||
+      cat === 'code' ||
+      cat === 'loi' ||
+      cat === 'decret' ||
+      cat === 'arrete' ||
+      cat === 'convention' ||
+      cat === 'ordonnance'
+    )
+  })
+
+  if (parents.length === 0) {
+    return null
+  }
+
+  return (
+    <select
+      defaultValue=""
+      disabled={disabled}
+      onChange={(e) => {
+        const id = Number(e.target.value)
+        if (Number.isFinite(id) && id > 0) {
+          void onAttach(id)
+          // Reset the select so the editor can pick again if needed.
+          e.target.value = ''
+        }
+      }}
+      className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-3 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 cursor-pointer transition-colors max-w-xs"
+      aria-label={
+        lang === 'fr'
+          ? 'Joindre à un texte parent'
+          : 'Jwenn ak yon tèks paran'
+      }
+    >
+      <option value="" disabled>
+        {lang === 'fr'
+          ? '+ Joindre à un texte parent…'
+          : '+ Jwenn ak tèks paran…'}
+      </option>
+      {parents.map((p) => {
+        const label =
+          p.display_title ||
+          p.detected_title ||
+          (p.detected_number ? `N° ${p.detected_number}` : `#${p.id}`)
+        return (
+          <option key={p.id} value={p.id} className="text-slate-800">
+            {label.slice(0, 60)}
+            {label.length > 60 ? '…' : ''}
+          </option>
+        )
+      })}
+    </select>
   )
 }

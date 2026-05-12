@@ -518,6 +518,7 @@ export async function reviewMoniteurEntry(
     detected_title?: string | null
     detected_number?: string | null
     detected_date?: string | null
+    parent_entry_id?: number | null
     review_notes?: string | null
     raw_text?: string | null
   },
