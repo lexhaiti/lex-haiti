@@ -181,6 +181,19 @@ export default function MoniteurListClient() {
                 fallback: 'Importer un numéro',
               })}
             </Link>
+            {/* Shortcut to the editor's Moniteur dashboard — same role
+                as the import button, just for the management view
+                (where editors review parsed entries, delete bad
+                issues, etc.) rather than the import wizard. */}
+            <Link
+              href="/editorial/moniteur"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 text-amber-300 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-400 hover:text-slate-900 transition-colors"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              {t('moniteurList.editorViewButton', {
+                fallback: 'Vue éditeur',
+              })}
+            </Link>
           </div>
         )}
       </StandardPageHeader>

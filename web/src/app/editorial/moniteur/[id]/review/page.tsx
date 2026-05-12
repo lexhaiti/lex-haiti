@@ -23,6 +23,7 @@ import {
   deleteMoniteurIssue,
   getMoniteurIssue,
   listMoniteurIssues,
+  moniteurIssueSlug,
   parseMoniteurIssue,
   previewMoniteurEntrySplit,
   promoteMoniteurEntry,
@@ -400,33 +401,100 @@ export default function MoniteurReviewPage() {
 
       <div className="container py-12 lg:py-16">
         {issue && (
-          <div className="mb-6 flex items-center justify-end">
-            <button
-              onClick={handleParseAgain}
-              disabled={parsing}
-              className="inline-flex items-center gap-2 rounded-md border border-primary/30 text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/[0.04] disabled:opacity-50 transition-colors"
-            >
-              {parsing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {t('editorial.moniteur.review.parseRunning')}
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="w-4 h-4" />
-                  {t('editorial.moniteur.review.runParseAgain')}
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(true)}
-              disabled={parsing}
-              className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              {lang === 'fr' ? 'Supprimer ce numéro' : 'Efase nimewo sa'}
-            </button>
+          <div className="mb-6 flex flex-wrap items-center gap-3 justify-between">
+            {/* Status-summary chips — at-a-glance breakdown of pending /
+                accepted / rejected counts so the editor knows progress
+                without scanning every entry. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {(() => {
+                const counts = {
+                  pending: 0,
+                  accepted: 0,
+                  rejected: 0,
+                  deferred: 0,
+                }
+                for (const e of issue.entries) counts[e.review_status]++
+                const items: Array<{
+                  key: keyof typeof counts
+                  label: string
+                  cls: string
+                }> = [
+                  {
+                    key: 'pending',
+                    label: lang === 'fr' ? 'En attente' : 'Annatant',
+                    cls: 'bg-amber-50 text-amber-800 border-amber-200',
+                  },
+                  {
+                    key: 'accepted',
+                    label: lang === 'fr' ? 'Acceptés' : 'Aksepte',
+                    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                  },
+                  {
+                    key: 'rejected',
+                    label: lang === 'fr' ? 'Rejetés' : 'Rejete',
+                    cls: 'bg-red-50 text-red-700 border-red-200',
+                  },
+                  {
+                    key: 'deferred',
+                    label: lang === 'fr' ? 'Reportés' : 'Repòte',
+                    cls: 'bg-slate-50 text-slate-600 border-slate-200',
+                  },
+                ]
+                return items
+                  .filter((i) => counts[i.key] > 0)
+                  .map((i) => (
+                    <span
+                      key={i.key}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-semibold uppercase tracking-wider',
+                        i.cls,
+                      )}
+                    >
+                      <span className="tabular-nums">{counts[i.key]}</span>
+                      <span>{i.label}</span>
+                    </span>
+                  ))
+              })()}
+            </div>
+
+            {/* Action buttons — re-parse, see public view, delete. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/moniteur/${moniteurIssueSlug(issue)}`}
+                className="inline-flex items-center gap-2 rounded-md border border-slate-300 text-slate-700 px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ArrowRight className="w-4 h-4" />
+                {lang === 'fr' ? 'Vue publique' : 'Vi piblik'}
+              </Link>
+              <button
+                onClick={handleParseAgain}
+                disabled={parsing}
+                className="inline-flex items-center gap-2 rounded-md border border-primary/30 text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/[0.04] disabled:opacity-50 transition-colors"
+              >
+                {parsing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('editorial.moniteur.review.parseRunning')}
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    {t('editorial.moniteur.review.runParseAgain')}
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                disabled={parsing}
+                className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {lang === 'fr' ? 'Supprimer ce numéro' : 'Efase nimewo sa'}
+              </button>
+            </div>
           </div>
         )}
 

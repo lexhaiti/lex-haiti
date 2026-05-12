@@ -416,21 +416,22 @@ function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
 
 export default function MoniteurDetailClient() {
   const params = useParams()
-  // Route param is named "id" for backwards compatibility, but it can
-  // now be either:
-  //   - numeric (e.g. ``/moniteur/11``) — legacy permalink, kept working
-  //   - a date slug (e.g. ``/moniteur/28-avril-1987``) — preferred,
-  //     surfaced everywhere new links are generated.
-  // Dispatch on the shape: pure-digit string → ID lookup, else slug.
-  const rawParam = String(params.id ?? '')
-  const isNumeric = /^\d+$/.test(rawParam)
-
+  // Route param is named "id" for backwards compatibility but accepts
+  // either a numeric ID (``/moniteur/11`` — legacy permalink) or a
+  // date slug (``/moniteur/28-avril-1987`` — preferred public form).
+  // We dispatch on the shape INSIDE the effect so the dependency
+  // array stays a single-element ``[params.id]`` — React's HMR
+  // refuses to hot-reload a component whose useEffect-deps changes
+  // size between renders, and the previous ``[rawParam, isNumeric]``
+  // form tripped that warning after every save.
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const rawParam = String(params.id ?? '')
     if (!rawParam) return
+    const isNumeric = /^\d+$/.test(rawParam)
     setLoading(true)
     const promise = isNumeric
       ? getMoniteurIssue(Number(rawParam))
@@ -439,7 +440,7 @@ export default function MoniteurDetailClient() {
       .then(setIssue)
       .catch(() => setError('Numéro introuvable'))
       .finally(() => setLoading(false))
-  }, [rawParam, isNumeric])
+  }, [params.id])
 
   // Group entries — must be called before any conditional return so hook order is stable.
   const { topLevel, childrenByParent, categoryCounts } = useMemo(() => {

@@ -650,6 +650,20 @@ class MoniteurRepository:
             promotion = _promotion_from_legacy(entry.raw_text or "")
 
         has_articles = len(promotion.articles) > 0
+        # publication_date precedence:
+        # 1. explicit ``publication_date`` arg from the caller
+        # 2. parser-detected date on this entry
+        # 3. the parent Moniteur issue's publication_date — every
+        #    promoted text was published IN the Moniteur, so this is
+        #    always meaningful when the first two are missing. Used
+        #    to be missing, which left the hero "Année" stat at "—"
+        #    for the 1987 Constitution.
+        issue_pub_date = (
+            entry.issue.publication_date if entry.issue is not None else None
+        )
+        effective_pub_date = (
+            publication_date or entry.detected_date or issue_pub_date
+        )
         legal_text = LegalText(
             slug=slug,
             category=category,
@@ -663,7 +677,7 @@ class MoniteurRepository:
             considerants_fr=promotion.considerants,
             enacting_formula_fr=promotion.enacting_formula,
             official_formula=promotion.official_formula,
-            publication_date=publication_date or entry.detected_date,
+            publication_date=effective_pub_date,
             status=LegalStatus.in_force,
             editorial_status=EditorialStatus.draft,
             moniteur_issue_id=entry.issue_id,

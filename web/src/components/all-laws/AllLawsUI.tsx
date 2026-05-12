@@ -326,8 +326,8 @@ export function AllLawsUI({
                 <Plus className="w-3.5 h-3.5" />
                 {t?.('allLaws.importButton') ??
                   (lang === 'fr'
-                    ? 'Importer un texte juridique'
-                    : 'Enpòte yon tèks jiridik')}
+                    ? 'Importer un texte'
+                    : 'Enpòte yon tèks')}
               </Link>
             </motion.div>
           )}
