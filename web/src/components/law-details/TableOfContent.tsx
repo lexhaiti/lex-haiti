@@ -3,11 +3,15 @@
 import React, { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   FileText,
+  Loader2,
   Maximize2,
   Minimize2,
+  PenLine,
+  X,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -57,6 +61,18 @@ interface TableOfContentsProps {
   onVisasClick?: () => void
   hasConsiderants?: boolean
   onConsiderantsClick?: () => void
+  /** Editor mode toggles inline heading-title editing. Public viewers
+   *  see the same TOC with no edit affordances. */
+  isEditor?: boolean
+  /** Save handler for a heading-title inline edit. Called with the
+   *  heading's database id and the new title in the current language.
+   *  Parent is responsible for refetching the law so the new title
+   *  flows back into the tree. */
+  onHeadingTitleSave?: (
+    headingId: number,
+    field: 'title_fr' | 'title_ht',
+    next: string,
+  ) => Promise<void>
 }
 
 /** Build a tree from flat headings + attach articles to their heading nodes */
@@ -209,11 +225,50 @@ export default function TableOfContents({
   onVisasClick,
   hasConsiderants,
   onConsiderantsClick,
+  isEditor = false,
+  onHeadingTitleSave,
 }: TableOfContentsProps) {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({})
   const searchQuery = externalQuery ?? ''
+
+  // Inline-edit state for heading titles. Only one heading can be in
+  // edit mode at a time — keyed by heading_id so the right row gets
+  // its textbox. Local draft is held here, not in the parent — the
+  // parent only learns about a change when the editor saves.
+  const [editingHeadingId, setEditingHeadingId] = useState<number | null>(null)
+  const [headingDraft, setHeadingDraft] = useState<string>('')
+  const [headingSaving, setHeadingSaving] = useState<boolean>(false)
+  const [headingError, setHeadingError] = useState<string | null>(null)
+
+  function startEditHeading(h: Heading) {
+    const current =
+      (currentLang === 'ht' ? h.title_ht : h.title_fr) ?? ''
+    setEditingHeadingId(h.id)
+    setHeadingDraft(current)
+    setHeadingError(null)
+  }
+  function cancelEditHeading() {
+    setEditingHeadingId(null)
+    setHeadingDraft('')
+    setHeadingError(null)
+  }
+  async function saveEditHeading(h: Heading) {
+    if (!onHeadingTitleSave) return
+    setHeadingSaving(true)
+    setHeadingError(null)
+    try {
+      const field: 'title_fr' | 'title_ht' =
+        currentLang === 'ht' ? 'title_ht' : 'title_fr'
+      await onHeadingTitleSave(h.id, field, headingDraft.trim())
+      cancelEditHeading()
+    } catch (e) {
+      setHeadingError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setHeadingSaving(false)
+    }
+  }
 
   // Build the heading tree
   const tocTree = useMemo(() => {
@@ -299,7 +354,7 @@ export default function TableOfContents({
                   {heading.number}
                 </span>
               )}
-              {heading.number && headingLabel && (
+              {heading.number && (headingLabel || isEditor) && (
                 <span
                   className="text-gray-300 flex-shrink-0 text-[10px]"
                   aria-hidden
@@ -307,14 +362,99 @@ export default function TableOfContents({
                   ·
                 </span>
               )}
-              {headingLabel && (
-                <span className="text-sm font-semibold text-gray-700 group-hover:text-red-600 transition-colors line-clamp-2 min-w-0">
-                  {headingLabel}
+              {editingHeadingId === heading.id ? (
+                /* Inline edit mode for this heading title. Clicking
+                   inside doesn't propagate to the toggle button. */
+                <span
+                  className="flex items-center gap-1.5 flex-1 min-w-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="text"
+                    autoFocus
+                    value={headingDraft}
+                    disabled={headingSaving}
+                    onChange={(e) => setHeadingDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        saveEditHeading(heading)
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        cancelEditHeading()
+                      }
+                    }}
+                    className="flex-1 min-w-0 rounded-md border border-amber-300 bg-amber-50/50 px-2 py-1 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    placeholder={
+                      currentLang === 'fr'
+                        ? 'Titre de la section…'
+                        : 'Tit seksyon an…'
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => saveEditHeading(heading)}
+                    disabled={headingSaving}
+                    className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                    aria-label={currentLang === 'fr' ? 'Enregistrer' : 'Sove'}
+                  >
+                    {headingSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditHeading}
+                    disabled={headingSaving}
+                    className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+                    aria-label={currentLang === 'fr' ? 'Annuler' : 'Anile'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </span>
+              ) : (
+                <>
+                  {headingLabel ? (
+                    <span className="text-sm font-semibold text-gray-700 group-hover:text-red-600 transition-colors line-clamp-2 min-w-0">
+                      {headingLabel}
+                    </span>
+                  ) : isEditor ? (
+                    /* Editor sees a placeholder for missing title so
+                       they can click to add one — the parser sometimes
+                       finds the number but not the title (truncated
+                       OCR). */
+                    <span className="text-sm italic text-slate-400 line-clamp-2 min-w-0">
+                      {currentLang === 'fr' ? 'Sans titre' : 'San tit'}
+                    </span>
+                  ) : null}
+                  {isEditor && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEditHeading(heading)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-primary flex-shrink-0"
+                      aria-label={
+                        currentLang === 'fr'
+                          ? 'Modifier le titre'
+                          : 'Modifye tit la'
+                      }
+                    >
+                      <PenLine className="w-3 h-3" />
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
           </div>
+
+          {headingError && editingHeadingId === heading.id && (
+            <p className="text-[11px] text-red-600 ml-6">{headingError}</p>
+          )}
 
           {headingContent && isExpanded && (
             <p className="ml-6 text-[11px] text-gray-500 line-clamp-2 leading-relaxed">

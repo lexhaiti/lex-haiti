@@ -971,6 +971,31 @@ export type ArticleContentPatch = {
 
 export type ArticleEmbed = components['schemas']['ArticleEmbed']
 
+export type LegalHeadingRead = {
+  id: number
+  legal_text_id: number
+  parent_id: number | null
+  level: string | null
+  key: string
+  number: string | null
+  title_fr: string | null
+  title_ht: string | null
+  position: number | null
+}
+
+/** Inline-edit for a heading title in the TOC tree. Bilingual — pass
+ *  either field independently; null leaves the existing value
+ *  untouched, empty string clears it. */
+export async function updateHeadingTitle(
+  headingId: number,
+  patch: { title_fr?: string | null; title_ht?: string | null },
+) {
+  return apiPatch<LegalHeadingRead>(
+    `/editorial/headings/${headingId}/title`,
+    patch,
+  )
+}
+
 export async function updateArticleContent(
   articleId: number,
   patch: ArticleContentPatch,

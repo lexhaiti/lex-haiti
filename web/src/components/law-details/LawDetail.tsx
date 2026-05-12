@@ -39,7 +39,10 @@ import PreambleViewer from './PreambleViewer'
 import TableOfContents from '@/components/law-details/TableOfContent'
 import { EditorBar } from './EditorBar'
 import { EditableFormalBlock } from './EditableFormalBlock'
-import { updateLegalTextMetadata } from '@/lib/api/endpoints'
+import {
+  updateHeadingTitle,
+  updateLegalTextMetadata,
+} from '@/lib/api/endpoints'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { useT } from '@/i18n/useT'
@@ -618,6 +621,11 @@ export default function LawDetail() {
                             })
                           }, 100)
                         }}
+                        isEditor={isEditor}
+                        onHeadingTitleSave={async (id, field, next) => {
+                          await updateHeadingTitle(id, { [field]: next })
+                          refetch()
+                        }}
                       />
                     </div>
                   </motion.div>
@@ -696,6 +704,11 @@ export default function LawDetail() {
                           block: 'start',
                         })
                       }, 100)
+                    }}
+                    isEditor={isEditor}
+                    onHeadingTitleSave={async (id, field, next) => {
+                      await updateHeadingTitle(id, { [field]: next })
+                      refetch()
                     }}
                   />
                 </div>
@@ -804,10 +817,23 @@ export default function LawDetail() {
 
             {/* Pre-article formal blocks: Préambule → Visas → Considérants
                 → Formule d'adoption. Editable in-place for editors via
-                EditableFormalBlock; read-only for the public. The
-                ``saveBlock`` helper performs the PATCH and refetches
-                the law so the UI stays in sync. */}
-            {law.articles && law.articles.length > 0 && (
+                EditableFormalBlock; read-only for the public.
+
+                Display rules:
+                - Public mode: show the container only when at least one
+                  block has content (otherwise the empty slate would
+                  leak into the public-facing view).
+                - Editor mode: ALWAYS show the container — empty blocks
+                  surface as "Add préambule…" affordances via
+                  EditableFormalBlock, which is how an editor seeds a
+                  block that the parser missed.
+
+                Note: the previous version also required
+                ``law.articles.length > 0`` which suppressed formal
+                blocks on preamble-only texts (historical constitutions,
+                short déclarations). That guard was wrong — a text with
+                no articles can still carry a meaningful préambule. */}
+            {(
               isEditor || law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr
             ) && (
               <div className="mb-8 space-y-3">
