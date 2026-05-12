@@ -172,35 +172,40 @@ export function SignersEditor({ slug, signers, lang, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {signers.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+        /* flex-wrap so signers pack onto rows by their natural width —
+           three short names share one line, a long surname wraps to its
+           own. Draft cards switch to ``w-full`` to take a whole row
+           (the form is too tall to share a row with read-only entries). */
+        <div className="flex flex-wrap gap-x-8 gap-y-4">
           {signers.map((s) =>
             draft?.signerId === s.id ? (
-              <SignerDraftCard
-                key={s.id}
-                draft={draft}
-                setDraft={setDraft}
-                onSave={saveDraft}
-                onCancel={cancelDraft}
-                busy={busy}
-                lang={lang}
-                error={error}
-              />
+              <div key={s.id} className="w-full">
+                <SignerDraftCard
+                  draft={draft}
+                  setDraft={setDraft}
+                  onSave={saveDraft}
+                  onCancel={cancelDraft}
+                  busy={busy}
+                  lang={lang}
+                  error={error}
+                />
+              </div>
             ) : (
               <div
                 key={s.id}
-                className="flex items-start justify-between gap-2 group"
+                className="flex items-start gap-2 group min-w-0"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-900 whitespace-nowrap">
                     {s.name}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 whitespace-nowrap">
                     {lang === 'ht' && s.function_ht
                       ? s.function_ht
                       : s.function_fr}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
                   <button
                     type="button"
                     onClick={() => startEdit(s)}
@@ -288,7 +293,7 @@ function SignerDraftCard({
   const inputCls =
     'w-full h-9 px-2 rounded-md border border-slate-300 bg-white text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50'
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50/40 p-3 col-span-1 sm:col-span-2">
+    <div className="rounded-lg border border-amber-300 bg-amber-50/40 p-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">

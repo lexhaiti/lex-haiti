@@ -43,7 +43,7 @@ import {
   updateHeadingTitle,
   updateLegalTextMetadata,
 } from '@/lib/api/endpoints'
-import { SignersEditor } from '@/components/law-details/SignersEditor'
+import { SignataireBlock } from '@/components/law-details/SignataireBlock'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { useT } from '@/i18n/useT'
@@ -951,89 +951,15 @@ export default function LawDetail() {
             {(law.signers && law.signers.length > 0) ||
             law.official_formula ||
             isEditor ? (
-              <div className="mb-12 pt-8 border-t border-slate-200">
-                {/* Lead caption is only meaningful when we have structured
-                    signers — it derives its phrasing from the signers'
-                    capacities ("Adoptée par…", "Donnée le…", etc.). */}
-                {law.signers && law.signers.length > 0 && (() => {
-                  const lead = buildSignatureLeadCaption(
-                    law.signers,
-                    law.category,
-                    currentLang,
-                  )
-                  return lead ? (
-                    <p className="text-sm italic text-slate-600 leading-relaxed mb-6 border-l-2 border-amber-300 pl-4">
-                      {lead}
-                    </p>
-                  ) : null
-                })()}
-                <div className="flex items-center gap-2 mb-6">
-                  <PenLine className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    {currentLang === 'fr' ? 'Signataires' : 'Siyatè'}
-                  </h3>
-                </div>
-
-                {/* Editor mode: full CRUD via SignersEditor (add / patch
-                    / delete). Public mode: structured grid if signers
-                    are populated, else the raw official_formula as a
-                    fallback rendering. */}
-                {isEditor ? (
-                  <SignersEditor
-                    slug={law.slug}
-                    signers={(law.signers ?? []) as any}
-                    lang={currentLang}
-                    onChanged={refetch}
-                  />
-                ) : law.signers && law.signers.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
-                    {law.signers.map((signer: any) => (
-                      <div
-                        key={signer.id}
-                        className="flex flex-col gap-0.5"
-                      >
-                        <span className="text-sm font-bold text-slate-900">
-                          {signer.name}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {currentLang === 'ht' && signer.function_ht
-                            ? signer.function_ht
-                            : signer.function_fr}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : law.official_formula ? (
-                  /* Fallback path: render the verbatim closing-formula
-                     text. ``whitespace-pre-wrap`` keeps the original
-                     line breaks (Constituante membership lists rely on
-                     them) without forcing a monospaced look. */
-                  <div className="border-l-2 border-amber-300 pl-4">
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                      {law.official_formula}
-                    </p>
-                  </div>
-                ) : null}
-
-                {/* Editor sees the verbatim formula below the editor
-                    grid as a reference panel — the parser stored this
-                    text, and the editor is structuring it into named
-                    signers. */}
-                {isEditor && law.official_formula && (
-                  <details className="mt-6 group">
-                    <summary className="cursor-pointer text-[11px] uppercase tracking-widest font-bold text-slate-400 hover:text-slate-600 select-none">
-                      {currentLang === 'fr'
-                        ? '› Texte source de la formule finale'
-                        : '› Tèks sous fòmil final la'}
-                    </summary>
-                    <div className="mt-3 border-l-2 border-slate-200 pl-4">
-                      <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">
-                        {law.official_formula}
-                      </p>
-                    </div>
-                  </details>
-                )}
-              </div>
+              <SignataireBlock
+                slug={law.slug}
+                signers={(law.signers ?? []) as any}
+                officialFormula={law.official_formula ?? null}
+                category={law.category as any}
+                lang={currentLang}
+                isEditor={isEditor}
+                onChanged={refetch}
+              />
             ) : null}
 
             {/* Editor floating bar — visible only when signed in */}
