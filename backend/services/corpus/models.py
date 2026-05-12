@@ -41,18 +41,25 @@ from sqlalchemy.orm import (
 
 from packages.schemas.enums import (
     ArticleStatus,
+    AuthorityType,
+    BlockKind,
+    ChangeKind,
     CitationNodeType,
     CitationRelation,
     CodeSubcategory,
+    ContentSource,
     CourtType,
     EditorialStatus,
     ExtractionMethod,
     HeadingLevel,
+    ImportJobStatus,
+    Language,
     LegalCategory,
     MoniteurDocumentType,
     LegalTheme,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
+    ParserProfile,
     SignatoryChamber,
     SigningCapacity,
     ThemeSource,
@@ -60,6 +67,8 @@ from packages.schemas.enums import (
     RawDocumentStatus,
     RawDocumentType,
     RawPageStatus,
+    TranslatableEntity,
+    TranslatorKind,
 )
 
 PUBLIC_CORPUS_SCHEMA = "public_corpus"
@@ -226,6 +235,31 @@ class LegalText(Base):
     source_document_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey(f"{PUBLIC_CORPUS_SCHEMA}.raw_documents.id", ondelete="SET NULL")
     )
+
+    # Phase 1 refactor — authority graph FKs. All three nullable; the
+    # Phase 1 backfill script resolves the free-text issuing_authority
+    # column into issuing_authority_id where confidence ≥ 0.85, leaves
+    # the rest at NULL. Free-text column survives as
+    # ``legacy_issuing_authority_text`` for audit during the transition.
+    issuing_authority_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    adopting_body_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    promulgating_authority_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    legacy_issuing_authority_text: Mapped[Optional[str]] = mapped_column(Text)
 
     # Optional FK to the structured Moniteur issue this text was published in.
     # New ingestions populate this; the legacy free-text `moniteur_ref` field
@@ -408,6 +442,15 @@ class LegalSigner(Base):
     )
     signed_at: Mapped[Optional[date]] = mapped_column(Date)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Optional link to the normalised Authority record (Phase 1). When
+    # set, the public renderer can hyperlink the signer's function to
+    # the authority's page.
+    authority_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
 
     legal_text: Mapped[LegalText] = relationship(back_populates="signers")
 
@@ -548,6 +591,14 @@ class ArticleVersion(Base):
     )
 
     embedding: Mapped[Optional[list[float]]] = mapped_column(Vector(EMBEDDING_DIM))
+
+    # Structured article-body AST (Phase 4 of the refactor — see ADR). When
+    # populated, the rich-text renderer prefers it over text_fr/_ht. The
+    # flat text columns remain the source of truth until the AST is filled
+    # in by the parser or rich-text editor; once an AST exists, text_fr is
+    # a regenerated mirror produced by the deterministic flattener.
+    content_ast_fr: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+    content_ast_ht: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -910,6 +961,15 @@ class Promulgation(Base):
     location: Mapped[Optional[str]] = mapped_column(Text)
     page_from: Mapped[Optional[int]] = mapped_column(Integer)
     page_to: Mapped[Optional[int]] = mapped_column(Integer)
+    # Phase 1: link the promulgating authority directly (the President /
+    # Conseil des Ministres etc.). Distinct from the signers (who may
+    # countersign).
+    promulgating_authority_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -952,8 +1012,365 @@ class PromulgationSigner(Base):
     function_fr: Mapped[Optional[str]] = mapped_column(Text)
     function_ht: Mapped[Optional[str]] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    authority_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
 
     promulgation: Mapped["Promulgation"] = relationship(back_populates="signers")
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 refactor — additive entities. See migration 0016 and the
+# refactor proposal in docs/. These models map to the new tables but do
+# NOT yet replace anything; old shapes keep working until Phase 2.
+# ---------------------------------------------------------------------------
+
+
+class Authority(Base):
+    """A legal or administrative entity that issues, adopts, promulgates,
+    or signs legal acts.
+
+    Self-referential tree (parent_id) so we can model hierarchies like
+    Ministère de la Justice ⊃ Direction des Affaires Civiles. The
+    authority_type drives rendering and aggregation queries.
+    """
+
+    __tablename__ = "authorities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[Optional[str]] = mapped_column(Text, unique=True)
+    name_fr: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    name_ht: Mapped[Optional[str]] = mapped_column(String(255))
+    short_name: Mapped[Optional[str]] = mapped_column(String(100))
+    authority_type: Mapped[AuthorityType] = mapped_column(
+        _enum(AuthorityType, "authority_type"),
+        nullable=False,
+        index=True,
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    founded_on: Mapped[Optional[date]] = mapped_column(Date)
+    dissolved_on: Mapped[Optional[date]] = mapped_column(Date)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    parent: Mapped[Optional["Authority"]] = relationship(
+        back_populates="children", remote_side="Authority.id"
+    )
+    children: Mapped[list["Authority"]] = relationship(
+        back_populates="parent",
+        cascade="all, delete-orphan",
+    )
+    role_assignments: Mapped[list["AuthorityRoleAssignment"]] = relationship(
+        back_populates="authority",
+        cascade="all, delete-orphan",
+        order_by="AuthorityRoleAssignment.started_on",
+    )
+
+
+class AuthorityRoleAssignment(Base):
+    """Who occupied an authority's leadership role between which dates.
+
+    Lets us answer "who was Président de la République on 1987-04-28?"
+    without hard-coding it on every signer row. Multiple assignments
+    over time per authority.
+    """
+
+    __tablename__ = "authority_role_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    authority_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.authorities.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    person_name: Mapped[str] = mapped_column(Text, nullable=False)
+    role_title_fr: Mapped[str] = mapped_column(Text, nullable=False)
+    role_title_ht: Mapped[Optional[str]] = mapped_column(Text)
+    started_on: Mapped[Optional[date]] = mapped_column(Date)
+    ended_on: Mapped[Optional[date]] = mapped_column(Date)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    authority: Mapped[Authority] = relationship(back_populates="role_assignments")
+
+
+class TocNode(Base):
+    """Unified TOC + formal-block tree node.
+
+    Replaces the flat ``preamble_fr``/``visas_fr``/``considerants_fr``/
+    ``enacting_formula_fr`` columns on LegalText (Phase 2 migrates them
+    in). For ``block_kind='structural'`` rows, ``level`` is set to one
+    of the HeadingLevel values; for other kinds, ``level`` is null and
+    ``body_fr``/``body_ht`` carry the block text.
+
+    Articles continue to link via the existing ``Article.heading_id``
+    column to ``legal_headings`` during the transition. Phase 2 flips
+    that FK to ``toc_nodes``.
+    """
+
+    __tablename__ = "toc_nodes"
+    __table_args__ = (
+        UniqueConstraint("legal_text_id", "key", name="uq_toc_nodes_text_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    legal_text_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.toc_nodes.id", ondelete="CASCADE"
+        ),
+        index=True,
+    )
+    block_kind: Mapped[BlockKind] = mapped_column(
+        _enum(BlockKind, "block_kind"), nullable=False
+    )
+    level: Mapped[Optional[HeadingLevel]] = mapped_column(
+        _enum(HeadingLevel, "heading_level"),
+    )
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    number: Mapped[Optional[str]] = mapped_column(Text)
+    title_fr: Mapped[Optional[str]] = mapped_column(Text)
+    title_ht: Mapped[Optional[str]] = mapped_column(Text)
+    body_fr: Mapped[Optional[str]] = mapped_column(Text)
+    body_ht: Mapped[Optional[str]] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source: Mapped[ContentSource] = mapped_column(
+        _enum(ContentSource, "content_source"),
+        nullable=False,
+        default=ContentSource.editor,
+    )
+    confidence: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    parent: Mapped[Optional["TocNode"]] = relationship(
+        back_populates="children", remote_side="TocNode.id"
+    )
+    children: Mapped[list["TocNode"]] = relationship(
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        order_by="TocNode.position",
+    )
+
+
+class LegalChange(Base):
+    """Explicit graph row: this amending act changed something in this
+    amended act.
+
+    Replaces the magic ``article_versions.source_amendment_id`` with a
+    typed table that supports bidirectional graph queries:
+    - all laws amended by X
+    - all amending acts that touched article Y
+    - article history timeline
+    """
+
+    __tablename__ = "legal_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    amending_text_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    amended_text_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    amended_article_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.articles.id", ondelete="CASCADE"
+        ),
+        index=True,
+    )
+    new_version_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.article_versions.id", ondelete="SET NULL"
+        ),
+    )
+    change_kind: Mapped[ChangeKind] = mapped_column(
+        _enum(ChangeKind, "change_kind"), nullable=False, index=True
+    )
+    effective_on: Mapped[Optional[date]] = mapped_column(Date)
+    text_fr: Mapped[Optional[str]] = mapped_column(Text)
+    text_ht: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ImportJob(Base):
+    """One execution of the parser pipeline.
+
+    Persistent (not in-memory) so the editor can review, re-run, compare
+    runs, or roll back. Joined to RawDocument for traceability, and to
+    LegalText once the editor commits the draft.
+    """
+
+    __tablename__ = "import_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_document_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.raw_documents.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    target_legal_text_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    parser_profile: Mapped[ParserProfile] = mapped_column(
+        _enum(ParserProfile, "parser_profile"), nullable=False
+    )
+    classifier_decision: Mapped[Optional[LegalCategory]] = mapped_column(
+        _enum(LegalCategory, "legal_category"),
+    )
+    status: Mapped[ImportJobStatus] = mapped_column(
+        _enum(ImportJobStatus, "import_job_status"),
+        nullable=False,
+        default=ImportJobStatus.running,
+        index=True,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    config: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer)
+
+    drafts: Mapped[list["ImportDraft"]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="ImportDraft.created_at",
+    )
+
+
+class ImportDraft(Base):
+    """Structured parser output for one ImportJob, persisted as JSONB
+    until the editor commits it into live tables."""
+
+    __tablename__ = "import_drafts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    import_job_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.import_jobs.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    title_fr: Mapped[Optional[str]] = mapped_column(Text)
+    title_ht: Mapped[Optional[str]] = mapped_column(Text)
+    category_guess: Mapped[Optional[LegalCategory]] = mapped_column(
+        _enum(LegalCategory, "legal_category"),
+    )
+    metadata_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+    toc_json: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(JSONB)
+    articles_json: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(JSONB)
+    promulgation_json: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+    signatures_json: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(JSONB)
+    warnings: Mapped[Optional[list[str]]] = mapped_column(JSONB)
+    confidence: Mapped[Optional[Decimal]] = mapped_column(Numeric(3, 2))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    job: Mapped[ImportJob] = relationship(back_populates="drafts")
+
+
+class Translation(Base):
+    """Audit + provenance row for a translation.
+
+    Doesn't store the translated text — that lives on the target
+    entity's ``*_ht`` columns. Stores who/when/how-translated and the
+    review state of the translation. The (entity_type, entity_id)
+    discriminator is enforced at the service layer, not by FK.
+    """
+
+    __tablename__ = "translations"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type", "entity_id", "language",
+            name="uq_translations_entity_language",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entity_type: Mapped[TranslatableEntity] = mapped_column(
+        _enum(TranslatableEntity, "translatable_entity"), nullable=False
+    )
+    entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    language: Mapped[Language] = mapped_column(
+        _enum(Language, "language"), nullable=False
+    )
+    source_version_id: Mapped[Optional[int]] = mapped_column(Integer)
+    translator_kind: Mapped[TranslatorKind] = mapped_column(
+        _enum(TranslatorKind, "translator_kind"), nullable=False
+    )
+    translator_id: Mapped[Optional[int]] = mapped_column(Integer)
+    machine_engine: Mapped[Optional[str]] = mapped_column(Text)
+    translated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    review_status: Mapped[EditorialStatus] = mapped_column(
+        _enum(EditorialStatus, "editorial_status"),
+        nullable=False,
+        default=EditorialStatus.draft,
+        index=True,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(Text)
 
 
 __all__ = [

@@ -7,6 +7,16 @@ from enum import Enum
 
 
 class LegalCategory(str, Enum):
+    """Top-level taxonomy of a corpus document. Used both by the public
+    site (filter chips, breadcrumb) and the editorial pipeline (parser
+    profile selection, domain-rule enforcement).
+
+    ``ordonnance``, ``communique``, ``avis``, ``other_regulatory`` were
+    added in 0016 to align with MoniteurDocumentType and to cover acts
+    that the original enum couldn't represent (1916 ordonnances, post-
+    2010 CSPJ communiqués, ministerial avis).
+    """
+
     constitution = "constitution"
     code = "code"
     loi = "loi"
@@ -14,6 +24,10 @@ class LegalCategory(str, Enum):
     arrete = "arrete"
     circulaire = "circulaire"
     convention = "convention"
+    ordonnance = "ordonnance"
+    communique = "communique"
+    avis = "avis"
+    other_regulatory = "other_regulatory"
 
 
 class CodeSubcategory(str, Enum):
@@ -160,11 +174,138 @@ class ThemeSource(str, Enum):
 
 
 class HeadingLevel(str, Enum):
-    book = "book"  # Livre
-    title = "title"  # Titre
+    """Structural depth of a TOC node, in increasing fineness.
+
+    ``part`` (Partie) was added in 0016 — the 1987 Constitution and
+    several historical codes use it above ``book``. Older texts that
+    only have Livre / Titre / Chapitre keep working unchanged.
+    """
+
+    part = "part"        # Partie — above Livre, used by some constitutions
+    book = "book"        # Livre
+    title = "title"      # Titre
     chapter = "chapter"  # Chapitre
     section = "section"
     subsection = "subsection"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 — refactor enums (added 0016+)
+# ---------------------------------------------------------------------------
+
+
+class AuthorityType(str, Enum):
+    """Classification of an authority record. Drives rendering ("le Sénat"
+    vs. "Mme la Ministre") and aggregation queries ("toutes les autorités
+    de type executive_body")."""
+
+    person = "person"
+    institution = "institution"
+    ministry = "ministry"
+    parliamentary_body = "parliamentary_body"
+    executive_body = "executive_body"
+    collective_body = "collective_body"
+    administrative_body = "administrative_body"
+    judicial_body = "judicial_body"
+    unknown = "unknown"
+
+
+class BlockKind(str, Enum):
+    """Kind of TocNode block.
+
+    ``structural`` nodes carry a ``HeadingLevel`` (part/book/title/...).
+    All other kinds describe formal blocks that today live as flat
+    columns on LegalText (preamble, visas, considérants, etc.) and will
+    be migrated into TocNode rows in Phase 2.
+    """
+
+    sovereignty_formula = "sovereignty_formula"   # "Au nom de la République"
+    preamble = "preamble"
+    visa = "visa"
+    considerant = "considerant"
+    enacting_formula = "enacting_formula"         # "Décrète :", "Le Corps législatif a voté la loi suivante :"
+    structural = "structural"                     # uses `level` for depth
+    annex = "annex"
+    closing_formula = "closing_formula"
+    signature_block = "signature_block"           # pointer block; signers live on legal_signers
+    promulgation_block = "promulgation_block"     # pointer block; promulgation lives on promulgations
+    prose_body = "prose_body"                     # for communiqués/avis: a single block of free prose
+
+
+class ContentSource(str, Enum):
+    """Provenance of a TocNode body or an ArticleVersion content_ast."""
+
+    parser = "parser"
+    editor = "editor"
+    import_draft = "import_draft"
+    amendment = "amendment"
+    machine_translation = "machine_translation"
+    ocr = "ocr"
+
+
+class ChangeKind(str, Enum):
+    """Kind of legal change recorded in LegalChange."""
+
+    amend = "amend"
+    abrogate = "abrogate"
+    replace = "replace"
+    add = "add"
+    renumber = "renumber"
+    suspend = "suspend"
+    restore = "restore"
+
+
+class ImportJobStatus(str, Enum):
+    """Lifecycle of an ImportJob row.
+
+    running → parsed → reviewing → committed
+                                ↘ rejected
+                                ↘ failed
+    """
+
+    running = "running"
+    parsed = "parsed"
+    reviewing = "reviewing"
+    committed = "committed"
+    rejected = "rejected"
+    failed = "failed"
+
+
+class ParserProfile(str, Enum):
+    """Which parser strategy to run on a normalised document."""
+
+    generic = "generic"
+    constitution = "constitution"
+    code = "code"
+    loi = "loi"
+    executive_act = "executive_act"
+    circulaire = "circulaire"
+    communique = "communique"
+
+
+class Language(str, Enum):
+    """Languages supported by the corpus. Add to this enum + migration
+    when a third language becomes a real requirement."""
+
+    fr = "fr"
+    ht = "ht"
+
+
+class TranslatableEntity(str, Enum):
+    """What kind of entity a Translation row points at. Stored
+    alongside the entity_id; not a real FK (PostgreSQL doesn't do
+    polymorphic FKs cleanly, and the cardinality stays small)."""
+
+    legal_text = "legal_text"
+    article_version = "article_version"
+    toc_node = "toc_node"
+    promulgation = "promulgation"
+
+
+class TranslatorKind(str, Enum):
+    human = "human"
+    machine = "machine"
+    mixed = "mixed"
 
 
 class SigningCapacity(str, Enum):

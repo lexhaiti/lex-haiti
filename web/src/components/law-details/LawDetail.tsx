@@ -38,6 +38,8 @@ import ArticleViewer from './ArticleViewer'
 import PreambleViewer from './PreambleViewer'
 import TableOfContents from '@/components/law-details/TableOfContent'
 import { EditorBar } from './EditorBar'
+import { EditableFormalBlock } from './EditableFormalBlock'
+import { updateLegalTextMetadata } from '@/lib/api/endpoints'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { useT } from '@/i18n/useT'
@@ -800,121 +802,67 @@ export default function LawDetail() {
               </div>
             </div>
 
-            {/* Pre-article blocks: Préambule → Visas → Considérants → Formule d'adoption */}
-            {law.articles && law.articles.length > 0 && (law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr) && (
+            {/* Pre-article formal blocks: Préambule → Visas → Considérants
+                → Formule d'adoption. Editable in-place for editors via
+                EditableFormalBlock; read-only for the public. The
+                ``saveBlock`` helper performs the PATCH and refetches
+                the law so the UI stays in sync. */}
+            {law.articles && law.articles.length > 0 && (
+              isEditor || law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr
+            ) && (
               <div className="mb-8 space-y-3">
-                {law.preamble_fr && (
-                  <div ref={preambleRef} className="scroll-mt-24">
-                    <button
-                      onClick={() => setPreambleExpanded(!preambleExpanded)}
-                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
-                    >
-                      {preambleExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                        {currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
-                      </span>
-                    </button>
-                    <AnimatePresence>
-                      {preambleExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                            {law.preamble_fr}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
+                <div ref={preambleRef} className="scroll-mt-24">
+                  <EditableFormalBlock
+                    isFr={currentLang === 'fr'}
+                    isEditor={isEditor}
+                    title={currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
+                    value={law.preamble_fr ?? null}
+                    onSave={async (v) => {
+                      await updateLegalTextMetadata(law.slug, { preamble_fr: v })
+                      refetch()
+                    }}
+                  />
+                </div>
 
-                {law.visas_fr && (
-                  <div ref={visasRef} className="scroll-mt-24">
-                    <button
-                      onClick={() => setVisasExpanded(!visasExpanded)}
-                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
-                    >
-                      {visasExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                        Visas
-                      </span>
-                      <span className="text-xs text-slate-400 ml-auto">
-                        {currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
-                      </span>
-                    </button>
-                    <AnimatePresence>
-                      {visasExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                            {law.visas_fr}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
+                <div ref={visasRef} className="scroll-mt-24">
+                  <EditableFormalBlock
+                    isFr={currentLang === 'fr'}
+                    isEditor={isEditor}
+                    title="Visas"
+                    hint={currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
+                    value={law.visas_fr ?? null}
+                    onSave={async (v) => {
+                      await updateLegalTextMetadata(law.slug, { visas_fr: v })
+                      refetch()
+                    }}
+                  />
+                </div>
 
-                {law.considerants_fr && (
-                  <div ref={considerantsRef} className="scroll-mt-24">
-                    <button
-                      onClick={() => setConsiderantsExpanded(!considerantsExpanded)}
-                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left group"
-                    >
-                      {considerantsExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      )}
-                      <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
-                        {currentLang === 'fr' ? 'Considérants' : 'Konsideran'}
-                      </span>
-                      <span className="text-xs text-slate-400 ml-auto">
-                        {currentLang === 'fr' ? 'Considérant que...' : 'Konsidere ke...'}
-                      </span>
-                    </button>
-                    <AnimatePresence>
-                      {considerantsExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                            {law.considerants_fr}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
+                <div ref={considerantsRef} className="scroll-mt-24">
+                  <EditableFormalBlock
+                    isFr={currentLang === 'fr'}
+                    isEditor={isEditor}
+                    title={currentLang === 'fr' ? 'Considérants' : 'Konsideran'}
+                    hint={currentLang === 'fr' ? 'Considérant que...' : 'Konsidere ke...'}
+                    value={law.considerants_fr ?? null}
+                    onSave={async (v) => {
+                      await updateLegalTextMetadata(law.slug, { considerants_fr: v })
+                      refetch()
+                    }}
+                  />
+                </div>
 
-                {law.enacting_formula_fr && (
-                  <div className="py-4 text-center">
-                    <p className="text-sm font-semibold italic text-slate-500 tracking-wide">
-                      {law.enacting_formula_fr}
-                    </p>
-                  </div>
-                )}
+                <EditableFormalBlock
+                  isFr={currentLang === 'fr'}
+                  isEditor={isEditor}
+                  variant="compact"
+                  title={currentLang === 'fr' ? "Formule d'adoption" : "Fòmil adopsyon"}
+                  value={law.enacting_formula_fr ?? null}
+                  onSave={async (v) => {
+                    await updateLegalTextMetadata(law.slug, { enacting_formula_fr: v })
+                    refetch()
+                  }}
+                />
               </div>
             )}
 

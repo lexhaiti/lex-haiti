@@ -891,6 +891,15 @@ export type LegalTextMetadataPatch = {
   official_number?: string | null
   issuing_authority?: string | null
   official_formula?: string | null
+  // Formal blocks (Phase 1 — editable in-place via EditableFormalBlock).
+  preamble_fr?: string | null
+  preamble_ht?: string | null
+  visas_fr?: string | null
+  visas_ht?: string | null
+  considerants_fr?: string | null
+  considerants_ht?: string | null
+  enacting_formula_fr?: string | null
+  enacting_formula_ht?: string | null
   comment?: string | null
 }
 

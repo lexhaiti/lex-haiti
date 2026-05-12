@@ -239,6 +239,16 @@ class LegalTextMetadataUpdate(BaseModel):
     official_number: Optional[str] = None
     issuing_authority: Optional[str] = None
     official_formula: Optional[str] = None
+    # Formal blocks — Phase 1 makes these editable in-place via the
+    # frontend's EditableFormalBlock component. Each is bilingual.
+    preamble_fr: Optional[str] = None
+    preamble_ht: Optional[str] = None
+    visas_fr: Optional[str] = None
+    visas_ht: Optional[str] = None
+    considerants_fr: Optional[str] = None
+    considerants_ht: Optional[str] = None
+    enacting_formula_fr: Optional[str] = None
+    enacting_formula_ht: Optional[str] = None
     comment: Optional[str] = Field(default=None, max_length=2000)
 
 

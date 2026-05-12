@@ -37,8 +37,11 @@ from services.corpus.service import CorpusService, article_to_embed
 from services.corpus.themes import suggest_themes
 
 # Fields the metadata editor is allowed to write. Excludes `slug` (permalink
-# stability), `editorial_status` (use publish/unpublish), `preamble_*` (body
-# editor — separate flow), and `jurisdiction` (always HT for now).
+# stability), `editorial_status` (use publish/unpublish), and
+# `jurisdiction` (always HT for now). Formal-block fields (preamble /
+# visas / considérants / enacting_formula) were promoted into this list
+# in Phase 1 so the in-place EditableFormalBlock editor can write to
+# them. Each is bilingual; pass null to clear.
 _METADATA_FIELDS: tuple[str, ...] = (
     "title_fr",
     "title_ht",
@@ -54,6 +57,16 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "official_number",
     "issuing_authority",
     "official_formula",
+    # Formal blocks — editable in-place via /editorial/legal-texts/
+    # {slug}/metadata (PATCH).
+    "preamble_fr",
+    "preamble_ht",
+    "visas_fr",
+    "visas_ht",
+    "considerants_fr",
+    "considerants_ht",
+    "enacting_formula_fr",
+    "enacting_formula_ht",
 )
 
 
