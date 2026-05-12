@@ -8,6 +8,7 @@ from api.routes import (
     editorial,
     legal_texts,
     moniteur,
+    promulgations,
     search,
     stats,
 )
@@ -19,5 +20,6 @@ api_router.include_router(decisions.router)
 api_router.include_router(citations.router)
 api_router.include_router(editorial.router)
 api_router.include_router(moniteur.router)
+api_router.include_router(promulgations.router)
 api_router.include_router(search.router)
 api_router.include_router(stats.router)
