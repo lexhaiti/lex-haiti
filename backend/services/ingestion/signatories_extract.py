@@ -105,6 +105,171 @@ _UNTITLED_SIGNATORY_RE = re.compile(
 )
 
 
+# ----- Constituante (Constitution) signatory patterns ----------------------
+
+# "Signataires" header that introduces the Constituante membership list.
+# Used as the anchor — anything above is the "Donné au Palais Législatif…"
+# preamble (where the date lives), anything below is the membership block.
+_CONSTITUANTE_HEADER_RE = re.compile(
+    r"^\s*Signataires\s*:?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Group labels inside the Constituante block — each introduces a list of
+# names where every member shares the same role.
+_CONSTITUANTE_GROUP_RE = re.compile(
+    r"^\s*(?:Les\s+)?(Pr[ée]sident|Vice[-\s]?Pr[ée]sident|Secr[ée]taires?|Membres?|Constituant[se]?)\s*[:\-]?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# One signatory line — "Me. Emile JOASSAINT fils" / "Dr. Louis Roy" /
+# "Mme Bathilde Barbancourt" / "M. Jacques Saint-Louis". Title prefix
+# (Me. / M. / Mme / Dr.) is optional. The name proper is greedy up to
+# the end-of-line so multi-part surnames (« Saint-Louis », « Pierre-
+# Louis ») survive. Rejects lines that look like role labels (caught
+# by the group regex above) by requiring the line to NOT start with
+# one of the group keywords.
+_CONSTITUANTE_NAME_LINE_RE = re.compile(
+    r"""
+    ^\s*
+    (?!(?:Les\s+)?(?:Pr[ée]sident|Vice|Secr[ée]taire|Membre|Constituant)\b)
+    (?:(Me\.|M\.|Mme\.?|Mlle\.?|Dr\.?|Pr\.?|Pasteur)\s+)?     # honorific (optional)
+    ([A-ZÀÂÄÉÈÊËÎÏÔÖÙÛÜŸÇ][\wÀ-ÿ\.\-\s']{2,80}?)              # name
+    \s*$
+    """,
+    re.MULTILINE | re.VERBOSE,
+)
+
+# Role suffix sometimes carried on a following line — "Role: Président
+# de l'Assemblée Constituante". When present, attach to the preceding
+# name and skip the implicit group-role fallback.
+_CONSTITUANTE_ROLE_INLINE_RE = re.compile(
+    r"^\s*Role\s*:\s*(.+?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Stop tokens — when we hit one of these inside the block, the
+# membership list has ended and downstream content (sovereignty
+# formula, separator, devise, ...) follows. Without this the extractor
+# would happily slurp the AU NOM DE LA REPUBLIQUE flag as a "member".
+_CONSTITUANTE_STOP_RE = re.compile(
+    r"^\s*(?:AU\s+NOM\s+DE\s+LA\s+REPUBLIQUE|RÉPUBLIQUE\s+D|LIBERT[ÉE]\s+|"
+    r"DEVISE|FAIT\s+|DONN[ÉE]\s+)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _extract_constituante_signers(
+    formula: str, base_position: int
+) -> list[ExtractedSignatory]:
+    """Parse the Constituante membership block following "Signataires:".
+
+    Walks line by line, tracking a "current group" role (Président /
+    Vice-Président / Secrétaires / Membres / Constituants). Each name
+    line under a group inherits that role unless a following "Role:"
+    line overrides it. The implicit fallback role is "Membre de
+    l'Assemblée Constituante" so names without an explicit group still
+    land with a meaningful function_fr.
+
+    Returns ExtractedSignatory rows with:
+      - ``chamber = None`` (the Constituante is neither Sénat nor
+        Chambre — it's a sui-generis body, so leave chamber blank)
+      - ``signing_capacity = SigningCapacity.authoring`` (Constituantes
+        author the Constitution they sign; they don't promulgate it)
+    """
+    header = _CONSTITUANTE_HEADER_RE.search(formula)
+    if not header:
+        return []
+
+    # Cap the membership block at the next clear "stop" marker so we
+    # don't ingest the sovereignty formula or trailing devise lines.
+    body_start = header.end()
+    stop = _CONSTITUANTE_STOP_RE.search(formula, body_start)
+    body_end = stop.start() if stop else len(formula)
+    block = formula[body_start:body_end]
+    if not block.strip():
+        return []
+
+    out: list[ExtractedSignatory] = []
+    current_group = "Membre"  # implicit default
+    pos = base_position
+    seen_names: set[str] = set()
+
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        # Group label switches the current role for subsequent names.
+        grp = _CONSTITUANTE_GROUP_RE.match(line)
+        if grp:
+            current_group = grp.group(1).strip().rstrip("s")  # singular form
+            continue
+
+        # Inline "Role: …" attaches to the previous emitted signatory.
+        role_inline = _CONSTITUANTE_ROLE_INLINE_RE.match(line)
+        if role_inline and out:
+            out[-1] = ExtractedSignatory(
+                name=out[-1].name,
+                function_fr=role_inline.group(1).strip(),
+                function_ht=out[-1].function_ht,
+                signing_capacity=out[-1].signing_capacity,
+                chamber=out[-1].chamber,
+                signed_at=out[-1].signed_at,
+                position=out[-1].position,
+            )
+            continue
+
+        # Name line — strip honorific, capture surname, normalise.
+        name_match = _CONSTITUANTE_NAME_LINE_RE.match(line)
+        if not name_match:
+            continue
+        honorific = (name_match.group(1) or "").strip()
+        name_proper = name_match.group(2).strip()
+        full_name = f"{honorific} {name_proper}".strip() if honorific else name_proper
+        # Dedupe: an OCR'd Constituante block sometimes lists the same
+        # name twice across page breaks. Cheap key on the upper-cased
+        # form so case + honorific drift don't fool the check.
+        dedupe_key = re.sub(r"\s+", " ", full_name.upper())
+        if dedupe_key in seen_names:
+            continue
+        seen_names.add(dedupe_key)
+
+        function = _CONSTITUANTE_GROUP_FUNCTION.get(
+            current_group.lower(),
+            "Membre de l'Assemblée Constituante",
+        )
+        out.append(
+            ExtractedSignatory(
+                name=full_name,
+                function_fr=function,
+                function_ht=None,
+                signing_capacity=SigningCapacity.authoring,
+                chamber=None,
+                signed_at=None,
+                position=pos,
+            )
+        )
+        pos += 1
+
+    return out
+
+
+# Map raw group label → canonical function_fr label. Lower-cased keys,
+# singular form (the regex strips trailing 's').
+_CONSTITUANTE_GROUP_FUNCTION: dict[str, str] = {
+    "président": "Président de l'Assemblée Constituante",
+    "president": "Président de l'Assemblée Constituante",
+    "vice-président": "Vice-Président de l'Assemblée Constituante",
+    "vice président": "Vice-Président de l'Assemblée Constituante",
+    "vice-president": "Vice-Président de l'Assemblée Constituante",
+    "secrétaire": "Secrétaire de l'Assemblée Constituante",
+    "secretaire": "Secrétaire de l'Assemblée Constituante",
+    "membre": "Membre de l'Assemblée Constituante",
+    "constituant": "Membre de l'Assemblée Constituante",
+}
+
+
 def _parse_inline_date(text: str) -> Optional[date]:
     m = _DATE_INLINE_RE.search(text)
     if not m:
@@ -243,6 +408,19 @@ def extract_signatories(
 
     out: list[ExtractedSignatory] = []
     cursor = 0
+
+    # ----- Constituante (Constitutions) -------------------------------
+    # When the closing block carries the "Signataires:" header used by
+    # Haitian Constituantes (1987, 1843, …), parse the named-member
+    # list directly. Skips the Sénat / Chambre / Donné patterns that
+    # don't apply to a Constituent Assembly.
+    if category == LegalCategory.constitution:
+        constituante_rows = _extract_constituante_signers(
+            formula, base_position=cursor
+        )
+        if constituante_rows:
+            out.extend(constituante_rows)
+            return out  # Constitutions never carry Sénat / Chambre / Donné
 
     # ----- Sénat block -------------------------------------------------
     senat_block = _block_for(formula, "Votée au Sénat")
