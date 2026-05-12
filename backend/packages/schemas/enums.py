@@ -42,11 +42,28 @@ class CodeSubcategory(str, Enum):
 
 
 class LegalStatus(str, Enum):
-    """Legal status of the whole legal text (not the editorial workflow)."""
+    """Legal status of the whole legal text (not the editorial workflow).
+
+    The first three values cover all domestic legislation (lois,
+    décrets, arrêtés, codes, constitutions). The treaty-specific
+    values track the lifecycle of international agreements, which is
+    distinct from domestic abrogation:
+
+      - ``signed``: signature deposited but not yet ratified
+      - ``ratified``: ratified by the legislator, not yet promulgated
+      - ``denounced``: a party (Haiti or another signatory) has
+        formally withdrawn from the treaty
+
+    Treaties that are in_force after ratification + promulgation use
+    the same ``in_force`` value as domestic legislation.
+    """
 
     in_force = "in_force"
     abrogated = "abrogated"
     partially_abrogated = "partially_abrogated"
+    signed = "signed"
+    ratified = "ratified"
+    denounced = "denounced"
 
 
 class ArticleStatus(str, Enum):
@@ -281,6 +298,7 @@ class ParserProfile(str, Enum):
     executive_act = "executive_act"
     circulaire = "circulaire"
     communique = "communique"
+    traite = "traite"
 
 
 class Language(str, Enum):

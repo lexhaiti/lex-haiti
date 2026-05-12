@@ -28,8 +28,10 @@ from packages.schemas.enums import (
     LegalStatus,
     LegalTheme,
 )
+from packages.schemas.heading import LegalHeadingRead
 from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
 from packages.schemas.theme import LegalThemeTagWrite
+from services.corpus.repository import CorpusRepository
 from services.editorial.service import EditorialService
 
 logger = logging.getLogger(__name__)
@@ -387,6 +389,57 @@ class TranslationParseResponse(BaseModel):
     parsed_ht_count: int = 0
     matched_count: int = 0
     preamble_ht: Optional[str] = None
+
+
+# -----------------------------------------------------------------------
+# Heading-title inline edit
+# -----------------------------------------------------------------------
+
+
+class HeadingTitleUpdate(BaseModel):
+    """Editor input for inline-editing a heading title in the TOC.
+
+    Either field can be set independently — editors typically fix the
+    French first; the Kreyòl title is filled later during translation
+    review. ``None`` means "leave untouched"; empty string clears.
+    """
+
+    title_fr: Optional[str] = None
+    title_ht: Optional[str] = None
+
+
+@router.patch(
+    "/headings/{heading_id}/title",
+    response_model=LegalHeadingRead,
+    summary="Edit a structural heading title (TOC inline edit)",
+)
+def update_heading_title(
+    heading_id: int,
+    body: HeadingTitleUpdate,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — auth gate
+):
+    """Inline edit for a TOC heading title (TITRE / CHAPITRE / SECTION).
+
+    Editors trigger this from the table-of-contents tree on the law
+    detail page when the parser-detected title is off (truncated by
+    OCR, wrong language, or simply not what the official text uses).
+    Body and TOC structure (parent, position, level) are NOT editable
+    here — that's a separate flow that goes through the structural
+    review page.
+    """
+    repo = CorpusRepository(db)
+    heading = repo.get_heading_by_id(heading_id)
+    if heading is None:
+        raise HTTPException(404, "Heading not found")
+    repo.update_heading_titles(
+        heading,
+        title_fr=body.title_fr,
+        title_ht=body.title_ht,
+    )
+    db.commit()
+    db.refresh(heading)
+    return LegalHeadingRead.model_validate(heading)
 
 
 @router.post(

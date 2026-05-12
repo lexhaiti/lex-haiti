@@ -60,3 +60,8 @@ class ConstitutionParser(BaseParser):
             if text_position == -1 or text_position < cutoff:
                 before_annex_articles.append(art)
         output.articles = before_annex_articles
+
+    def _should_require_review(self, output: ParserOutput) -> bool:
+        """Constitutions are foundational texts — every promotion must
+        be reviewed regardless of parser confidence."""
+        return True

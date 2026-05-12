@@ -716,6 +716,27 @@ class CorpusRepository:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_heading_by_id(self, heading_id: int) -> Optional[LegalHeading]:
+        return self.session.get(LegalHeading, heading_id)
+
+    def update_heading_titles(
+        self,
+        heading: LegalHeading,
+        *,
+        title_fr: Optional[str] = None,
+        title_ht: Optional[str] = None,
+    ) -> LegalHeading:
+        """Update a heading's bilingual title in place. ``None`` means
+        "leave untouched"; empty string clears the field. Caller owns
+        the commit.
+        """
+        if title_fr is not None:
+            heading.title_fr = title_fr.strip() or None
+        if title_ht is not None:
+            heading.title_ht = title_ht.strip() or None
+        self.session.flush()
+        return heading
+
     # -------------------------------------------------------------------
     # Article
     # -------------------------------------------------------------------

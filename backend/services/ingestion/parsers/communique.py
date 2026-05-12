@@ -92,4 +92,11 @@ class CommuniqueParser(BaseParser):
             output.warnings.append(f"signature extraction failed: {exc}")
 
         output.parser_confidence = self._score_confidence(output)
+        output.review_required = self._should_require_review(output)
         return output
+
+    def _should_require_review(self, output: ParserOutput) -> bool:
+        """Communiqués are short, low-stakes prose — only flag for
+        review when the parser produced warnings (e.g. signature
+        extraction failed). No structural complexity to validate."""
+        return bool(output.warnings)

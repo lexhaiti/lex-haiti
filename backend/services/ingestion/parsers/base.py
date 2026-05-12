@@ -72,6 +72,11 @@ class ParsedTocNode:
     Stays simple — string-based ``block_kind`` and ``level`` so we can
     serialise straight into an ImportDraft JSONB column without dragging
     enum types through the JSON layer.
+
+    ``source_start_line`` / ``source_end_line`` are 1-indexed line numbers
+    in the **normalised** input text. Editor UIs use them to jump from a
+    TOC entry to its exact location in the OCR transcript, and to
+    highlight the source region that produced this node.
     """
 
     block_kind: str
@@ -85,6 +90,8 @@ class ParsedTocNode:
     position: int = 0
     parent_key: Optional[str] = None
     confidence: float = 1.0
+    source_start_line: Optional[int] = None
+    source_end_line: Optional[int] = None
 
 
 @dataclass
@@ -100,6 +107,33 @@ class ParsedArticleDraft:
     text_ht: Optional[str] = None
     confidence: float = 1.0
     heading_path: list[str] = field(default_factory=list)
+    # Line range in the normalised source text. Editors use it to
+    # locate the article body inside the OCR transcript when reviewing
+    # parsed candidates.
+    source_start_line: Optional[int] = None
+    source_end_line: Optional[int] = None
+
+
+@dataclass
+class IssuingAuthority:
+    """One institution officially issuing a legal text.
+
+    Multiple authorities can co-issue a single text (``conjoint``
+    ministerial arrêtés are common in Haiti — Justice + Intérieur +
+    Defense …). Each entry here represents one such authority; the
+    parent ``ParserOutput.issuing_authorities`` is the full ordered list.
+
+    Distinct from ``ParserOutput.signatures``: an authority is an
+    institution, a signature is a person. A single authority may
+    contribute multiple signatures (the minister + the secretary-general
+    both sign), and a single person may sign on behalf of multiple
+    authorities — they're different concepts and tracked separately.
+    """
+
+    name: str
+    role: Optional[str] = None        # "Ministre de la Justice", "Conseil Municipal", …
+    jurisdiction: Optional[str] = None  # "HT", or commune name for local authorities
+    confidence: float = 0.8
 
 
 @dataclass
@@ -117,8 +151,18 @@ class ParserOutput:
     articles: list[ParsedArticleDraft] = field(default_factory=list)
     promulgation: Optional[dict] = None
     signatures: list[dict] = field(default_factory=list)
+    # Institutions issuing the text (vs. signatures, which are people).
+    # A conjoint text has multiple authorities — the list is ordered
+    # left-to-right as they appear on the cover.
+    issuing_authorities: list[IssuingAuthority] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     parser_confidence: float = 0.0
+    # Explicit "this candidate should not auto-promote" flag.
+    # Recomputed by ``BaseParser.parse`` after every run using
+    # ``_should_require_review`` — profiles can override that hook for
+    # category-specific thresholds (Codes & Constitutions always
+    # require review, Communiqués only when warnings are present).
+    review_required: bool = True
 
     def to_dict(self) -> dict:
         """JSONB-friendly representation — flattens enums to their string
@@ -146,6 +190,8 @@ class ParserOutput:
                     "position": n.position,
                     "parent_key": n.parent_key,
                     "confidence": n.confidence,
+                    "source_start_line": n.source_start_line,
+                    "source_end_line": n.source_end_line,
                 }
                 for n in self.toc
             ],
@@ -159,13 +205,25 @@ class ParserOutput:
                     "text_ht": a.text_ht,
                     "confidence": a.confidence,
                     "heading_path": list(a.heading_path),
+                    "source_start_line": a.source_start_line,
+                    "source_end_line": a.source_end_line,
                 }
                 for a in self.articles
             ],
             "promulgation": self.promulgation,
             "signatures": list(self.signatures),
+            "issuing_authorities": [
+                {
+                    "name": a.name,
+                    "role": a.role,
+                    "jurisdiction": a.jurisdiction,
+                    "confidence": a.confidence,
+                }
+                for a in self.issuing_authorities
+            ],
             "warnings": list(self.warnings),
             "parser_confidence": self.parser_confidence,
+            "review_required": self.review_required,
         }
 
 
@@ -275,6 +333,10 @@ class BaseParser:
     def parse(self, ctx: ParserContext) -> ParserOutput:
         """Run the full pipeline. Profiles typically don't override this."""
         text = self._normalize(ctx.normalized_text)
+        # Store the normalised text on self temporarily so the line-number
+        # helpers below can resolve absolute offsets without threading the
+        # full text through every call. Cleared at the end of parse().
+        self._current_text = text
 
         output = ParserOutput(
             profile=self.PROFILE,
@@ -287,6 +349,13 @@ class BaseParser:
             output.title_fr = header.title_line or None
             output.metadata["official_number"] = header.official_number
             output.metadata["issuing_authority_text"] = header.issuing_authority
+            # Issuing-authority as a first-class field — derived from the
+            # header's free-text issuer string. Profiles override
+            # ``_extract_issuing_authorities`` for richer logic (e.g.
+            # conjoint arrêtés where the header lists 3 ministries).
+            output.issuing_authorities = self._extract_issuing_authorities(
+                text, header
+            )
             # Continue parsing from body_without_header so the article
             # splitter doesn't re-encounter the title.
             body_text = header.body_without_header or text
@@ -309,6 +378,11 @@ class BaseParser:
         # 4. Articles
         split = split_into_articles(body_after_formals)
         for art in split.articles:
+            # Backfill source-line range from the article body's
+            # location in the full normalised text. Best-effort: when
+            # the body string isn't unique in the document (rare for
+            # real articles), we use the first occurrence.
+            start_line, end_line = self._locate_lines(text, art.body)
             output.articles.append(
                 ParsedArticleDraft(
                     number=art.number,
@@ -319,9 +393,12 @@ class BaseParser:
                         art, structural
                     ),
                     confidence=1.0,
+                    source_start_line=start_line,
+                    source_end_line=end_line,
                 )
             )
         if split.official_formula:
+            f_start, f_end = self._locate_lines(text, split.official_formula)
             output.toc.append(
                 ParsedTocNode(
                     block_kind=BlockKind.closing_formula.value,
@@ -329,6 +406,8 @@ class BaseParser:
                     body_fr=split.official_formula,
                     position=len(output.toc),
                     confidence=0.9,
+                    source_start_line=f_start,
+                    source_end_line=f_end,
                 )
             )
 
@@ -363,8 +442,10 @@ class BaseParser:
         # 7. Per-profile cleanup
         self.finalize(ctx, output)
 
-        # 8. Confidence
+        # 8. Confidence + review flag
         output.parser_confidence = self._score_confidence(output)
+        output.review_required = self._should_require_review(output)
+        self._current_text = ""
         return output
 
     # ------------------------------------------------------------------
@@ -402,12 +483,15 @@ class BaseParser:
         # Sovereignty formula — if present, lift it as its own block.
         m = SOVEREIGNTY_RE.search(text)
         if m:
+            s_start, s_end = self._locate_lines(text, m.group(0))
             blocks.append(
                 ParsedTocNode(
                     block_kind=BlockKind.sovereignty_formula.value,
                     key="sovereignty",
                     body_fr=m.group(0).strip(),
                     confidence=0.95,
+                    source_start_line=s_start,
+                    source_end_line=s_end,
                 )
             )
 
@@ -424,28 +508,36 @@ class BaseParser:
             body = text
 
         # Visa lines
-        visas = [m.group(0).strip() for m in VISA_LINE_RE.finditer(head)]
+        visa_matches = list(VISA_LINE_RE.finditer(head))
+        visas = [m.group(0).strip() for m in visa_matches]
         if visas:
+            v_start, _ = self._locate_lines(text, visa_matches[0].group(0))
+            _, v_end = self._locate_lines(text, visa_matches[-1].group(0))
             blocks.append(
                 ParsedTocNode(
                     block_kind=BlockKind.visa.value,
                     key="visas",
                     body_fr="\n".join(visas),
                     confidence=0.85,
+                    source_start_line=v_start,
+                    source_end_line=v_end,
                 )
             )
 
         # Considérant lines
-        considerants = [
-            m.group(0).strip() for m in CONSIDERANT_LINE_RE.finditer(head)
-        ]
+        cons_matches = list(CONSIDERANT_LINE_RE.finditer(head))
+        considerants = [m.group(0).strip() for m in cons_matches]
         if considerants:
+            c_start, _ = self._locate_lines(text, cons_matches[0].group(0))
+            _, c_end = self._locate_lines(text, cons_matches[-1].group(0))
             blocks.append(
                 ParsedTocNode(
                     block_kind=BlockKind.considerant.value,
                     key="considerants",
                     body_fr="\n".join(considerants),
                     confidence=0.85,
+                    source_start_line=c_start,
+                    source_end_line=c_end,
                 )
             )
 
@@ -458,6 +550,7 @@ class BaseParser:
         preamble_explicit = self._extract_labelled_preamble(text)
         if preamble_explicit is not None:
             preamble_text, preamble_end = preamble_explicit
+            p_start, p_end = self._locate_lines(text, preamble_text)
             blocks.append(
                 ParsedTocNode(
                     block_kind=BlockKind.preamble.value,
@@ -465,6 +558,8 @@ class BaseParser:
                     title_fr="Préambule",
                     body_fr=preamble_text,
                     confidence=0.95,
+                    source_start_line=p_start,
+                    source_end_line=p_end,
                 )
             )
             # When no enacting formula was found, `body` was the whole
@@ -490,12 +585,15 @@ class BaseParser:
                 )
 
         if enacting:
+            e_start, e_end = self._locate_lines(text, enacting.group(0))
             blocks.append(
                 ParsedTocNode(
                     block_kind=BlockKind.enacting_formula.value,
                     key="enacting-formula",
                     body_fr=enacting.group(0).strip(),
                     confidence=0.95,
+                    source_start_line=e_start,
+                    source_end_line=e_end,
                 )
             )
 
@@ -576,6 +674,13 @@ class BaseParser:
             for deeper in levels_in_order[this_depth + 1 :]:
                 most_recent.pop(deeper, None)
 
+            # Source-line is the line where the heading match starts.
+            # `text` here is `body_after_formals`, so resolve against
+            # the full normalised text for an absolute line number.
+            start_line, end_line = self._locate_lines(
+                self._current_text, m.group(0)
+            )
+
             nodes.append(
                 ParsedTocNode(
                     block_kind=BlockKind.structural.value,
@@ -585,6 +690,8 @@ class BaseParser:
                     title_fr=title or None,
                     parent_key=parent_key,
                     confidence=0.92,
+                    source_start_line=start_line,
+                    source_end_line=end_line,
                 )
             )
         return nodes
@@ -651,9 +758,84 @@ class BaseParser:
             return 0.0
         return round(score / weight_sum, 2)
 
+    # ------------------------------------------------------------------
+    # New hooks (Phase A)
+    # ------------------------------------------------------------------
+
+    def _locate_lines(
+        self, full_text: str, fragment: str
+    ) -> tuple[Optional[int], Optional[int]]:
+        """Best-effort line-range for ``fragment`` inside ``full_text``.
+
+        Returns ``(start_line, end_line)`` as 1-indexed line numbers, or
+        ``(None, None)`` if the fragment can't be located cleanly. Used
+        for ``source_start_line`` / ``source_end_line`` so the editor
+        UI can highlight the matched region in the OCR transcript.
+
+        Heuristic: searches for the first 60 characters of ``fragment``
+        in ``full_text``. Real article bodies and heading lines are
+        unique enough at 60 chars that this works in practice; on
+        ambiguous matches we return the first occurrence.
+        """
+        if not full_text or not fragment:
+            return None, None
+        needle = fragment.strip()
+        if not needle:
+            return None, None
+        # Cap the search needle — long needles produce nothing when the
+        # fragment was normalised differently than the source.
+        probe = needle[:60]
+        idx = full_text.find(probe)
+        if idx < 0:
+            return None, None
+        start_line = full_text.count("\n", 0, idx) + 1
+        # End line = line of the last char in the actual fragment region.
+        end_idx = min(idx + len(needle), len(full_text)) - 1
+        end_line = full_text.count("\n", 0, end_idx) + 1
+        return start_line, end_line
+
+    def _extract_issuing_authorities(
+        self, text: str, header
+    ) -> list[IssuingAuthority]:
+        """Default issuing-authority extraction — single authority from
+        the header's free-text issuer string.
+
+        Profiles override for conjoint documents (ministerial arrêtés
+        with 2+ co-issuing ministries) or for non-header issuer
+        patterns. ``header`` is the ``HeaderParts`` returned by
+        ``split_header`` — never ``None`` in this code path because we
+        only call this when split_header succeeded.
+        """
+        raw = getattr(header, "issuing_authority", None)
+        if not raw or not str(raw).strip():
+            return []
+        return [
+            IssuingAuthority(
+                name=str(raw).strip(),
+                jurisdiction="HT",
+                confidence=0.7,
+            )
+        ]
+
+    def _should_require_review(self, output: ParserOutput) -> bool:
+        """Profile-specific rule for whether a parsed candidate must be
+        reviewed by a human before promotion to a LegalText.
+
+        Default: require review when confidence < 0.6 or any warnings
+        were produced. Profiles override to be stricter (Constitutions
+        and Codes always require review regardless of confidence) or
+        more permissive (Communiqués only require review on warnings).
+        """
+        if output.parser_confidence < 0.6:
+            return True
+        if output.warnings:
+            return True
+        return False
+
 
 __all__ = [
     "BaseParser",
+    "IssuingAuthority",
     "ParserContext",
     "ParserOutput",
     "ParsedTocNode",

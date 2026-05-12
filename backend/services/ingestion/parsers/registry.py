@@ -27,6 +27,7 @@ from .constitution import ConstitutionParser
 from .executive_act import ExecutiveActParser
 from .generic import GenericParser
 from .loi import LoiParser
+from .traite import TraiteParser
 
 
 _REGISTRY: dict[ParserProfile, type[BaseParser]] = {
@@ -37,6 +38,7 @@ _REGISTRY: dict[ParserProfile, type[BaseParser]] = {
     ParserProfile.executive_act: ExecutiveActParser,
     ParserProfile.circulaire: CirculaireParser,
     ParserProfile.communique: CommuniqueParser,
+    ParserProfile.traite: TraiteParser,
 }
 
 
@@ -69,6 +71,9 @@ _CATEGORY_TO_PROFILE: dict[str, ParserProfile] = {
     "circulaire": ParserProfile.circulaire,
     "communique": ParserProfile.communique,
     "avis": ParserProfile.communique,
+    # International instruments — LegalCategory.convention covers
+    # traités, conventions, accords, protocoles.
+    "convention": ParserProfile.traite,
 }
 
 
@@ -143,6 +148,19 @@ _CLASSIFICATION_RULES: list[tuple[ParserProfile, LegalCategory, re.Pattern[str]]
         ParserProfile.communique,
         LegalCategory.avis,
         re.compile(r"^\s*AVIS\b", re.IGNORECASE | re.MULTILINE),
+    ),
+    (
+        # International instruments — order matters: place after the
+        # specific domestic patterns so a "Loi portant ratification du
+        # traité…" still classifies as a loi (the law ratifying the
+        # treaty, not the treaty itself).
+        ParserProfile.traite,
+        LegalCategory.convention,
+        re.compile(
+            r"\b(?:TRAIT[ÉE]|CONVENTION|ACCORD|PROTOCOLE)\s+"
+            r"(?:INTERNATIONAL|BILAT[ÉE]RAL|MULTILAT[ÉE]RAL|ENTRE)\b",
+            re.IGNORECASE,
+        ),
     ),
 ]
 

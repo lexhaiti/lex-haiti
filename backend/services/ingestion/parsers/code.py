@@ -38,3 +38,8 @@ class CodeParser(BaseParser):
         # Re-number positions after the cull
         for i, node in enumerate(output.toc):
             node.position = i
+
+    def _should_require_review(self, output: ParserOutput) -> bool:
+        """Codes are too large and structurally complex to auto-promote.
+        Always require an editor pass regardless of confidence."""
+        return True
