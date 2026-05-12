@@ -207,30 +207,36 @@ export function SignataireBlock({
               </div>
             </div>
           ) : hasFormula ? (
-            <div className="mt-6 border-l-2 border-amber-300 pl-4 group/formula">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <>
+              <div className="mt-6 border-l-2 border-amber-300 pl-4">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                   {lang === 'fr'
                     ? 'Formule de clôture'
                     : 'Fòmil fèmti'}
-                </span>
-                {isEditor && (
+                </div>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {officialFormula}
+                </p>
+              </div>
+              {/* Editor always sees a visible action below the formula.
+                  We keep the dashed-amber button style consistent with
+                  the empty-state add button + the signers add button —
+                  the editor learns one affordance, not two. */}
+              {isEditor && (
+                <div className="mt-3">
                   <button
                     type="button"
                     onClick={startFormulaEdit}
-                    className="opacity-0 group-hover/formula:opacity-100 transition-opacity text-slate-400 hover:text-primary"
-                    aria-label={
-                      lang === 'fr' ? 'Modifier' : 'Modifye'
-                    }
+                    className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:border-amber-400 hover:bg-amber-50"
                   >
                     <PenLine className="w-3.5 h-3.5" />
+                    {lang === 'fr'
+                      ? 'Modifier la formule de clôture'
+                      : 'Modifye fòmil fèmti'}
                   </button>
-                )}
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {officialFormula}
-              </p>
-            </div>
+                </div>
+              )}
+            </>
           ) : isEditor ? (
             <div className="mt-6">
               <button
