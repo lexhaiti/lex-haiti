@@ -112,6 +112,33 @@ export default function LawDetail() {
     )
   }, [selectedArticle, law?.articles])
 
+  // Top-level article count for the hero "Contenu" stat.
+  //
+  // The raw ``law.articles.length`` over-counts because the parser
+  // historically promoted every numbered alinéa ("32-1", "32-2"…) to
+  // its own row in the articles table. The 1987 Constitution has 298
+  // top-level articles (article 1 to article 298) plus a handful of
+  // genuine sub-articles (Article 284-1, 289-1, etc.) — but the DB
+  // currently carries hundreds of false sub-articles that are really
+  // alinéas inside their parent. Showing 499 instead of 298 is wrong.
+  //
+  // Display fix: count only numbers that match ``premier`` or a pure
+  // integer (no dash suffix), and dedupe so the historical OCR
+  // duplicates ("60" appearing twice as "60" + "60-2") don't inflate
+  // the figure. The DB cleanup is a separate task — this is a
+  // presentation patch.
+  const topLevelArticleCount = useMemo(() => {
+    if (!law?.articles) return 0
+    const seen = new Set<string>()
+    for (const a of law.articles) {
+      const num = String(a.number ?? '').trim().toLowerCase()
+      if (!/^(premier|\d+)$/.test(num)) continue
+      if (seen.has(num)) continue
+      seen.add(num)
+    }
+    return seen.size
+  }, [law?.articles])
+
   // Walk the heading tree from the selected article up to the LegalText root.
   // Used for the in-article breadcrumb (Titre → Chapitre → Art.).
   const articleBreadcrumb = useMemo(() => {
@@ -505,7 +532,7 @@ export default function LawDetail() {
                       {t('lawDetail.meta.content')}
                     </p>
                     <p className="text-white font-bold">
-                      {law.articles?.length || 0}{' '}
+                      {topLevelArticleCount}{' '}
                       {t('lawDetail.meta.articles')}
                     </p>
                   </div>
