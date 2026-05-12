@@ -346,11 +346,12 @@ export async function createMoniteurIssue(payload: {
   year: number
   publication_date?: string | null
   edition_label?: string | null
+  director?: string | null
 }) {
   return apiPost<MoniteurIssueRead>(`/moniteur/issues`, payload)
 }
 
-export async function uploadMoniteurPdf(id: number, file: File) {
+export async function uploadMoniteurFile(id: number, file: File) {
   // Routed through a local Next.js API route, not /api/v1/*, for the same
   // reason as extractMoniteurMetadata — large multipart uploads choke the
   // dev rewrite. See web/src/app/api/moniteur/issues/[id]/upload/route.ts.
@@ -373,12 +374,47 @@ export async function uploadMoniteurPdf(id: number, file: File) {
   return (await r.json()) as MoniteurIssueRead
 }
 
+/** @deprecated Use uploadMoniteurFile instead */
+export const uploadMoniteurPdf = uploadMoniteurFile
+
+/** Upload a pre-transcribed version of the Moniteur file. When present,
+ *  the parse pipeline reads text from this instead of running OCR. */
+export async function uploadMoniteurTranscript(id: number, file: File) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch(`/api/moniteur/issues/${id}/upload-transcript`, {
+    method: 'POST',
+    credentials: 'include',
+    body: fd,
+  })
+  if (!r.ok) {
+    let detail: string | undefined
+    try {
+      detail = (await r.json())?.detail
+    } catch {
+      detail = await r.text()
+    }
+    throw new Error(detail || `HTTP ${r.status}`)
+  }
+  return (await r.json()) as MoniteurIssueRead
+}
+
 export type ExtractedMoniteurMetadata = {
   number: string | null
   year: number | null
   publication_date: string | null
   edition_label: string | null
+  director: string | null
   confidence: Record<string, number>
+  /** Auto-detected sommaire entries — the import form pre-fills its
+   *  sommaire step when this is non-empty. */
+  suggested_sommaire?: Array<{
+    detected_category: SommaireEntryInput['detected_category']
+    detected_title: string | null
+    detected_number: string | null
+    page_from: number
+    page_to: number
+  }>
 }
 
 /** Run OCR + cover-page regex on an uploaded PDF and return proposed

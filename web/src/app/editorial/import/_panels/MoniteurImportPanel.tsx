@@ -20,7 +20,8 @@ import {
   extractMoniteurMetadata,
   parseMoniteurIssue,
   setMoniteurSommaire,
-  uploadMoniteurPdf,
+  uploadMoniteurFile,
+  uploadMoniteurTranscript,
   type ExtractedMoniteurMetadata,
   type SommaireEntryInput,
 } from '@/lib/api/endpoints'
@@ -43,7 +44,8 @@ type Phase =
   | 'extracting'
   | 'review'
   | 'creating'
-  | 'uploading'
+  | 'uploadingScan'
+  | 'uploadingSource'
   | 'sendingSommaire'
   | 'parsing'
   | 'done'
@@ -57,6 +59,7 @@ type T = (key: string, opts?: { fallback?: string }) => string
 const SOMMAIRE_DOC_TYPE_VALUES: ReadonlyArray<
   SommaireEntryInput['detected_category']
 > = [
+  'constitution',
   'loi',
   'decret',
   'arrete',
@@ -98,11 +101,15 @@ export default function MoniteurImportPanel() {
       ? `${n} kandida detekte.`
       : `${n} candidat${n > 1 ? 's' : ''} détecté${n > 1 ? 's' : ''}.`
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const sourceInputRef = useRef<HTMLInputElement>(null)
+  const scanInputRef = useRef<HTMLInputElement>(null)
   const today = new Date().toISOString().slice(0, 10)
   const thisYear = new Date().getFullYear()
 
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  // Document source = transcribed PDF/DOCX (primary for metadata + parse).
+  // Scan = scanned original (archive; OCR fallback only if no source).
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [scanFile, setScanFile] = useState<File | null>(null)
   const [metadata, setMetadata] = useState<ExtractedMoniteurMetadata | null>(
     null,
   )
@@ -112,6 +119,7 @@ export default function MoniteurImportPanel() {
   const [year, setYear] = useState<number>(thisYear)
   const [pubDate, setPubDate] = useState(today)
   const [edition, setEdition] = useState('')
+  const [director, setDirector] = useState('')
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [err, setErr] = useState<string | null>(null)
@@ -122,6 +130,7 @@ export default function MoniteurImportPanel() {
   // to the backend before /parse so the OCR pipeline slices the PDF by
   // declared page range instead of running heuristic boundary detection.
   const [sommaireRows, setSommaireRows] = useState<SommaireRow[]>([])
+  const [sommaireAutoFilled, setSommaireAutoFilled] = useState(false)
 
   function addSommaireRow() {
     setSommaireRows((rows) => [...rows, emptyRow()])
@@ -135,45 +144,80 @@ export default function MoniteurImportPanel() {
     setSommaireRows((rows) => rows.filter((r) => r.uid !== uid))
   }
 
-  async function handleFileSelected(file: File) {
-    setPdfFile(file)
+  /** Run metadata extraction on a file and auto-fill form fields. */
+  async function runMetadataExtraction(file: File) {
     setErr(null)
     setPhase('extracting')
     setMetadata(null)
     try {
       const md = await extractMoniteurMetadata(file)
       setMetadata(md)
-      // Pre-fill form fields from extraction; fall back to defaults.
       if (md.number) setNumber(md.number)
       if (md.year) setYear(md.year)
       if (md.publication_date) setPubDate(md.publication_date)
       if (md.edition_label) setEdition(md.edition_label)
+      if (md.director) setDirector(md.director)
+      if (md.suggested_sommaire?.length) {
+        setSommaireAutoFilled(true)
+        setSommaireRows(
+          md.suggested_sommaire.map((s) => ({
+            uid: Math.random().toString(36).slice(2),
+            detected_category: s.detected_category,
+            detected_title: s.detected_title ?? '',
+            detected_number: s.detected_number ?? '',
+            page_from: s.page_from,
+            page_to: s.page_to,
+          })),
+        )
+      }
       setPhase('review')
-    } catch (e: any) {
-      // Extractor failure isn't fatal — let the editor enter values manually.
+    } catch {
       setErr(t('editorial.import.moniteur.extractFailed'))
       setPhase('review')
     }
   }
 
+  /** Document source selected — always extract metadata from it. */
+  function handleSourceSelected(file: File) {
+    setSourceFile(file)
+    runMetadataExtraction(file)
+  }
+
+  /** Scan selected — extract metadata only if no source file present. */
+  function handleScanSelected(file: File) {
+    setScanFile(file)
+    if (!sourceFile) {
+      runMetadataExtraction(file)
+    } else if (phase === 'idle') {
+      // Source already set and metadata already extracted — just stay in review.
+      setPhase('review')
+    }
+  }
+
   function reset() {
-    setPdfFile(null)
+    setSourceFile(null)
+    setScanFile(null)
     setMetadata(null)
     setNumber('')
     setYear(thisYear)
     setPubDate(today)
     setEdition('')
+    setDirector('')
     setPhase('idle')
     setErr(null)
     setIssueId(null)
     setCandidatesCount(0)
     setSommaireRows([])
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setSommaireAutoFilled(false)
+    if (sourceInputRef.current) sourceInputRef.current.value = ''
+    if (scanInputRef.current) scanInputRef.current.value = ''
   }
+
+  const hasAnyFile = sourceFile || scanFile
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!pdfFile || !number.trim()) return
+    if (!hasAnyFile || !number.trim()) return
     setErr(null)
     try {
       setPhase('creating')
@@ -182,10 +226,21 @@ export default function MoniteurImportPanel() {
         year,
         publication_date: pubDate || null,
         edition_label: edition.trim() || null,
+        director: director.trim() || null,
       })
       setIssueId(issue.id)
-      setPhase('uploading')
-      await uploadMoniteurPdf(issue.id, pdfFile)
+
+      // Upload scan → file_url (archival; OCR fallback).
+      if (scanFile) {
+        setPhase('uploadingScan')
+        await uploadMoniteurFile(issue.id, scanFile)
+      }
+
+      // Upload document source → transcript_url (primary for parse, no OCR).
+      if (sourceFile) {
+        setPhase('uploadingSource')
+        await uploadMoniteurTranscript(issue.id, sourceFile)
+      }
 
       // If the editor pre-filled the sommaire, send it now — the parse
       // pipeline will detect the pre-existing entries and switch to
@@ -207,29 +262,21 @@ export default function MoniteurImportPanel() {
         )
       }
 
-      // Kick off parsing without blocking. Real Moniteur PDFs can be 200+
-      // scanned pages — synchronous OCR takes 10-20 min and would time out
-      // any HTTP request. The editor sees the issue land in the dashboard
-      // (status: ocr_pending → parsed) and reviews candidates from there.
-      // TODO(worker): replace fire-and-forget with an RQ job + polling.
+      // Kick off parsing. If source is present → text extraction (fast).
+      // If only scan → OCR pipeline (can be slow for 200+ page scans).
       setPhase('parsing')
-      // Parsing can be slow for large scanned PDFs (10+ min), but we
-      // want the spinner visible while it runs. The .then/.catch
-      // transition to 'done' when the server responds (or times out).
-      // TODO(worker): replace with an RQ job + polling via getMoniteurIssue.
       parseMoniteurIssue(issue.id)
         .then((result) => {
           setCandidatesCount(result.entries_count ?? 0)
           setPhase('done')
         })
         .catch(() => {
-          // Parse failure is non-fatal — issue + PDF are saved; the
-          // editor can re-run from the review page.
+          // Parse failure is non-fatal — files are saved; the editor
+          // can re-run from the review page.
           setPhase('done')
         })
     } catch (e: any) {
       setErr(e?.body?.detail ?? String(e))
-      // Stay on review so the editor can correct (e.g., duplicate number).
       setPhase('review')
     }
   }
@@ -241,7 +288,7 @@ export default function MoniteurImportPanel() {
   return (
     <div className="py-2 lg:py-4 w-full">
       <div className="space-y-6 w-full">
-        {/* Step 1 — drop PDF */}
+        {/* Step 1 — two file slots: document source + scan */}
         <StepCard
           n={1}
           stepLabel={t('editorial.import.moniteur.step')}
@@ -250,44 +297,64 @@ export default function MoniteurImportPanel() {
           active={phase === 'idle' || phase === 'extracting'}
           done={phase !== 'idle' && phase !== 'extracting'}
         >
-          {!pdfFile ? (
-            <Dropzone
-              file={null}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Document source — transcribed PDF/DOCX (primary) */}
+            <FileSlot
+              label={t('editorial.import.moniteur.sourceLabel')}
+              help={t('editorial.import.moniteur.sourceHelp')}
+              file={sourceFile}
+              accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+              dropPrompt={t('editorial.import.moniteur.sourceDrop')}
+              formatHint={t('editorial.import.moniteur.sourceHint')}
+              disabled={phase !== 'idle' && phase !== 'review'}
+              inputRef={sourceInputRef}
               onSelect={(f) => {
-                // Preserve the legacy MIME-filter behaviour: PDF only.
-                if (f && f.type === 'application/pdf') handleFileSelected(f)
+                if (!f) return
+                const name = f.name.toLowerCase()
+                if (name.endsWith('.pdf') || name.endsWith('.docx')) {
+                  handleSourceSelected(f)
+                }
               }}
-              accept="application/pdf"
-              prompt={t('editorial.import.moniteur.dropPrompt')}
-              formatsLabel={t('editorial.import.moniteur.dropHint')}
-              showFileSummary={false}
-              inputRef={fileInputRef}
+              onRemove={() => {
+                setSourceFile(null)
+                setMetadata(null)
+                if (sourceInputRef.current) sourceInputRef.current.value = ''
+                // If scan is present, re-extract metadata from it.
+                if (scanFile) {
+                  runMetadataExtraction(scanFile)
+                } else {
+                  setPhase('idle')
+                }
+              }}
             />
-          ) : (
-            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <FileText className="w-5 h-5 text-emerald-700 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">
-                    {pdfFile.name}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {(pdfFile.size / 1024).toFixed(0)} KB
-                  </p>
-                </div>
-              </div>
-              {(phase === 'idle' || phase === 'review') && (
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="text-xs font-semibold text-slate-500 hover:text-red-600 inline-flex items-center gap-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  {t('editorial.import.moniteur.chooseDifferent')}
-                </button>
-              )}
-            </div>
-          )}
+
+            {/* Scan du Moniteur — scanned original (archive) */}
+            <FileSlot
+              label={t('editorial.import.moniteur.scanLabel')}
+              help={t('editorial.import.moniteur.scanHelp')}
+              file={scanFile}
+              accept="application/pdf"
+              dropPrompt={t('editorial.import.moniteur.scanDrop')}
+              formatHint={t('editorial.import.moniteur.scanHint')}
+              disabled={phase !== 'idle' && phase !== 'review'}
+              inputRef={scanInputRef}
+              onSelect={(f) => {
+                if (!f) return
+                const name = f.name.toLowerCase()
+                if (name.endsWith('.pdf')) {
+                  handleScanSelected(f)
+                }
+              }}
+              onRemove={() => {
+                setScanFile(null)
+                if (scanInputRef.current) scanInputRef.current.value = ''
+                if (!sourceFile) {
+                  setMetadata(null)
+                  setPhase('idle')
+                }
+              }}
+            />
+          </div>
 
           {phase === 'extracting' && (
             <p className="mt-3 inline-flex items-center gap-2 text-sm text-primary">
@@ -303,7 +370,7 @@ export default function MoniteurImportPanel() {
           stepLabel={t('editorial.import.moniteur.step')}
           title={t('editorial.import.moniteur.s2Title')}
           help={t('editorial.import.moniteur.s2Help')}
-          active={phase === 'review' || phase === 'creating' || phase === 'uploading' || phase === 'parsing'}
+          active={phase === 'review' || phase === 'creating' || phase === 'uploadingScan' || phase === 'uploadingSource' || phase === 'parsing'}
           done={phase === 'done'}
         >
           {metadata && (
@@ -372,6 +439,21 @@ export default function MoniteurImportPanel() {
                 className={inputCls}
               />
             </Field>
+            <Field
+              label={t('editorial.import.moniteur.director')}
+              hint={t('editorial.import.moniteur.directorHint')}
+              autoFilled={metadata?.confidence?.director}
+              lowConfidenceLabel={t('editorial.import.moniteur.lowConfidence')}
+            >
+              <input
+                type="text"
+                value={director}
+                onChange={(e) => setDirector(e.target.value)}
+                disabled={phase !== 'review' && phase !== 'idle'}
+                className={inputCls}
+                placeholder={director ? undefined : 'Ex. : Henry Robert MARC-CHARLES'}
+              />
+            </Field>
 
           </form>
         </StepCard>
@@ -388,12 +470,20 @@ export default function MoniteurImportPanel() {
           active={
             phase === 'review' ||
             phase === 'creating' ||
-            phase === 'uploading' ||
+            phase === 'uploadingScan' ||
+            phase === 'uploadingSource' ||
             phase === 'sendingSommaire' ||
             phase === 'parsing'
           }
           done={phase === 'done'}
         >
+          {sommaireAutoFilled && sommaireRows.length > 0 && (
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-800">
+              <Sparkles className="w-3.5 h-3.5" />
+              {t('editorial.import.moniteur.sommaireAutoFilled')}
+            </div>
+          )}
+
           {sommaireRows.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-5 py-6 text-center">
               <p className="text-sm text-slate-500 mb-3">
@@ -445,10 +535,16 @@ export default function MoniteurImportPanel() {
               {t('editorial.import.moniteur.submitting')}
             </span>
           )}
-          {phase === 'uploading' && (
+          {phase === 'uploadingScan' && (
             <span className="inline-flex items-center gap-2 text-sm text-primary">
               <Loader2 className="w-4 h-4 animate-spin" />
               {t('editorial.import.moniteur.uploading')}
+            </span>
+          )}
+          {phase === 'uploadingSource' && (
+            <span className="inline-flex items-center gap-2 text-sm text-primary">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t('editorial.import.moniteur.uploadingSource')}
             </span>
           )}
           {phase === 'sendingSommaire' && (
@@ -502,10 +598,11 @@ export default function MoniteurImportPanel() {
                 type="submit"
                 form="moniteur-import-form"
                 disabled={
-                  !pdfFile ||
+                  !hasAnyFile ||
                   !number.trim() ||
                   phase === 'creating' ||
-                  phase === 'uploading' ||
+                  phase === 'uploadingScan' ||
+                  phase === 'uploadingSource' ||
                   phase === 'sendingSommaire' ||
                   phase === 'parsing' ||
                   phase === 'extracting'
@@ -582,8 +679,7 @@ function SommaireRowEditor({
             }
           >
             <SelectTrigger
-              size="default"
-              className="w-full h-11 bg-white border-slate-300 hover:border-slate-400 focus-visible:border-primary focus-visible:ring-primary/30 data-[state=open]:border-primary"
+              className="w-full data-[size=default]:h-11 bg-white border-slate-300 hover:border-slate-400 focus-visible:border-primary focus-visible:ring-primary/30 data-[state=open]:border-primary"
             >
               <SelectValue />
             </SelectTrigger>
@@ -628,32 +724,161 @@ function SommaireRowEditor({
             {t('editorial.import.moniteur.sommairePages')}
           </span>
           <div className="flex items-center gap-1">
-            <input
-              type="number"
-              min={1}
+            <PageInput
               value={row.page_from}
               disabled={disabled}
-              onChange={(e) =>
-                onChange({ page_from: Number(e.target.value) || 1 })
-              }
+              onChange={(v) => onChange({ page_from: v })}
               aria-label={t('editorial.import.moniteur.sommairePageFrom')}
-              className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
             />
             <span className="text-slate-300 text-xs">→</span>
-            <input
-              type="number"
-              min={1}
+            <PageInput
               value={row.page_to}
               disabled={disabled}
-              onChange={(e) =>
-                onChange({ page_to: Number(e.target.value) || 1 })
-              }
+              onChange={(v) => onChange({ page_to: v })}
               aria-label={t('editorial.import.moniteur.sommairePageTo')}
-              className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
             />
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Numeric page-number input that lets you clear the field and retype from
+ * scratch. The raw string is held in local state while the user is typing;
+ * on blur the value is coerced to a positive integer (min 1) and pushed
+ * back to the parent.
+ */
+function PageInput({
+  value,
+  disabled,
+  onChange,
+  'aria-label': ariaLabel,
+}: {
+  value: number
+  disabled: boolean
+  onChange: (v: number) => void
+  'aria-label'?: string
+}) {
+  const [raw, setRaw] = useState<string>(String(value))
+
+  // Sync from parent when the canonical value changes externally
+  // (e.g. auto-fill from metadata extraction).
+  const prev = useRef(value)
+  if (value !== prev.current) {
+    prev.current = value
+    setRaw(String(value))
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={raw}
+      disabled={disabled}
+      onChange={(e) => {
+        const v = e.target.value.replace(/[^0-9]/g, '')
+        setRaw(v)
+        // Push valid numbers immediately so the parent sees incremental
+        // updates, but don't snap empty → 1 — that's the blur's job.
+        const n = parseInt(v, 10)
+        if (!isNaN(n) && n > 0) onChange(n)
+      }}
+      onBlur={() => {
+        const n = parseInt(raw, 10)
+        const safe = isNaN(n) || n < 1 ? 1 : n
+        setRaw(String(safe))
+        onChange(safe)
+      }}
+      aria-label={ariaLabel}
+      className={cn(inputCls, 'flex-1 min-w-0 px-2 text-center')}
+    />
+  )
+}
+
+/**
+ * Reusable file-upload slot — shows either a dropzone or a file summary
+ * card with a remove button. Used for both "document source" and "scan".
+ */
+function FileSlot({
+  label,
+  help,
+  file,
+  accept,
+  dropPrompt,
+  formatHint,
+  disabled,
+  inputRef,
+  onSelect,
+  onRemove,
+}: {
+  label: string
+  help: string
+  file: File | null
+  accept: string
+  dropPrompt: string
+  formatHint: string
+  disabled: boolean
+  inputRef: React.RefObject<HTMLInputElement | null>
+  onSelect: (f: File | null) => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+        {label}
+      </p>
+      <p className="text-xs text-slate-500 leading-relaxed">{help}</p>
+      {!file ? (
+        <label
+          className={cn(
+            'flex flex-col items-center justify-center gap-2 cursor-pointer rounded-lg border-2 border-dashed px-4 py-6 transition-colors text-center',
+            disabled
+              ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
+              : 'border-slate-300 bg-slate-50/40 hover:border-primary/40 hover:bg-primary/[0.02]',
+          )}
+        >
+          <Upload className="w-5 h-5 text-slate-400" />
+          <span className="text-sm text-slate-600">{dropPrompt}</span>
+          <span className="text-[10px] text-slate-400 uppercase tracking-wide">{formatHint}</span>
+          <input
+            ref={inputRef}
+            type="file"
+            className="hidden"
+            accept={accept}
+            disabled={disabled}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) onSelect(f)
+            }}
+          />
+        </label>
+      ) : (
+        <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <FileText className="w-5 h-5 text-emerald-700 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900 truncate">
+                {file.name}
+              </p>
+              <p className="text-xs text-slate-500">
+                {(file.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
+          </div>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-slate-400 hover:text-red-600 ml-2"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

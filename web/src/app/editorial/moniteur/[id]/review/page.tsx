@@ -53,6 +53,17 @@ const REVIEW_PILL: Record<
   deferred: { cls: 'bg-amber-50 text-amber-800 border-amber-200', key: 'deferred' },
 }
 
+/** Entry categories that can be promoted to a full LegalText. */
+const PROMOTABLE_CATEGORIES = new Set([
+  'constitution',
+  'code',
+  'loi',
+  'decret',
+  'arrete',
+  'convention',
+  'ordonnance',
+])
+
 type T = (key: string, opts?: { fallback?: string }) => string
 
 export default function MoniteurReviewPage() {
@@ -594,18 +605,20 @@ export default function MoniteurReviewPage() {
 
                 {!isFinal && editingFields?.candidateId !== c.id && (
                   <div className="mt-5 flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => handleAccept(c)}
-                      disabled={isBusy}
-                      className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                    >
-                      {isBusy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4" />
-                      )}
-                      {t('editorial.moniteur.review.accept')}
-                    </button>
+                    {PROMOTABLE_CATEGORIES.has(c.detected_category ?? '') && (
+                      <button
+                        onClick={() => handleAccept(c)}
+                        disabled={isBusy}
+                        className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        {t('editorial.moniteur.review.accept')}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleReject(c)}
                       disabled={isBusy}

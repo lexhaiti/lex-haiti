@@ -34,6 +34,10 @@ class MoniteurIssueBase(BaseModel):
         default=None,
         description='Optional sub-label, e.g. "Numéro spécial", "Bis".',
     )
+    director: Optional[str] = Field(
+        default=None,
+        description="Director of Le Moniteur for this issue.",
+    )
 
 
 class MoniteurIssueCreate(MoniteurIssueBase):
@@ -47,6 +51,7 @@ class MoniteurIssueUpdate(BaseModel):
     year: Optional[int] = Field(default=None, ge=1800, le=2200)
     publication_date: Optional[date] = None
     edition_label: Optional[str] = None
+    director: Optional[str] = None
 
 
 class SommaireEntry(BaseModel):
@@ -67,6 +72,7 @@ class MoniteurIssueRead(MoniteurIssueBase):
 
     id: int
     file_url: Optional[str] = None
+    transcript_url: Optional[str] = None
     page_count: Optional[int] = None
     processing_status: MoniteurIssueStatus
     processing_error: Optional[str] = None

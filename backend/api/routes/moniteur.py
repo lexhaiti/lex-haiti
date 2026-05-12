@@ -55,12 +55,14 @@ router = APIRouter(prefix="/moniteur", tags=["moniteur"])
 
 # ---------------------------------------------------------------------------
 # File storage — local filesystem for v1. Swap to MinIO/S3 by replacing
-# `_save_uploaded_pdf` and `_pdf_storage_root`.
+# `_save_uploaded_file` and `_file_storage_root`.
 # ---------------------------------------------------------------------------
 
+_ACCEPTED_EXTENSIONS = (".pdf", ".docx")
 
-def _pdf_storage_root() -> Path:
-    """Where to write uploaded Moniteur PDFs.
+
+def _file_storage_root() -> Path:
+    """Where to write uploaded Moniteur files (PDF or DOCX).
 
     Defaults to `{cwd}/var/moniteur/`. Override with the
     `MONITEUR_PDF_DIR` env var when deploying.
@@ -71,19 +73,31 @@ def _pdf_storage_root() -> Path:
     return root
 
 
-def _safe_filename(year: int, number: str) -> str:
+def _safe_filename(year: int, number: str, suffix: str = ".pdf") -> str:
     """Slugify the (year, number) pair into a filesystem-safe stem."""
     safe_number = re.sub(r"[^\w-]+", "-", number).strip("-") or "issue"
-    return f"moniteur-{year}-{safe_number}.pdf"
+    return f"moniteur-{year}-{safe_number}{suffix}"
 
 
-def _save_uploaded_pdf(upload: UploadFile, year: int, number: str) -> str:
+def _upload_suffix(filename: str | None) -> str:
+    """Return the lowercased extension of an upload, or raise 400."""
+    ext = Path(filename or "").suffix.lower()
+    if ext not in _ACCEPTED_EXTENSIONS:
+        raise HTTPException(
+            400,
+            f"Accepted formats: {', '.join(_ACCEPTED_EXTENSIONS)}. Got: {ext or '(none)'}",
+        )
+    return ext
+
+
+def _save_uploaded_file(upload: UploadFile, year: int, number: str) -> str:
     """Write the upload to disk and return its absolute path.
 
     Returned string is what we store in `moniteur_issues.file_url`. When
     we swap to s3 this becomes an `s3://...` URL.
     """
-    target = _pdf_storage_root() / _safe_filename(year, number)
+    ext = _upload_suffix(upload.filename)
+    target = _file_storage_root() / _safe_filename(year, number, suffix=ext)
     with target.open("wb") as fh:
         shutil.copyfileobj(upload.file, fh)
     return str(target)
@@ -214,12 +228,12 @@ def export_issue_pdf(issue_id: int, db: DbSession):
 
 
 @router.post("/extract-metadata")
-def extract_metadata_from_pdf(
+def extract_metadata(
     db: DbSession,  # noqa: ARG001 — kept for parity with other writes
     user: EditorialUser,  # noqa: ARG001 — gate behind editor session
     file: UploadFile = File(...),
 ):
-    """Preview the issue metadata for an uploaded Moniteur PDF.
+    """Preview the issue metadata for an uploaded Moniteur file (PDF or DOCX).
 
     Saves the upload to a temp path, runs the cover-page extractor (OCR
     + regex over the first 1-2 pages), returns proposed `number / year /
@@ -228,16 +242,21 @@ def extract_metadata_from_pdf(
     edits, then submits the actual create-issue + upload + parse flow.
     """
     import tempfile
-    from services.ingestion.moniteur.metadata import extract_issue_metadata
+    from services.ingestion.moniteur.metadata import (
+        extract_issue_metadata,
+        extract_issue_metadata_from_text,
+    )
 
-    if not (file.filename or "").lower().endswith(".pdf"):
-        raise HTTPException(400, "Only .pdf files are accepted")
+    ext = _upload_suffix(file.filename)
 
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
     try:
-        md = extract_issue_metadata(tmp_path)
+        if ext == ".docx":
+            md = extract_issue_metadata_from_text(tmp_path)
+        else:
+            md = extract_issue_metadata(tmp_path)
     except Exception as e:  # noqa: BLE001 — surface the actual cause to the editor
         import logging
         logging.getLogger(__name__).exception("metadata extraction failed")
@@ -255,7 +274,18 @@ def extract_metadata_from_pdf(
             md.publication_date.isoformat() if md.publication_date else None
         ),
         "edition_label": md.edition_label,
+        "director": md.director,
         "confidence": md.confidence,
+        "suggested_sommaire": [
+            {
+                "detected_category": s.detected_category,
+                "detected_title": s.detected_title,
+                "detected_number": s.detected_number,
+                "page_from": s.page_from,
+                "page_to": s.page_to,
+            }
+            for s in md.suggested_sommaire
+        ],
     }
 
 
@@ -277,6 +307,7 @@ def create_issue(
             year=payload.year,
             publication_date=payload.publication_date,
             edition_label=payload.edition_label,
+            director=payload.director,
             uploaded_by=user.id,
         )
         db.commit()
@@ -328,13 +359,15 @@ def delete_issue(
     if not issue:
         raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
     file_url = issue.file_url
+    transcript_url = issue.transcript_url
     db.delete(issue)
     db.commit()
-    if file_url and os.path.exists(file_url):
-        try:
-            os.unlink(file_url)
-        except OSError:
-            pass  # Stale file is harmless; DB row is already gone.
+    for path in (file_url, transcript_url):
+        if path and os.path.exists(path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass  # Stale file is harmless; DB row is already gone.
     return None
 
 
@@ -342,23 +375,57 @@ def delete_issue(
     "/issues/{issue_id}/upload",
     response_model=MoniteurIssueRead,
 )
-def upload_pdf(
+def upload_file(
     issue_id: int,
     db: DbSession,
     user: EditorialUser,
     file: UploadFile = File(...),
 ):
-    """Attach (or replace) the source PDF for an issue."""
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(400, "Only .pdf uploads are accepted")
+    """Attach (or replace) the source file (PDF or DOCX) for an issue."""
+    _upload_suffix(file.filename)  # validates extension; raises 400 if bad
 
     repo = MoniteurRepository(db)
     issue = repo.get_issue(issue_id)
     if not issue:
         raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
 
-    file_path = _save_uploaded_pdf(file, issue.year, issue.number)
+    file_path = _save_uploaded_file(file, issue.year, issue.number)
     repo.attach_file(issue, file_url=file_path, page_count=None)
+    db.commit()
+    db.refresh(issue)
+    return _to_read(issue)
+
+
+@router.post(
+    "/issues/{issue_id}/upload-transcript",
+    response_model=MoniteurIssueRead,
+)
+def upload_transcript(
+    issue_id: int,
+    db: DbSession,
+    user: EditorialUser,
+    file: UploadFile = File(...),
+):
+    """Attach a pre-transcribed version of the Moniteur file.
+
+    When present, the parse pipeline reads text from this file instead of
+    running OCR on the original scan — useful when the editor already has
+    a clean PDF/DOCX transcription. Pass a new file to replace; the
+    previous transcript is overwritten on disk.
+    """
+    ext = _upload_suffix(file.filename)  # validates PDF/DOCX
+
+    repo = MoniteurRepository(db)
+    issue = repo.get_issue(issue_id)
+    if not issue:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
+
+    target = _file_storage_root() / _safe_filename(
+        issue.year, issue.number, suffix=f"-transcript{ext}"
+    )
+    with target.open("wb") as fh:
+        shutil.copyfileobj(file.file, fh)
+    issue.transcript_url = str(target)
     db.commit()
     db.refresh(issue)
     return _to_read(issue)
@@ -426,7 +493,7 @@ def parse_issue(
     issue = repo.get_issue(issue_id)
     if not issue:
         raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
-    if not issue.file_url:
+    if not issue.file_url and not issue.transcript_url:
         raise HTTPException(400, "No file uploaded for this issue.")
 
     issue.processing_status = MoniteurIssueStatus.ocr_pending
@@ -635,10 +702,6 @@ def promote_entry(
     if not entry:
         raise HTTPException(HTTP_404_NOT_FOUND, "Entry not found")
 
-    if not entry.detected_title:
-        raise HTTPException(
-            400, "Entry has no title — set one before promoting."
-        )
     if not entry.detected_category:
         raise HTTPException(
             400, "Entry has no category — set one before promoting."
@@ -649,6 +712,11 @@ def promote_entry(
             400,
             f"Category '{entry.detected_category.value}' is not promotable "
             f"to a LegalText. Only normative types can be promoted.",
+        )
+
+    if not entry.detected_title:
+        raise HTTPException(
+            400, "Entry has no title — set one before promoting."
         )
 
     slug = _slugify(

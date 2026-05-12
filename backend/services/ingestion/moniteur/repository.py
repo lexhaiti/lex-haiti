@@ -23,14 +23,20 @@ from packages.schemas.enums import (
 from services.corpus.models import (
     Article,
     ArticleVersion,
+    LegalHeading,
     LegalText,
     MoniteurEntry,
     MoniteurIssue,
 )
 from services.corpus.repository import CorpusRepository
 from services.corpus.themes import suggest_themes
-from services.ingestion.article_split import split_into_articles, split_preamble
-from services.ingestion.moniteur.parser import ParsedCandidate, run_pipeline
+from services.ingestion.article_split import split_preamble
+from services.ingestion.document_parser import parse_document
+from services.ingestion.moniteur.parser import (
+    ParsedCandidate,
+    detect_law_candidates,
+    run_pipeline,
+)
 from services.ingestion.ocr import extract_text_from_pdf
 
 
@@ -49,6 +55,7 @@ class MoniteurRepository:
         year: int,
         publication_date=None,
         edition_label: Optional[str] = None,
+        director: Optional[str] = None,
         uploaded_by: Optional[int] = None,
     ) -> MoniteurIssue:
         issue = MoniteurIssue(
@@ -56,6 +63,7 @@ class MoniteurRepository:
             year=year,
             publication_date=publication_date,
             edition_label=edition_label,
+            director=director,
             uploaded_by=uploaded_by,
             processing_status=MoniteurIssueStatus.uploaded,
         )
@@ -393,20 +401,52 @@ class MoniteurRepository:
     # Pipeline orchestration
     # -------------------------------------------------------------------
 
+    @staticmethod
+    def _is_docx(file_url: str) -> bool:
+        return file_url.lower().endswith(".docx")
+
+    @staticmethod
+    def _extract_pages_from_docx(file_url: str) -> List[str]:
+        """Extract text from a DOCX file and return it as a single-element
+        page list.
+
+        DOCX files have no physical "pages" — the entire text is returned as
+        one logical page.  This keeps the downstream pipeline compatible:
+        `fill_entries_from_pages` and `detect_law_candidates` both expect a
+        `List[str]` of page texts.
+        """
+        from services.ingestion.document_parser import extract_text_from_file  # noqa: PLC0415
+
+        text, _warnings = extract_text_from_file(file_url)
+        # Return as a single page so page_from/page_to both resolve to 1.
+        return [text] if text.strip() else []
+
+    def _extract_pages(self, file_url: str) -> List[str]:
+        """Extract text pages from a file — DOCX or PDF."""
+        if self._is_docx(file_url):
+            return self._extract_pages_from_docx(file_url)
+        return extract_text_from_pdf(file_url)
+
     def run_parse_for_issue(self, issue: MoniteurIssue) -> MoniteurIssue:
-        """OCR + parse the issue's PDF, write entries, update status.
+        """Extract text + parse the issue's file, write entries, update status.
+
+        Supports both PDF (OCR pipeline) and DOCX (python-docx text
+        extraction — no OCR needed).
+
+        When the issue has a ``transcript_url`` (a pre-transcribed
+        PDF/DOCX), text is read from the transcript instead of running
+        OCR on the original scan.
 
         Two flows depending on whether the editor pre-filled the sommaire:
 
         - **Pre-filled path** — pending entries already exist with declared
-          `page_from`/`page_to`. We OCR the whole PDF once, then slice the
-          OCR output per entry. No boundary detection.
+          `page_from`/`page_to`. We extract text once, then slice per entry.
+          No boundary detection.
 
-        - **Heuristic path** — no pending entries. OCR + heuristic
-          boundary detection via `run_pipeline`, then create entries from
-          the parser's candidates.
+        - **Heuristic path** — no pending entries. Extract text + heuristic
+          boundary detection, then create entries from the parser's candidates.
         """
-        if not issue.file_url:
+        if not issue.file_url and not issue.transcript_url:
             issue.processing_status = MoniteurIssueStatus.failed
             issue.processing_error = "No file uploaded for this issue."
             self.session.flush()
@@ -414,6 +454,11 @@ class MoniteurRepository:
 
         issue.processing_status = MoniteurIssueStatus.ocr_pending
         self.session.flush()
+
+        # If the editor uploaded a pre-transcribed file, read text from
+        # that instead of OCR'ing the original scan.
+        text_source = issue.transcript_url or issue.file_url
+        is_docx = self._is_docx(text_source)
 
         # Pending = pre-filled by the editor; promoted = already accepted
         # and turned into a LegalText. We only consider the pending bucket
@@ -424,10 +469,17 @@ class MoniteurRepository:
 
         try:
             if pending_entries:
-                pages = extract_text_from_pdf(issue.file_url)
+                pages = self._extract_pages(text_source)
                 self.fill_entries_from_pages(issue, pages)
             else:
-                parsed = run_pipeline(issue.file_url)
+                if is_docx or issue.transcript_url:
+                    # DOCX or transcript — text already available, just
+                    # run boundary detection (no OCR).
+                    pages = self._extract_pages(text_source)
+                    parsed = detect_law_candidates(pages)
+                else:
+                    # Original scanned PDF — run_pipeline does OCR + detection.
+                    parsed = run_pipeline(issue.file_url)
                 self.replace_entries(issue, parsed)
             issue.processing_status = MoniteurIssueStatus.parsed
             issue.processing_error = None
@@ -452,10 +504,17 @@ class MoniteurRepository:
         description_fr: Optional[str] = None,
         publication_date=None,
     ) -> LegalText:
-        """Create a draft LegalText from an entry and link it back."""
-        split = split_into_articles(entry.raw_text or "")
-        has_articles = len(split.articles) > 0
-        parts = split_preamble(split.preamble)
+        """Create a draft LegalText from an entry and link it back.
+
+        Uses the full document parser so structural headings (TITRE,
+        CHAPITRE, SECTION …) are detected and stored as LegalHeading
+        rows, giving the law detail page a proper table of contents.
+        """
+        doc = parse_document(entry.raw_text or "")
+        has_articles = len(doc.articles) > 0
+        parts = split_preamble(doc.preamble)
+        if parts.preamble and _is_heading_only(parts.preamble):
+            parts.preamble = None
         legal_text = LegalText(
             slug=slug,
             category=category,
@@ -468,6 +527,7 @@ class MoniteurRepository:
             visas_fr=parts.visas,
             considerants_fr=parts.considerants,
             enacting_formula_fr=parts.enacting_formula,
+            official_formula=doc.official_formula,
             publication_date=publication_date or entry.detected_date,
             status=LegalStatus.in_force,
             editorial_status=EditorialStatus.draft,
@@ -476,10 +536,45 @@ class MoniteurRepository:
         self.session.add(legal_text)
         self.session.flush()
 
-        for position, parsed in enumerate(split.articles):
-            article_slug = f"art-{_slugify_article_number(parsed.number)}"
+        # --- Structural headings (Titre / Chapitre / Section / …) ---
+        key_to_id: dict[str, int] = {}
+        for h in doc.headings:
+            parent_id = key_to_id.get(h.parent_key) if h.parent_key else None
+            heading = LegalHeading(
+                legal_text_id=legal_text.id,
+                parent_id=parent_id,
+                level=h.level,
+                key=h.key,
+                number=h.number,
+                title_fr=h.title_fr,
+                position=h.position,
+            )
+            self.session.add(heading)
+            self.session.flush()
+            key_to_id[h.key] = heading.id
+
+        # --- Articles (linked to their nearest heading) ---
+        seen_slugs: set[str] = set()
+        for position, parsed in enumerate(doc.articles):
+            base_slug = f"art-{_slugify_article_number(parsed.number)}"
+            # Deduplicate: the Constitution has sub-articles (60, 60-1)
+            # whose numbers can collide after slugification. Use `--`
+            # separator so "art-60--2" can't collide with "art-60-2".
+            article_slug = base_slug
+            counter = 1
+            while article_slug in seen_slugs:
+                counter += 1
+                article_slug = f"{base_slug}--{counter}"
+            seen_slugs.add(article_slug)
+
+            heading_id = (
+                key_to_id.get(parsed.heading_key)
+                if parsed.heading_key
+                else None
+            )
             article = Article(
                 legal_text_id=legal_text.id,
+                heading_id=heading_id,
                 number=parsed.number,
                 slug=article_slug,
                 position=position,
@@ -490,7 +585,7 @@ class MoniteurRepository:
                 article_id=article.id,
                 version_number=1,
                 title_fr=parsed.title,
-                text_fr=parsed.body,
+                text_fr=parsed.content_fr,
                 editorial_status=EditorialStatus.draft,
                 confidence=entry.confidence,
             )
@@ -550,3 +645,26 @@ def _slugify_article_number(num: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", s)
     s = s.strip("-")
     return s or "n"
+
+
+_HEADING_KEYWORD_RE = re.compile(
+    r"^\s*(TITRE|Titre|CHAPITRE|Chapitre|SECTION|Section|"
+    r"LIVRE|Livre|SOUS-SECTION|Sous-section|"
+    r"DISPOSITIONS?\s+G[ÉE]N[ÉE]RALES?)\b",
+)
+
+
+def _is_heading_only(text: str) -> bool:
+    """True when every non-blank line is a structural heading or a
+    short ALL-CAPS title (like "DES ETRANGERS"). Means the splitter
+    preamble is just heading labels, not real prose."""
+    for line in text.strip().splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if _HEADING_KEYWORD_RE.match(s):
+            continue
+        if len(s) < 100 and s == s.upper():
+            continue
+        return False
+    return True

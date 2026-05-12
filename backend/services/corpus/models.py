@@ -714,10 +714,16 @@ class MoniteurIssue(Base):
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     publication_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
     edition_label: Mapped[Optional[str]] = mapped_column(Text)
+    director: Mapped[Optional[str]] = mapped_column(
+        Text, doc="Director of Le Moniteur for this issue"
+    )
 
     # Where the source PDF lives. Local path during dev; should become an
     # s3:// URL when MinIO/B2 wiring is added.
     file_url: Mapped[Optional[str]] = mapped_column(Text)
+    # Pre-transcribed version of the file (clean PDF/DOCX). When present,
+    # the parse pipeline reads text from this instead of running OCR.
+    transcript_url: Mapped[Optional[str]] = mapped_column(Text)
     page_count: Mapped[Optional[int]] = mapped_column(Integer)
 
     processing_status: Mapped[MoniteurIssueStatus] = mapped_column(
@@ -871,6 +877,85 @@ class MoniteurEntry(Base):
     )
 
 
+class Promulgation(Base):
+    """The executive act ordering a law to be sealed, printed, published,
+    and executed.
+
+    Appears in *Le Moniteur* after the law text but is neither a sommaire
+    entry nor part of the law body itself.  Only laws adopted by Parliament
+    require promulgation; décrets and arrêtés do not.
+
+    See ADR-002 for the full rationale.
+    """
+
+    __tablename__ = "promulgations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    moniteur_issue_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_issues.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    legal_text_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL"
+        ),
+        unique=True,  # one promulgation per law
+    )
+    content_fr: Mapped[str] = mapped_column(Text, nullable=False)
+    content_ht: Mapped[Optional[str]] = mapped_column(Text)
+    promulgation_date: Mapped[Optional[date]] = mapped_column(Date)
+    location: Mapped[Optional[str]] = mapped_column(Text)
+    page_from: Mapped[Optional[int]] = mapped_column(Integer)
+    page_to: Mapped[Optional[int]] = mapped_column(Integer)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    issue: Mapped["MoniteurIssue"] = relationship()
+    legal_text: Mapped[Optional["LegalText"]] = relationship()
+    signers: Mapped[list["PromulgationSigner"]] = relationship(
+        back_populates="promulgation",
+        cascade="all, delete-orphan",
+        order_by="PromulgationSigner.position",
+    )
+
+
+class PromulgationSigner(Base):
+    """A signatory of a promulgation act — the head of state and/or ministers
+    who countersign the executive order."""
+
+    __tablename__ = "promulgation_signers"
+    __table_args__ = (
+        UniqueConstraint("promulgation_id", "position", name="uq_promulgation_signer_pos"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    promulgation_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.promulgations.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    function_fr: Mapped[Optional[str]] = mapped_column(Text)
+    function_ht: Mapped[Optional[str]] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    promulgation: Mapped["Promulgation"] = relationship(back_populates="signers")
+
+
 __all__ = [
     "Base",
     "PUBLIC_CORPUS_SCHEMA",
@@ -888,4 +973,6 @@ __all__ = [
     "LegalThemeTag",
     "MoniteurIssue",
     "MoniteurEntry",
+    "Promulgation",
+    "PromulgationSigner",
 ]

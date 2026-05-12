@@ -533,7 +533,7 @@ export default function LawDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="relative container pt-6 lg:pt-10">
+      <div className="relative container pt-0">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
           {/* Table of Contents - Mobile Accordion / Desktop Sidebar */}
           {law.articles && law.articles.length > 0 && (
@@ -790,14 +790,15 @@ export default function LawDetail() {
                 Generous vertical padding so the block reads as a formal
                 opening emblem, with a max-width cap so the centered
                 composition stays compact even on wide viewports. */}
-            {law.issuing_authority && (
-              <div className="my-6 lg:my-8 flex justify-center">
-                <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
-                  <DeviseBanner />
+            {/* Devise nationale — always shown; issuing authority only when set */}
+            <div className="my-6 lg:my-8 flex justify-center">
+              <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
+                <DeviseBanner />
+                {law.issuing_authority && (
                   <IssuingAuthorityHeader value={law.issuing_authority} />
-                </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Pre-article blocks: Préambule → Visas → Considérants → Formule d'adoption */}
             {law.articles && law.articles.length > 0 && (law.preamble_fr || law.visas_fr || law.considerants_fr || law.enacting_formula_fr) && (

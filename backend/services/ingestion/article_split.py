@@ -106,7 +106,10 @@ _ARTICLE_HEADING_RE = re.compile(
     (?:\#{1,6}[\s ]+)?             # optional Markdown heading marker (## …)
     (?:Article|ARTICLE|Art\.?)         # the keyword
     [\s ]+                        # at least one space
-    (\d+(?:[\.\-]\d+)?(?:\s*(?:bis|ter|quater))?(?:er|ère|e)?)  # number, captured
+    (                              # -- number, captured --
+        [Pp]remier(?:[\.\-]\d+)?   # "Article premier", "Article premier-1"
+      | \d+(?:[\.\-]\d+)?(?:\s*(?:bis|ter|quater))?(?:er|ère|e)?
+    )
     # Trailing separator(s) — any combo of `. - — – :` and surrounding
     # whitespace. Greedy so "Article 1er. —" consumes both `.` and `—`
     # and the body cleanly starts at the first content character.
@@ -265,9 +268,14 @@ def _normalize_number(raw: str) -> str:
     """Canonicalize an article number for storage.
 
     "1er" / "1ère" / "1e" all become "1". "1bis" stays "1bis" (no space).
+    "premier" becomes "premier" (preserves the traditional label).
+    "premier-1" becomes "premier-1".
     Hyphenated and dotted forms (Constitution-style "1.1") are preserved.
     """
     n = raw.strip()
     n = re.sub(r"\s+", "", n)
+    # "Article premier" → keep as-is (canonical Haitian numbering)
+    if n.lower().startswith("premier"):
+        return n.lower()
     n = re.sub(r"(?<=\d)(er|ère|e)$", "", n, flags=re.IGNORECASE)
     return n
