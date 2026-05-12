@@ -21,6 +21,7 @@ from packages.schemas.enums import (
     LegalStatus,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
+    PROMOTABLE_TYPES,
     ParserProfile,
 )
 from services.corpus.models import (
@@ -756,6 +757,12 @@ class MoniteurRepository:
         entry.review_status = MoniteurCandidateStatus.accepted
         entry.reviewed_at = datetime.now(timezone.utc)
         self.session.flush()
+        # Promoting was the final missing piece for this entry; recompute
+        # the parent issue's status so it rolls forward to ``reviewed``
+        # or ``published`` if this completes the issue's editorial pass.
+        issue = self.get_issue(entry.issue_id)
+        if issue is not None:
+            self.recompute_issue_status(issue)
         return legal_text
 
     def update_entry_review(
@@ -770,7 +777,82 @@ class MoniteurRepository:
             entry.review_notes = review_notes
         entry.reviewed_at = datetime.now(timezone.utc)
         self.session.flush()
+        # Roll forward the parent issue's processing_status — when the
+        # last pending entry transitions to accepted/rejected the issue
+        # moves to ``reviewed`` (or ``published`` when all promotables
+        # are promoted). See ``recompute_issue_status`` for the rules.
+        if entry.issue_id is not None:
+            issue = self.get_issue(entry.issue_id)
+            if issue is not None:
+                self.recompute_issue_status(issue)
         return entry
+
+    # -------------------------------------------------------------------
+    # Issue processing-status lifecycle
+    # -------------------------------------------------------------------
+
+    def recompute_issue_status(
+        self, issue: MoniteurIssue
+    ) -> MoniteurIssueStatus:
+        """Recompute the issue's processing_status from its entries.
+
+        Lifecycle inflection points (called after every entry mutation):
+
+          - **parsed**: at least one entry is still ``pending`` or
+            ``deferred`` — the editorial review isn't complete.
+          - **reviewed**: every entry is either ``accepted`` or
+            ``rejected`` (no pending, no deferred). The editor has made
+            a verdict on every candidate, but not every accepted entry
+            has been promoted to a LegalText yet (or some accepted
+            entries are non-promotable categories that ride along with
+            a parent).
+          - **published**: every accepted promotable entry has a
+            ``promoted_legal_text_id``. This is the terminal state for
+            an issue — the structured corpus is fully extracted.
+
+        States *before* the editorial pipeline (``uploaded``,
+        ``ocr_pending``, ``failed``) are never overridden — they
+        represent earlier-stage processing and the entry-review
+        machinery isn't involved.
+        """
+        # Don't roll forward issues that haven't even been parsed yet.
+        if issue.processing_status in (
+            MoniteurIssueStatus.uploaded,
+            MoniteurIssueStatus.ocr_pending,
+            MoniteurIssueStatus.failed,
+        ):
+            return issue.processing_status
+
+        entries = list(issue.entries)
+        if not entries:
+            # An issue with no entries can't progress past `parsed`.
+            issue.processing_status = MoniteurIssueStatus.parsed
+            return issue.processing_status
+
+        any_pending = any(
+            e.review_status == MoniteurCandidateStatus.pending
+            or e.review_status == MoniteurCandidateStatus.deferred
+            for e in entries
+        )
+        if any_pending:
+            issue.processing_status = MoniteurIssueStatus.parsed
+            return issue.processing_status
+
+        # Every entry is now in a terminal state (accepted / rejected).
+        # Check if all promotable accepted entries actually got promoted.
+        unfinished_promotion = any(
+            e.review_status == MoniteurCandidateStatus.accepted
+            and e.detected_category in PROMOTABLE_TYPES
+            and e.promoted_legal_text_id is None
+            for e in entries
+        )
+        if unfinished_promotion:
+            issue.processing_status = MoniteurIssueStatus.reviewed
+        else:
+            issue.processing_status = MoniteurIssueStatus.published
+            issue.published_at = datetime.now(timezone.utc)
+        self.session.flush()
+        return issue.processing_status
 
 
 def _slugify_article_number(num: str) -> str:

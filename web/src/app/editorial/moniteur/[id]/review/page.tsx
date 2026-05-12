@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -11,13 +11,16 @@ import {
   Loader2,
   Pencil,
   RotateCcw,
+  Trash2,
   X,
 } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorBanner } from '@/components/shared/ErrorBanner'
 import { useT } from '@/i18n/useT'
 import {
+  deleteMoniteurIssue,
   getMoniteurIssue,
   listMoniteurIssues,
   parseMoniteurIssue,
@@ -73,10 +76,26 @@ export default function MoniteurReviewPage() {
   const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
 
+  const router = useRouter()
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [parsing, setParsing] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function confirmDeleteIssue() {
+    if (!issue) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteMoniteurIssue(issue.id)
+      router.push('/editorial/moniteur')
+    } catch (e: any) {
+      setError(e?.body?.detail ?? e?.message ?? String(e))
+      setDeleting(false)
+    }
+  }
 
   // Inline edit state — keyed by candidate id so opening a different
   // card cancels the in-flight draft instead of carrying it across.
@@ -398,6 +417,15 @@ export default function MoniteurReviewPage() {
                   {t('editorial.moniteur.review.runParseAgain')}
                 </>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              disabled={parsing}
+              className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              {lang === 'fr' ? 'Supprimer ce numéro' : 'Efase nimewo sa'}
             </button>
           </div>
         )}
@@ -791,6 +819,82 @@ export default function MoniteurReviewPage() {
           })}
         </div>
       </div>
+
+      {/* Cascade-aware delete dialog. Lists everything the editor is
+          about to lose: the entries (with titles), the promoted legal
+          texts that will lose their source reference, and the on-disk
+          PDF + transcript. The legal_texts themselves survive the
+          cascade (the FK is SET NULL on promoted_legal_text_id) so we
+          phrase that carefully. */}
+      {issue && (
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={(open) => {
+            if (!open && !deleting) setDeleteOpen(false)
+          }}
+          onConfirm={confirmDeleteIssue}
+          title={
+            lang === 'fr'
+              ? `Supprimer le numéro ${issue.number} ?`
+              : `Efase nimewo ${issue.number} a ?`
+          }
+          description={
+            <div className="space-y-3">
+              <p>
+                {lang === 'fr'
+                  ? "L'opération supprime définitivement les éléments suivants :"
+                  : 'Operasyon sa ap efase definitivman bagay sa yo :'}
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                <li>
+                  {lang === 'fr'
+                    ? `${issue.entries.length} entrée(s) du sommaire`
+                    : `${issue.entries.length} antre nan somè a`}
+                </li>
+                {(() => {
+                  const promotedCount = issue.entries.filter(
+                    (e) => e.promoted_legal_text_id != null,
+                  ).length
+                  if (promotedCount === 0) return null
+                  return (
+                    <li>
+                      {lang === 'fr'
+                        ? `${promotedCount} texte(s) légal/aux gardent leur contenu mais perdent leur référence à ce numéro`
+                        : `${promotedCount} tèks legal yo kenbe kontni yo men yo pèdi referans ak nimewo sa`}
+                    </li>
+                  )
+                })()}
+                {issue.file_url && (
+                  <li>
+                    {lang === 'fr'
+                      ? 'Le PDF scanné'
+                      : 'PDF a eskane'}
+                  </li>
+                )}
+                {(issue as { transcript_url?: string | null })
+                  .transcript_url && (
+                  <li>
+                    {lang === 'fr'
+                      ? 'La transcription (PDF/DOCX source)'
+                      : 'Transkripsyon an (sous PDF/DOCX)'}
+                  </li>
+                )}
+              </ul>
+              <p className="text-xs text-slate-500 italic">
+                {lang === 'fr'
+                  ? 'Cette action est irréversible.'
+                  : 'Aksyon sa pa ka anile.'}
+              </p>
+            </div>
+          }
+          confirmLabel={
+            lang === 'fr' ? 'Supprimer définitivement' : 'Efase definitivman'
+          }
+          cancelLabel={lang === 'fr' ? 'Annuler' : 'Anile'}
+          destructive
+          loading={deleting}
+        />
+      )}
     </div>
   )
 }
