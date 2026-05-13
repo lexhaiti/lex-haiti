@@ -354,6 +354,7 @@ export const ht = {
     title: 'Tout tèks jiridik yo',
     subtitle: 'Eksplore tout lejislasyon ayisyen an.',
     searchPlaceholder: 'Chèche yon tèks...',
+    importButton: 'Nouvo tèks jiridik',
     empty: {
       title: 'Pa gen tèks jwenn',
       subtitle: 'Eseye modifye kritè rechèch ou yo.',

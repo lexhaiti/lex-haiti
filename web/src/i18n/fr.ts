@@ -364,6 +364,7 @@ export const fr = {
     title: 'Tous les textes juridiques',
     subtitle: "Explorez l'ensemble de la législation haïtienne.",
     searchPlaceholder: 'Rechercher un texte...',
+    importButton: 'Nouveau texte juridique',
     empty: {
       title: 'Aucun texte trouvé',
       subtitle: 'Essayez de modifier vos critères de recherche.',

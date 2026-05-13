@@ -586,20 +586,20 @@ export default function MoniteurDetailClient() {
               </motion.div>
             </div>
 
-            {/* Sidebar — stats grid + primary download CTA. The
-                Télécharger button used to live in a separate action row
-                below the hero; pulling it into the sidebar puts the
-                primary call-to-action right next to the document count
-                the visitor just scanned, and frees the bottom row for
-                editor-only actions on wide layouts. */}
+            {/* Sidebar — stats grid. The Documents card pulls double
+                duty: it shows the count *and* hosts the primary
+                download CTA as an inline action row, so the visitor
+                doesn't have to leave the card to grab the PDF. The
+                Pages card stays a pure stat. */}
             <motion.div
               initial={{ opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.22 }}
-              className="flex flex-col gap-3 lg:min-w-[240px]"
+              className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:min-w-[240px]"
             >
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
+                {/* Stat — Documents count */}
+                <div className="px-5 pt-3 lg:pt-4 pb-3">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
                     Documents
                   </div>
@@ -607,41 +607,40 @@ export default function MoniteurDetailClient() {
                     {topLevel.length}
                   </div>
                 </div>
-                {issue.page_count && (
-                  <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
-                      Pages
-                    </div>
-                    <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                      {issue.page_count}
-                    </div>
-                  </div>
-                )}
+                {/* Inline download action — visually a divider + card
+                    footer that the whole row reacts to. White-shade
+                    treatment matches the parent card; the hover lift
+                    + amber accent on the icon are the only colour
+                    inversions, so the action reads as part of the
+                    card, not bolted on. */}
+                <a
+                  href={`/api/v1/moniteur/issues/${issue.id}/export`}
+                  download
+                  className="group/dl flex items-center gap-3 px-5 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 group-hover/dl:bg-amber-300/90 group-hover/dl:text-slate-900 text-white/80 transition-colors">
+                    <Download className="w-4 h-4" />
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                      Télécharger
+                    </span>
+                    <span className="text-sm font-semibold text-white">
+                      PDF LexHaïti
+                    </span>
+                  </span>
+                </a>
               </div>
-
-              {/* Primary download CTA — branded LexHaïti PDF assembled
-                  server-side from the structured corpus. Full-width
-                  amber pill so it visually anchors the sidebar; the
-                  download icon is layered in a contrasting square so
-                  the button reads as "card + action" rather than a
-                  flat label, matching the stats cards above. */}
-              <a
-                href={`/api/v1/moniteur/issues/${issue.id}/export`}
-                download
-                className="group/dl flex items-center gap-3 rounded-xl bg-amber-400 text-slate-900 pl-3 pr-5 py-3 shadow-lg shadow-amber-500/15 ring-1 ring-amber-300 hover:bg-amber-300 active:scale-[0.99] transition-all"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900/10 group-hover/dl:bg-slate-900/15 transition-colors">
-                  <Download className="w-4 h-4" />
-                </span>
-                <span className="flex flex-col leading-tight">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-900/70">
-                    Télécharger
-                  </span>
-                  <span className="text-sm font-bold">
-                    PDF LexHaïti
-                  </span>
-                </span>
-              </a>
+              {issue.page_count && (
+                <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                    Pages
+                  </div>
+                  <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
+                    {issue.page_count}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
 
