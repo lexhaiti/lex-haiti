@@ -1,16 +1,25 @@
 /**
  * Article versions timeline — vertical timeline of past versions of a
- * single article. Extracted from ArticleViewer.tsx (was a 85-line inner
- * function) so the viewer is more reviewable and this panel can grow
- * independently when the backend wires real version data.
+ * single article. Reads real ``article_versions`` rows (mapped to
+ * ``VersionEntry`` in the parent ArticleViewer).
+ *
+ * Date fallback: when a version row has no ``effective_from`` (typical
+ * for v1 of historically-imported texts where the publication date
+ * lives on the parent LegalText, not on the per-article version row),
+ * the panel falls back to ``defaultFromDate`` so the timeline doesn't
+ * show a blank "Depuis le ".
  */
 'use client'
 
 import React from 'react'
+import { formatLongDate } from '@/lib/format/date'
 
 export interface VersionEntry {
   version: number
   status: 'in_force' | 'abrogated' | 'historical'
+  /** ISO yyyy-mm-dd, or '' when the version row carries no
+   *  per-version effective_from (v1 of historical imports). The panel
+   *  falls back to ``defaultFromDate`` for display in that case. */
   effective_from: string
   effective_to?: string | null
   amended_by?: string | null
@@ -20,9 +29,27 @@ export interface VersionEntry {
 interface VersionsPanelProps {
   versions: VersionEntry[]
   currentLang: 'fr' | 'ht'
+  /** Fallback date for versions whose ``effective_from`` is blank —
+   *  typically the parent LegalText's publication_date (or the
+   *  Moniteur issue's date for historical imports). Optional; when
+   *  absent the panel shows "—". */
+  defaultFromDate?: string | null
 }
 
-export function VersionsPanel({ versions, currentLang }: VersionsPanelProps) {
+export function VersionsPanel({
+  versions,
+  currentLang,
+  defaultFromDate,
+}: VersionsPanelProps) {
+  // Long-form date renderer — '28 avril 2024' instead of raw ISO.
+  // Falls back to defaultFromDate, then '—', so the timeline always
+  // has something readable in the date slot.
+  const fmt = (iso: string | null | undefined): string => {
+    const value = iso || defaultFromDate || null
+    if (!value) return '—'
+    return formatLongDate(value, currentLang, '—')
+  }
+
   return (
     <div className="pt-6">
       <p className="text-xs text-slate-500 mb-5">
@@ -39,6 +66,8 @@ export function VersionsPanel({ versions, currentLang }: VersionsPanelProps) {
         {versions.map((v, idx) => {
           const isCurrent = v.status === 'in_force'
           const isLast = idx === versions.length - 1
+          const fromDisplay = fmt(v.effective_from)
+          const toDisplay = v.effective_to ? fmt(v.effective_to) : null
           return (
             <li
               key={v.version}
@@ -68,13 +97,13 @@ export function VersionsPanel({ versions, currentLang }: VersionsPanelProps) {
                   v{v.version}
                 </span>
                 <span className="text-sm font-semibold text-slate-800">
-                  {v.effective_to
+                  {toDisplay
                     ? currentLang === 'fr'
-                      ? `Du ${v.effective_from} au ${v.effective_to}`
-                      : `${v.effective_from} – ${v.effective_to}`
+                      ? `Du ${fromDisplay} au ${toDisplay}`
+                      : `${fromDisplay} – ${toDisplay}`
                     : currentLang === 'fr'
-                      ? `Depuis le ${v.effective_from}`
-                      : `Depi ${v.effective_from}`}
+                      ? `Depuis le ${fromDisplay}`
+                      : `Depi ${fromDisplay}`}
                 </span>
                 {isCurrent && (
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
@@ -98,12 +127,6 @@ export function VersionsPanel({ versions, currentLang }: VersionsPanelProps) {
           )
         })}
       </ol>
-
-      <p className="mt-4 text-[11px] italic text-slate-400">
-        {currentLang === 'fr'
-          ? 'Données fictives — bientôt connectées.'
-          : 'Done fiktif — talè konsa.'}
-      </p>
     </div>
   )
 }

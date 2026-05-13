@@ -289,6 +289,12 @@ interface ArticleViewerProps {
    *  version" flow to exclude self-amendments from the source-law
    *  picker (a law can't amend itself). */
   lawId?: number
+  /** Parent LegalText's publication / promulgation date (ISO
+   *  yyyy-mm-dd). Used as the v1 ``effective_from`` fallback in the
+   *  Versions panel — historically-imported articles often carry no
+   *  per-version date because their publication date lives on the
+   *  parent text, not on the article_versions row. */
+  lawPublicationDate?: string | null
 }
 
 export default function ArticleViewer({
@@ -309,6 +315,7 @@ export default function ArticleViewer({
   siblingArticles,
   lawSlug,
   lawId,
+  lawPublicationDate,
 }: ArticleViewerProps) {
   const { toast } = useToast()
 
@@ -999,7 +1006,12 @@ export default function ArticleViewer({
       {(outboundEntries.length + inboundEntries.length > 0 || isEditor) && (
         <div className="pt-5">
           <div className="flex items-center gap-2 flex-wrap">
-            {outboundEntries.length + inboundEntries.length > 0 && (
+            {/* Textes liés — visible to the public when there are
+                citations to show, and *always* visible in editor mode
+                even at zero so the editor can confirm the article
+                truly has no links rather than guess from absence. */}
+            {(outboundEntries.length + inboundEntries.length > 0 ||
+              isEditor) && (
               <AccordionTrigger
                 icon={Layers}
                 label={currentLang === 'fr' ? 'Textes liés' : 'Tèks ki gen rapò'}
@@ -1008,23 +1020,35 @@ export default function ArticleViewer({
                 onClick={() => togglePanel('links')}
               />
             )}
-            {isEditor && versionEntries.length > 0 && (
+            {isEditor && (
               <>
+                {/* Versions — always visible to editors. Even at v1
+                    the panel is useful (it shows the in-force date,
+                    which is also what "Ajouter une version" will
+                    supersede). */}
                 <AccordionTrigger
                   icon={Clock}
                   label={currentLang === 'fr' ? 'Versions' : 'Vèsyon'}
-                  count={versionEntries.length}
+                  count={versionEntries.length || undefined}
                   open={openPanel === 'versions'}
                   onClick={() => togglePanel('versions')}
                 />
-                {versionEntries.length >= 2 && (
-                  <AccordionTrigger
-                    icon={GitCompare}
-                    label={currentLang === 'fr' ? 'Comparer' : 'Konpare'}
-                    open={openPanel === 'compare'}
-                    onClick={() => togglePanel('compare')}
-                  />
-                )}
+                {/* Comparer — always visible to editors but disabled
+                    when there's nothing to compare against. Keeps the
+                    affordance discoverable rather than hiding it
+                    until a second version exists. */}
+                <AccordionTrigger
+                  icon={GitCompare}
+                  label={currentLang === 'fr' ? 'Comparer' : 'Konpare'}
+                  open={openPanel === 'compare'}
+                  disabled={versionEntries.length < 2}
+                  onClick={() => togglePanel('compare')}
+                  disabledTitle={
+                    currentLang === 'fr'
+                      ? 'Disponible dès la seconde version'
+                      : 'Disponib depi dezyèm vèsyon an'
+                  }
+                />
               </>
             )}
             {/* Editor-only "Add version" affordance. Always visible in
@@ -1098,6 +1122,7 @@ export default function ArticleViewer({
                   <VersionsPanel
                     versions={versionEntries}
                     currentLang={currentLang}
+                    defaultFromDate={lawPublicationDate}
                   />
                 </motion.div>
               )}
@@ -1201,6 +1226,14 @@ interface AccordionTriggerProps {
   count?: number
   open: boolean
   onClick: () => void
+  /** When true, the trigger is rendered greyed-out and ignores clicks.
+   *  Used for editor-only triggers that should stay visible (so the
+   *  affordance is discoverable) but aren't currently actionable —
+   *  e.g. "Comparer" before a second version exists. */
+  disabled?: boolean
+  /** Tooltip shown on the disabled trigger, explaining why it's
+   *  inactive. Ignored when ``disabled`` is false. */
+  disabledTitle?: string
 }
 
 function AccordionTrigger({
@@ -1209,16 +1242,22 @@ function AccordionTrigger({
   count,
   open,
   onClick,
+  disabled,
+  disabledTitle,
 }: AccordionTriggerProps) {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all border ${
-        open
-          ? 'bg-primary text-white border-primary'
-          : 'bg-white text-slate-700 border-gray-200 hover:border-primary hover:text-primary'
-      }`}
+      disabled={disabled}
       aria-expanded={open}
+      title={disabled ? disabledTitle : undefined}
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all border ${
+        disabled
+          ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+          : open
+            ? 'bg-primary text-white border-primary'
+            : 'bg-white text-slate-700 border-gray-200 hover:border-primary hover:text-primary'
+      }`}
     >
       <Icon className="w-4 h-4" />
       <span className="font-medium">{label}</span>

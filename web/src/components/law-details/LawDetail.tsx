@@ -1038,6 +1038,11 @@ export default function LawDetail() {
                   siblingArticles={law.articles as any}
                   lawSlug={law.slug}
                   lawId={law.id}
+                  lawPublicationDate={
+                    law.publication_date ??
+                    law.moniteur_issue_publication_date ??
+                    null
+                  }
                 />
               ) : (
                 /* Preamble-only mode: legal_text has no articles[] yet
