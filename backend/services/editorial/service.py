@@ -9,6 +9,7 @@ import re
 from datetime import date, datetime, timezone
 from typing import Any, List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from packages.schemas.enums import (
@@ -1003,6 +1004,226 @@ class EditorialService:
         )
         self.session.delete(article)
         self.session.flush()
+
+    def insert_heading(
+        self,
+        slug: str,
+        *,
+        actor: User,
+        payload: dict[str, Any],
+    ) -> LegalHeading:
+        """Insert a new TOC node into a legal text. Anchor is either
+        ``after_heading_id`` (slot after that heading, inherit its
+        parent) or ``parent_id`` (append to end of that parent's
+        children). Mirrors the article-insertion pattern.
+        """
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        key = (payload.get("key") or "").strip()
+        if not key:
+            raise InvalidInput("key is required")
+        level = payload.get("level")
+        if level is None:
+            raise InvalidInput("level is required")
+
+        # Reject duplicate keys — the UNIQUE constraint on
+        # (legal_text_id, key) catches it anyway but the editor sees
+        # a friendlier error here.
+        existing = (
+            self.session.query(LegalHeading)
+            .filter(
+                LegalHeading.legal_text_id == text.id,
+                LegalHeading.key == key,
+            )
+            .one_or_none()
+        )
+        if existing is not None:
+            raise AlreadyExists(
+                f'Heading key "{key}" already exists in this text'
+            )
+
+        after_id = payload.get("after_heading_id")
+        explicit_parent = payload.get("parent_id")
+        parent_id: Optional[int]
+        insert_position: int
+
+        if after_id is not None and explicit_parent is not None:
+            raise InvalidInput(
+                "Specify either after_heading_id or parent_id, not both"
+            )
+
+        if after_id is not None:
+            anchor = (
+                self.session.query(LegalHeading)
+                .filter(LegalHeading.id == after_id)
+                .one_or_none()
+            )
+            if anchor is None or anchor.legal_text_id != text.id:
+                raise InvalidInput(
+                    "after_heading_id must point at a heading in this text"
+                )
+            parent_id = anchor.parent_id
+            insert_position = anchor.position + 1
+            # Shift later siblings within the same parent.
+            sibling_q = self.session.query(LegalHeading).filter(
+                LegalHeading.legal_text_id == text.id,
+                LegalHeading.position >= insert_position,
+            )
+            if parent_id is None:
+                sibling_q = sibling_q.filter(LegalHeading.parent_id.is_(None))
+            else:
+                sibling_q = sibling_q.filter(
+                    LegalHeading.parent_id == parent_id
+                )
+            for sib in sibling_q.all():
+                sib.position = sib.position + 1
+            self.session.flush()
+        else:
+            parent_id = explicit_parent
+            if parent_id is not None:
+                anchor_parent = (
+                    self.session.query(LegalHeading)
+                    .filter(LegalHeading.id == parent_id)
+                    .one_or_none()
+                )
+                if (
+                    anchor_parent is None
+                    or anchor_parent.legal_text_id != text.id
+                ):
+                    raise InvalidInput(
+                        "parent_id must point at a heading in this text"
+                    )
+            # Append at end of the parent's children.
+            tail = (
+                self.session.query(func.coalesce(func.max(LegalHeading.position), -1))
+                .filter(
+                    LegalHeading.legal_text_id == text.id,
+                    LegalHeading.parent_id == parent_id
+                    if parent_id is not None
+                    else LegalHeading.parent_id.is_(None),
+                )
+                .scalar()
+            )
+            insert_position = int(tail) + 1
+
+        heading = LegalHeading(
+            legal_text_id=text.id,
+            parent_id=parent_id,
+            level=level,
+            key=key,
+            number=payload.get("number"),
+            title_fr=payload.get("title_fr"),
+            title_ht=payload.get("title_ht"),
+            content_fr=payload.get("content_fr"),
+            content_ht=payload.get("content_ht"),
+            position=insert_position,
+        )
+        self.session.add(heading)
+        self.session.flush()
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="insert_heading",
+            target_type="heading",
+            target_id=heading.id,
+            diff={
+                "key": {"before": None, "after": key},
+                "level": {"before": None, "after": getattr(level, "value", str(level))},
+                "parent_id": {"before": None, "after": parent_id},
+            },
+        )
+        self.session.flush()
+        return heading
+
+    def update_heading_full(
+        self,
+        heading_id: int,
+        *,
+        actor: User,
+        updates: dict[str, Any],
+    ) -> LegalHeading:
+        """Patch the full set of editor-writable heading fields:
+        ``level``, ``number``, titles, contents, ``parent_id``,
+        ``position``. Empty for keys not present in ``updates``.
+
+        Distinct from the existing ``update_heading_titles`` repo
+        helper which only touches the two title columns.
+        """
+        heading = (
+            self.session.query(LegalHeading)
+            .filter(LegalHeading.id == heading_id)
+            .one_or_none()
+        )
+        if heading is None:
+            raise NotFound(f"Heading not found: {heading_id}")
+
+        editable = {
+            "level",
+            "number",
+            "title_fr",
+            "title_ht",
+            "content_fr",
+            "content_ht",
+            "parent_id",
+            "position",
+        }
+        bad = [k for k in updates if k not in editable]
+        if bad:
+            raise InvalidInput(f"non-editable heading fields: {sorted(bad)}")
+
+        # Reject self-parent + parent-from-another-text cycles.
+        if "parent_id" in updates:
+            new_parent_id = updates["parent_id"]
+            if new_parent_id == heading.id:
+                raise InvalidInput("heading cannot be its own parent")
+            if new_parent_id is not None:
+                new_parent = (
+                    self.session.query(LegalHeading)
+                    .filter(LegalHeading.id == new_parent_id)
+                    .one_or_none()
+                )
+                if (
+                    new_parent is None
+                    or new_parent.legal_text_id != heading.legal_text_id
+                ):
+                    raise InvalidInput(
+                        "parent_id must point at a heading in the same text"
+                    )
+
+        diff: dict[str, dict[str, Any]] = {}
+        for field, new_value in updates.items():
+            old_value = getattr(heading, field)
+            # Compare on the enum's value so { 'before': 'section', 'after': 'chapter' }
+            # instead of opaque <HeadingLevel.section>.
+            if hasattr(old_value, "value"):
+                old_value_cmp = old_value.value
+            else:
+                old_value_cmp = old_value
+            if hasattr(new_value, "value"):
+                new_value_cmp = new_value.value
+            else:
+                new_value_cmp = new_value
+            if old_value_cmp == new_value_cmp:
+                continue
+            diff[field] = {"before": old_value_cmp, "after": new_value_cmp}
+            setattr(heading, field, new_value)
+
+        if not diff:
+            return heading
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="update_heading",
+            target_type="heading",
+            target_id=heading.id,
+            diff=diff,
+        )
+        self.session.flush()
+        return heading
 
     def delete_heading(
         self,

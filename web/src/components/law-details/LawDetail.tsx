@@ -54,6 +54,7 @@ import {
 } from '@/lib/api/endpoints'
 import { SignataireBlock } from '@/components/law-details/SignataireBlock'
 import { ChangesMadePanel } from '@/components/law-details/_panels/ChangesMadePanel'
+import { AddHeadingDialog } from '@/components/law-details/_panels/AddHeadingDialog'
 import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
@@ -100,6 +101,18 @@ export default function LawDetail() {
   const currentLang = language as 'fr' | 'ht'
   const [selectedArticle, setSelectedArticle] = useState<any>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  // Add-heading modal state. ``anchor`` selects the insertion mode:
+  // - { kind: 'after', heading } slots after that heading at the same
+  //   level (most common — TOC + on a heading row)
+  // - { kind: 'child', heading } appends under that heading (rare;
+  //   reserved for a future "+ child" affordance)
+  // - { kind: 'root' } creates a top-level heading (TOC header +)
+  const [addHeadingAnchor, setAddHeadingAnchor] = useState<
+    | { kind: 'after'; heading: any }
+    | { kind: 'child'; heading: any }
+    | { kind: 'root' }
+    | null
+  >(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   // V2 page-level search (replaces TOC's internal search input)
   const [pageSearchScope, setPageSearchScope] = useState<'sommaire' | 'code'>(
@@ -834,6 +847,12 @@ export default function LawDetail() {
                           await deleteHeading(id, { reparentChildren })
                           refetch()
                         }}
+                        onAddSiblingHeading={(after) =>
+                          setAddHeadingAnchor({ kind: 'after', heading: after })
+                        }
+                        onAddRootHeading={() =>
+                          setAddHeadingAnchor({ kind: 'root' })
+                        }
                         activeHeadingIds={articleBreadcrumb.map((h) => h.id)}
                       />
                     </div>
@@ -923,6 +942,12 @@ export default function LawDetail() {
                       await deleteHeading(id, { reparentChildren })
                       refetch()
                     }}
+                    onAddSiblingHeading={(after) =>
+                      setAddHeadingAnchor({ kind: 'after', heading: after })
+                    }
+                    onAddRootHeading={() =>
+                      setAddHeadingAnchor({ kind: 'root' })
+                    }
                     activeHeadingIds={articleBreadcrumb.map((h) => h.id)}
                   />
                 </div>
@@ -1234,6 +1259,50 @@ export default function LawDetail() {
                   enacting_formula_ht: law.enacting_formula_ht ?? null,
                 }}
                 onChanged={refetch}
+              />
+            )}
+
+            {/* Add-heading modal — one instance for both TOC trees
+                (mobile drawer + desktop sidebar). The anchor selects
+                the insertion mode (after a sibling, child of a node,
+                or at the text root). On success, refetch the law so
+                the new node lands in both TOCs. */}
+            {isEditor && law && (
+              <AddHeadingDialog
+                open={addHeadingAnchor !== null}
+                onOpenChange={(o) => {
+                  if (!o) setAddHeadingAnchor(null)
+                }}
+                lawSlug={law.slug}
+                afterHeadingId={
+                  addHeadingAnchor?.kind === 'after'
+                    ? addHeadingAnchor.heading.id
+                    : null
+                }
+                parentId={
+                  addHeadingAnchor?.kind === 'child'
+                    ? addHeadingAnchor.heading.id
+                    : null
+                }
+                anchorLabel={(() => {
+                  if (addHeadingAnchor?.kind === 'after') {
+                    const h = addHeadingAnchor.heading
+                    return (
+                      h.title_fr ||
+                      (h.number ? `Section ${h.number}` : null)
+                    )
+                  }
+                  if (addHeadingAnchor?.kind === 'child') {
+                    const h = addHeadingAnchor.heading
+                    return (
+                      h.title_fr ||
+                      (h.number ? `Section ${h.number}` : null)
+                    )
+                  }
+                  return null
+                })()}
+                lang={currentLang}
+                onCreated={() => refetch()}
               />
             )}
 

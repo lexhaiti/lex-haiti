@@ -11,6 +11,7 @@ import {
   Maximize2,
   Minimize2,
   PenLine,
+  Plus,
   Trash2,
   X,
 } from 'lucide-react'
@@ -84,6 +85,15 @@ interface TableOfContentsProps {
     headingId: number,
     reparentChildren: boolean,
   ) => Promise<void>
+  /** Open the "Add heading" modal anchored after this heading.
+   *  ``afterHeading`` is the heading the new node should slot after;
+   *  parent component owns the modal state. */
+  onAddSiblingHeading?: (afterHeading: Heading) => void
+  /** Open the "Add heading" modal as a child of this heading (used
+   *  by the "+" button at the top of an expanded subtree). */
+  onAddChildHeading?: (parent: Heading) => void
+  /** Open the "Add heading" modal at the text root (no parent). */
+  onAddRootHeading?: () => void
   /** Ordered list of heading ids on the path from the LegalText root
    *  down to the currently selected article (Titre → Chapitre → …).
    *  Every heading in this set is rendered in the active colour (red)
@@ -273,6 +283,9 @@ export default function TableOfContents({
   isEditor = false,
   onHeadingTitleSave,
   onHeadingDelete,
+  onAddSiblingHeading,
+  onAddChildHeading,
+  onAddRootHeading,
   activeHeadingIds,
 }: TableOfContentsProps) {
   // Lookup-friendly set for "is this heading on the active path?"
@@ -581,6 +594,28 @@ export default function TableOfContents({
                       <PenLine className="w-3 h-3" />
                     </button>
                   )}
+                  {isEditor && onAddSiblingHeading && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAddSiblingHeading(heading)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-emerald-600 flex-shrink-0"
+                      aria-label={
+                        currentLang === 'fr'
+                          ? 'Ajouter une section après celle-ci'
+                          : 'Ajoute yon seksyon apre sa'
+                      }
+                      title={
+                        currentLang === 'fr'
+                          ? 'Ajouter une section après celle-ci (parser-cleanup)'
+                          : 'Ajoute yon seksyon apre sa (netwaye pasè)'
+                      }
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
                   {isEditor && onHeadingDelete && (
                     <button
                       type="button"
@@ -699,6 +734,27 @@ export default function TableOfContents({
             {currentLang === 'fr' ? 'Sommaire' : 'Somè'}
           </div>
           <div className="flex items-center gap-2">
+            {/* Editor-only "Add at root" — opens the AddHeadingDialog
+                with no anchor, creating a new top-level Titre / Livre /
+                Partie. Sub-headings get their own + button on hover. */}
+            {isEditor && onAddRootHeading && (
+              <button
+                onClick={onAddRootHeading}
+                className="p-1.5 hover:bg-emerald-50 rounded-lg transition-colors"
+                title={
+                  currentLang === 'fr'
+                    ? 'Ajouter une section à la racine'
+                    : 'Ajoute yon seksyon nan rasin'
+                }
+                aria-label={
+                  currentLang === 'fr'
+                    ? 'Ajouter une section à la racine'
+                    : 'Ajoute yon seksyon nan rasin'
+                }
+              >
+                <Plus className="w-3 h-3 text-emerald-600" />
+              </button>
+            )}
             <button
               onClick={expandAll}
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"

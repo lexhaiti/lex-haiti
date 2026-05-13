@@ -39,7 +39,11 @@ from packages.schemas.enums import (
     LegalStatus,
     LegalTheme,
 )
-from packages.schemas.heading import LegalHeadingRead
+from packages.schemas.heading import (
+    LegalHeadingInsertInput,
+    LegalHeadingPatch,
+    LegalHeadingRead,
+)
 from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
 from packages.schemas.signer import (
     LegalSignerBulkInput,
@@ -650,6 +654,71 @@ def update_heading_title(
         heading,
         title_fr=body.title_fr,
         title_ht=body.title_ht,
+    )
+    db.commit()
+    db.refresh(heading)
+    return LegalHeadingRead.model_validate(heading)
+
+
+@router.post(
+    "/legal-texts/{slug}/headings",
+    response_model=LegalHeadingRead,
+    status_code=201,
+    summary="Insert a new TOC heading (Titre / Chapitre / Section / …)",
+)
+def insert_heading(
+    slug: str,
+    body: LegalHeadingInsertInput,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Insert a new structural heading into a legal text — used to
+    fix parser output that missed a structural break.
+
+    Anchor is either ``after_heading_id`` (slot after that heading,
+    inherit its parent) or ``parent_id`` (append to end of that
+    parent's children). The ``key`` field must be unique within the
+    text — backend rejects duplicates with a 409-style InvalidInput.
+    """
+    payload = body.model_dump(exclude_unset=False)
+    heading = service.insert_heading(slug, actor=user, payload=payload)
+    db.commit()
+    db.refresh(heading)
+    return LegalHeadingRead.model_validate(heading)
+
+
+@router.patch(
+    "/headings/{heading_id}",
+    response_model=LegalHeadingRead,
+    summary="Full update of a heading (re-parent, renumber, change level…)",
+)
+def update_heading(
+    heading_id: int,
+    body: LegalHeadingPatch,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Patch the full set of editor-writable heading fields. Distinct
+    from ``PATCH /headings/{id}/title`` which is title-only. Use this
+    one when:
+    - the parser mis-classified a section as a chapter (``level``)
+    - a heading needs to move under a different parent (``parent_id``)
+    - the displayed number is wrong (``number``)
+    - position needs manual reordering (``position``)
+    """
+    payload = body.model_dump(exclude_unset=True)
+    if not payload:
+        # No-op patch — return the heading as-is rather than touching
+        # the audit log with a zero-diff entry.
+        repo = CorpusRepository(db)
+        heading = repo.get_heading_by_id(heading_id)
+        if heading is None:
+            raise HTTPException(404, "Heading not found")
+        return LegalHeadingRead.model_validate(heading)
+    heading = service.update_heading_full(
+        heading_id, actor=user, updates=payload
     )
     db.commit()
     db.refresh(heading)

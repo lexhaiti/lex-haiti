@@ -1289,6 +1289,57 @@ export async function updateHeadingTitle(
   )
 }
 
+/** Insert a new TOC heading. Anchor is one of:
+ *  - ``after_heading_id`` — slot after that heading, inherit its
+ *    parent. Sibling positions shift by +1 server-side.
+ *  - ``parent_id`` — append at the end of that parent's children.
+ *  Specify exactly one. */
+export type LegalHeadingInsertInput = {
+  key: string
+  level: 'part' | 'book' | 'title' | 'chapter' | 'section' | 'subsection'
+  number?: string | null
+  title_fr?: string | null
+  title_ht?: string | null
+  content_fr?: string | null
+  content_ht?: string | null
+  after_heading_id?: number | null
+  parent_id?: number | null
+}
+
+export async function insertHeading(
+  slug: string,
+  body: LegalHeadingInsertInput,
+) {
+  return apiPost<LegalHeadingRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/headings`,
+    body,
+  )
+}
+
+/** Full patch for an existing heading — distinct from
+ *  ``updateHeadingTitle`` (title-only). Can re-parent, renumber,
+ *  change the level, or move the position. */
+export type LegalHeadingPatch = {
+  level?: 'part' | 'book' | 'title' | 'chapter' | 'section' | 'subsection'
+  number?: string | null
+  title_fr?: string | null
+  title_ht?: string | null
+  content_fr?: string | null
+  content_ht?: string | null
+  parent_id?: number | null
+  position?: number
+}
+
+export async function updateHeading(
+  headingId: number,
+  patch: LegalHeadingPatch,
+) {
+  return apiPatch<LegalHeadingRead>(
+    `/editorial/headings/${headingId}`,
+    patch,
+  )
+}
+
 export async function updateArticleContent(
   articleId: number,
   patch: ArticleContentPatch,
