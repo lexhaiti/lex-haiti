@@ -11,9 +11,11 @@ import {
   Maximize2,
   Minimize2,
   PenLine,
+  Trash2,
   X,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Article {
   number: string
@@ -72,6 +74,15 @@ interface TableOfContentsProps {
     headingId: number,
     field: 'title_fr' | 'title_ht',
     next: string,
+  ) => Promise<void>
+  /** Delete handler for a heading (Titre / Chapitre / Section / …).
+   *  Receives the heading id and a flag indicating whether to lift
+   *  child articles + sub-headings to the parent before deletion.
+   *  Parent component shows a ConfirmDialog before invoking this and
+   *  refetches the law on success. */
+  onHeadingDelete?: (
+    headingId: number,
+    reparentChildren: boolean,
   ) => Promise<void>
   /** Ordered list of heading ids on the path from the LegalText root
    *  down to the currently selected article (Titre → Chapitre → …).
@@ -261,6 +272,7 @@ export default function TableOfContents({
   onConsiderantsClick,
   isEditor = false,
   onHeadingTitleSave,
+  onHeadingDelete,
   activeHeadingIds,
 }: TableOfContentsProps) {
   // Lookup-friendly set for "is this heading on the active path?"
@@ -283,6 +295,12 @@ export default function TableOfContents({
   const [headingDraft, setHeadingDraft] = useState<string>('')
   const [headingSaving, setHeadingSaving] = useState<boolean>(false)
   const [headingError, setHeadingError] = useState<string | null>(null)
+  // Pending-delete state for the heading-delete ConfirmDialog. Set
+  // when the editor clicks the Trash icon on a heading row; cleared
+  // on confirm or cancel. The dialog mounts once at the bottom of
+  // the tree so we don't render one per row.
+  const [pendingDelete, setPendingDelete] = useState<Heading | null>(null)
+  const [deletingHeading, setDeletingHeading] = useState(false)
 
   function startEditHeading(h: Heading) {
     const current =
@@ -563,6 +581,28 @@ export default function TableOfContents({
                       <PenLine className="w-3 h-3" />
                     </button>
                   )}
+                  {isEditor && onHeadingDelete && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPendingDelete(heading)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-600 flex-shrink-0"
+                      aria-label={
+                        currentLang === 'fr'
+                          ? 'Supprimer cette section'
+                          : 'Efase seksyon sa'
+                      }
+                      title={
+                        currentLang === 'fr'
+                          ? 'Supprimer (parser-cleanup)'
+                          : 'Efase (netwaye pasè)'
+                      }
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -726,6 +766,50 @@ export default function TableOfContents({
           )}
         </div>
       </ScrollArea>
+
+      {/* Heading-delete confirm. Two stages baked in:
+          1. Default — if the heading has child articles / sub-headings,
+             confirm with ``reparentChildren=true`` so the contents
+             survive (lifted to the parent).
+          2. Empty heading — same dialog, but the body just says it's
+             empty and the cascade flag is a no-op. */}
+      {onHeadingDelete && (
+        <ConfirmDialog
+          open={pendingDelete !== null}
+          onOpenChange={(o) => {
+            if (!o && !deletingHeading) setPendingDelete(null)
+          }}
+          onConfirm={async () => {
+            if (!pendingDelete) return
+            setDeletingHeading(true)
+            try {
+              // Default cascade: reparent. Editor would have to drag
+              // contents elsewhere first if they wanted a subtree
+              // wipe (not supported through this surface).
+              await onHeadingDelete(pendingDelete.id, true)
+              setPendingDelete(null)
+            } finally {
+              setDeletingHeading(false)
+            }
+          }}
+          title={
+            currentLang === 'fr'
+              ? `Supprimer « ${pendingDelete?.title_fr ?? pendingDelete?.number ?? ''} » ?`
+              : `Efase « ${pendingDelete?.title_fr ?? pendingDelete?.number ?? ''} » ?`
+          }
+          description={
+            currentLang === 'fr'
+              ? "Les articles et sous-sections de cette section seront déplacés vers la section parente (sans perte). La section elle-même sera supprimée."
+              : 'Atik ak sou-seksyon yo pral deplase nan seksyon paran an (san pèdi). Seksyon an menm pral efase.'
+          }
+          confirmLabel={
+            currentLang === 'fr' ? 'Supprimer' : 'Efase'
+          }
+          cancelLabel={currentLang === 'fr' ? 'Annuler' : 'Anile'}
+          destructive
+          loading={deletingHeading}
+        />
+      )}
     </div>
   )
 }

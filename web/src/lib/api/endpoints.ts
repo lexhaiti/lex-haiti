@@ -273,8 +273,12 @@ export async function addArticleVersion(
   )
 }
 
-/** Editor input for inserting a brand-new article into a legal text
- *  (amendment insertion case — Article 9-1, 9 bis, …). */
+/** Editor input for inserting a brand-new article into a legal text.
+ *  Two modes share this shape:
+ *  - amendment (``source_legal_text_id`` set) — anchored to a
+ *    modifying law, writes a LegalChange row server-side.
+ *  - parser-correction (``source_legal_text_id`` null) — the article
+ *    was always in the original text, OCR/parser missed it. */
 export type ArticleInsertInput = {
   number: string
   title_fr?: string | null
@@ -284,15 +288,17 @@ export type ArticleInsertInput = {
   after_article_id?: number | null
   heading_id?: number | null
   effective_from?: string | null
-  source_legal_text_id: number
+  source_legal_text_id?: number | null
   source_article_id?: number | null
   comment?: string | null
 }
 
 /** Insert a new article (typically "9-1" or "9 bis") into a legal
- *  text, anchored to the amending law. Server-side computes the
- *  position from ``after_article_id`` and writes a LegalChange row
- *  with ``change_kind=add``. */
+ *  text. Two modes:
+ *  - With ``source_legal_text_id`` ⇒ amendment introduction
+ *    (writes a LegalChange with ``change_kind=add``).
+ *  - Without ⇒ parser-correction: the article was always in the
+ *    original text but the OCR/parser missed it. No LegalChange. */
 export async function insertArticle(
   slug: string,
   body: ArticleInsertInput,
@@ -301,6 +307,26 @@ export async function insertArticle(
     `/editorial/legal-texts/${encodeURIComponent(slug)}/articles`,
     body,
   )
+}
+
+/** Hard-delete an article + its versions + any LegalChange rows
+ *  pointing at it. Used for parser-error cleanup (phantom articles).
+ *  Irreversible — caller is responsible for the confirm dialog. */
+export async function deleteArticle(articleId: number): Promise<void> {
+  return apiDelete(`/editorial/articles/${articleId}`)
+}
+
+/** Delete a TOC heading (Titre / Chapitre / Section / …).
+ *  When ``reparent_children=true``, the heading's articles +
+ *  sub-headings are lifted to its parent before deletion; when
+ *  false (default), a non-empty heading is rejected so the editor
+ *  consciously opts into a cascade. */
+export async function deleteHeading(
+  headingId: number,
+  opts?: { reparentChildren?: boolean },
+): Promise<void> {
+  const qs = opts?.reparentChildren ? '?reparent_children=true' : ''
+  return apiDelete(`/editorial/headings/${headingId}${qs}`)
 }
 
 // -----------------------------------------------------------------------

@@ -479,6 +479,65 @@ def add_block_version(
     return BlockVersionRead.model_validate(new_version)
 
 
+@router.delete(
+    "/articles/{article_id}",
+    status_code=204,
+    summary="Hard-delete an article and its versions (parser-error cleanup)",
+)
+def delete_article(
+    article_id: int,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Hard-delete a phantom article that the OCR/parser produced
+    but doesn't exist in the source text.
+
+    Wipes the article + all its versions (CASCADE) + any
+    ``LegalChange`` rows targeting it (CASCADE). The audit log
+    captures the article number + version count for the record.
+    Irreversible — UI should warn the editor with a ConfirmDialog.
+    """
+    service.delete_article(article_id, actor=user)
+    db.commit()
+    return None
+
+
+@router.delete(
+    "/headings/{heading_id}",
+    status_code=204,
+    summary="Delete a TOC node (Titre / Chapitre / Section / …)",
+)
+def delete_heading(
+    heading_id: int,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+    reparent_children: bool = Query(
+        False,
+        description=(
+            "When true, lift this heading's articles + sub-headings to "
+            "its parent (or to the text root) before deletion. When "
+            "false (default), refuse the delete if the heading is not "
+            "empty so the editor consciously chooses the cascade."
+        ),
+    ),
+):
+    """Delete a TOC node — used by the editor to clean up parser
+    output that produced phantom headings or duplicate Titres /
+    Chapitres / Sections.
+
+    Default (``reparent_children=false``) refuses non-empty headings
+    so the editor must explicitly opt in to either: (a) clear the
+    subtree first, or (b) re-parent via ``reparent_children=true``.
+    """
+    service.delete_heading(
+        heading_id, actor=user, reparent_children=reparent_children
+    )
+    db.commit()
+    return None
+
+
 @router.post(
     "/legal-texts/{slug}/articles",
     response_model=ArticleEmbed,

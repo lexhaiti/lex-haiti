@@ -790,16 +790,24 @@ class EditorialService:
         if not text_fr:
             raise InvalidInput("text_fr cannot be empty")
 
+        # ``source_legal_text_id`` is optional: when supplied, the
+        # insertion is treated as an amendment introduction (writes a
+        # LegalChange row, derives effective_from from the amending
+        # law's date). When omitted, the insertion is treated as a
+        # parser-correction — the article was always in the original
+        # text, the OCR/parser just missed it — and no LegalChange is
+        # written. effective_from falls back to the parent text's own
+        # promulgation / publication date in that case.
         source_id = payload.get("source_legal_text_id")
-        if source_id is None:
-            raise InvalidInput("source_legal_text_id is required")
-        amending = (
-            self.session.query(LegalText)
-            .filter(LegalText.id == source_id)
-            .one_or_none()
-        )
-        if amending is None:
-            raise NotFound(f"Amending legal text not found: {source_id}")
+        amending: Optional[LegalText] = None
+        if source_id is not None:
+            amending = (
+                self.session.query(LegalText)
+                .filter(LegalText.id == source_id)
+                .one_or_none()
+            )
+            if amending is None:
+                raise NotFound(f"Amending legal text not found: {source_id}")
 
         # Reject duplicate numbers within the same text — the parser's
         # promotion path uses a `--N` suffix on collisions, but here we
@@ -875,13 +883,21 @@ class EditorialService:
             sib.position = sib.position + 1
         self.session.flush()
 
-        # Effective_from — inherit from the amending law if omitted,
-        # mirroring add_article_version's behaviour.
+        # Effective_from — when an amending law is supplied, inherit
+        # its date (the article is "in force from when the amendment
+        # was promulgated"). Otherwise (parser correction), fall back
+        # to the parent text's own date — the article is reckoned to
+        # have always existed as part of the original.
         effective_from = payload.get("effective_from")
         if effective_from is None:
-            effective_from = (
-                amending.promulgation_date or amending.publication_date
-            )
+            if amending is not None:
+                effective_from = (
+                    amending.promulgation_date or amending.publication_date
+                )
+            else:
+                effective_from = (
+                    text.promulgation_date or text.publication_date
+                )
 
         article = Article(
             legal_text_id=text.id,
@@ -902,25 +918,25 @@ class EditorialService:
             text_fr=text_fr,
             text_ht=payload.get("text_ht") or None,
             effective_from=effective_from,
-            source_amendment_id=amending.id,
+            source_amendment_id=amending.id if amending else None,
             editorial_status=EditorialStatus.draft,
         )
         self.session.add(version)
         self.session.flush()
         article.current_version_id = version.id
 
-        # Bidirectional graph row — ``change_kind=add`` so the
-        # amending law's modifications panel labels this as an
-        # insertion, not an amendment of an existing version.
-        change = LegalChange(
-            amending_text_id=amending.id,
-            amended_text_id=text.id,
-            amended_article_id=article.id,
-            new_version_id=version.id,
-            change_kind=ChangeKind.add,
-            effective_on=effective_from,
-        )
-        self.session.add(change)
+        # Bidirectional graph row — only when an amending law was
+        # supplied. Parser-corrections introduce no amendment edge.
+        if amending is not None:
+            change = LegalChange(
+                amending_text_id=amending.id,
+                amended_text_id=text.id,
+                amended_article_id=article.id,
+                new_version_id=version.id,
+                change_kind=ChangeKind.add,
+                effective_on=effective_from,
+            )
+            self.session.add(change)
 
         _audit(
             self.session,
@@ -930,7 +946,10 @@ class EditorialService:
             target_id=article.id,
             diff={
                 "number": {"before": None, "after": number},
-                "source_legal_text_id": {"before": None, "after": amending.id},
+                "source_legal_text_id": {
+                    "before": None,
+                    "after": amending.id if amending else None,
+                },
             },
             comment=payload.get("comment"),
         )
@@ -940,6 +959,137 @@ class EditorialService:
         refreshed = self.repo.get_article(article.id)
         assert refreshed is not None
         return refreshed
+
+    def delete_article(self, article_id: int, *, actor: User) -> None:
+        """Hard-delete an article along with its versions + amendment
+        rows. Used for parser-error cleanup — a "phantom" article that
+        the OCR/parser produced but doesn't exist in the source text.
+
+        Cascades:
+        - ``article_versions.article_id`` is ON DELETE CASCADE — all
+          versions go with the article.
+        - ``legal_changes.amended_article_id`` is ON DELETE CASCADE —
+          any amendment rows targeting this article also go.
+        - ``articles.current_version_id`` is a self-loop FK with
+          use_alter; we null it first so the version delete can proceed
+          without a constraint violation.
+
+        Irreversible — the audit log captures number + version count
+        but not the bodies. UI surfaces a confirm dialog with the
+        count of versions about to be lost.
+        """
+        article = self.repo.get_article(article_id)
+        if article is None:
+            raise NotFound(f"Article not found: {article_id}")
+        version_count = len(article.versions)
+        # Capture identity for the audit log before the row is gone.
+        diff = {
+            "number": {"before": article.number, "after": None},
+            "slug": {"before": article.slug, "after": None},
+            "version_count": {"before": version_count, "after": 0},
+        }
+        # Break the article ↔ current_version FK loop so the version
+        # delete can proceed. Flush before delete so the null reaches
+        # the DB before SQLAlchemy tries to remove the version rows.
+        article.current_version_id = None
+        self.session.flush()
+        _audit(
+            self.session,
+            actor=actor,
+            action="delete_article",
+            target_type="article",
+            target_id=article.id,
+            diff=diff,
+        )
+        self.session.delete(article)
+        self.session.flush()
+
+    def delete_heading(
+        self,
+        heading_id: int,
+        *,
+        actor: User,
+        reparent_children: bool = False,
+    ) -> None:
+        """Delete a TOC node (Livre / Titre / Chapitre / Section / …).
+
+        Two modes:
+        - ``reparent_children=False`` (default): refuse if the heading
+          has sub-headings or articles. The editor is forced to clear
+          the subtree first, which avoids accidental cascade losses.
+        - ``reparent_children=True``: lift the sub-headings + articles
+          up to this heading's parent (or to the text root when this
+          is a top-level heading) before deletion. Non-destructive —
+          content survives, just changes its TOC anchor.
+
+        Note on cascades: the model has
+        ``legal_headings.parent_id ON DELETE CASCADE`` and
+        ``articles.heading_id ON DELETE SET NULL``. So a "naïve"
+        delete would silently wipe the subtree (sub-headings) and
+        orphan articles (heading_id=NULL → bubble to root). The
+        ``reparent_children`` step happens *before* the delete so the
+        cascade fires on an empty heading and the survival outcome is
+        deterministic.
+        """
+        heading = (
+            self.session.query(LegalHeading)
+            .filter(LegalHeading.id == heading_id)
+            .one_or_none()
+        )
+        if heading is None:
+            raise NotFound(f"Heading not found: {heading_id}")
+
+        child_count = (
+            self.session.query(LegalHeading)
+            .filter(LegalHeading.parent_id == heading.id)
+            .count()
+        )
+        article_count = (
+            self.session.query(Article)
+            .filter(Article.heading_id == heading.id)
+            .count()
+        )
+
+        if (child_count > 0 or article_count > 0) and not reparent_children:
+            raise InvalidInput(
+                f"Heading has {child_count} sub-heading(s) and "
+                f"{article_count} article(s). Empty it first or pass "
+                "reparent_children=true to lift them to the parent."
+            )
+
+        if reparent_children:
+            # Lift articles to the parent (or null → text-root level).
+            self.session.query(Article).filter(
+                Article.heading_id == heading.id
+            ).update({"heading_id": heading.parent_id})
+            # Same for sub-headings.
+            self.session.query(LegalHeading).filter(
+                LegalHeading.parent_id == heading.id
+            ).update({"parent_id": heading.parent_id})
+            self.session.flush()
+
+        diff = {
+            "number": {"before": heading.number, "after": None},
+            "title_fr": {"before": heading.title_fr, "after": None},
+            "reparented_articles": {
+                "before": None,
+                "after": article_count if reparent_children else 0,
+            },
+            "reparented_subheadings": {
+                "before": None,
+                "after": child_count if reparent_children else 0,
+            },
+        }
+        _audit(
+            self.session,
+            actor=actor,
+            action="delete_heading",
+            target_type="heading",
+            target_id=heading.id,
+            diff=diff,
+        )
+        self.session.delete(heading)
+        self.session.flush()
 
     # -------------------------------------------------------------------
     # Formal-block versions (preamble / visas / considérants / enacting)

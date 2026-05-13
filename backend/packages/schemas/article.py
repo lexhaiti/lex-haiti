@@ -197,20 +197,27 @@ class ArticleContentUpdate(BaseModel):
 
 class ArticleInsertInput(BaseModel):
     """Editor-supplied payload to insert a brand-new article into a
-    legal text — typically the case where an amendment introduces an
-    article like "9-1" or "9 bis" between two existing articles.
+    legal text.
 
-    Position is computed server-side from ``after_article_id``: the new
-    article inherits that article's ``heading_id`` (same TOC node) and
-    slots at ``position + 1``, with all later siblings in the same
-    heading bumped by one. To insert at the very top of a heading,
-    omit ``after_article_id`` and supply ``heading_id`` instead — the
-    article goes at position 0 of that heading.
+    Two modes share the same shape, distinguished by whether
+    ``source_legal_text_id`` is supplied:
 
-    ``source_legal_text_id`` is mandatory (this is amendment plumbing,
-    not editorial seeding) and writes a ``LegalChange`` row with
-    ``change_kind=add`` so the amending law's "Modifications apportées"
-    panel picks the new article up.
+    - **Amendment** (``source_legal_text_id`` set): the article is
+      introduced by a modifying law (e.g. "Article 9-1" inserted by
+      a 2024 loi between 9 and 10). Writes a ``LegalChange`` row
+      with ``change_kind=add`` so the amending law's "Modifications
+      apportées" panel picks it up.
+    - **Parser correction** (``source_legal_text_id`` omitted): the
+      article was always in the original text but the OCR/parser
+      missed it. No ``LegalChange`` row; the article is treated as
+      part of the original corpus. ``effective_from`` falls back to
+      the parent text's own promulgation / publication date.
+
+    Position is computed server-side from ``after_article_id``: the
+    new article inherits that article's ``heading_id`` (same TOC
+    node) and slots at ``position + 1``, with later siblings in the
+    same heading bumped by one. Omit ``after_article_id`` and supply
+    ``heading_id`` to insert at position 0 of that heading.
     """
 
     number: str = Field(..., min_length=1, max_length=64)
@@ -224,7 +231,9 @@ class ArticleInsertInput(BaseModel):
     heading_id: Optional[int] = None
 
     effective_from: Optional[date] = None
-    source_legal_text_id: int
+    # Optional now (was required) — see class docstring for the two
+    # modes. None ⇒ parser-correction; populated ⇒ amendment.
+    source_legal_text_id: Optional[int] = None
     source_article_id: Optional[int] = None
     comment: Optional[str] = None
 

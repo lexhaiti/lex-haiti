@@ -55,6 +55,13 @@ interface Props {
   /** Display label of the anchor article ("Article 9"), so the
    *  modal can confirm where the new row will land. */
   afterArticleLabel: string | null
+  /** Insertion mode:
+   *  - ``amendment`` (default): article is introduced by a modifying
+   *    law. Source-law picker is shown + required. Writes a
+   *    LegalChange row server-side.
+   *  - ``correction``: the parser missed an article that's in the
+   *    original text. No source-law picker, no LegalChange row. */
+  mode?: 'amendment' | 'correction'
   lang: 'fr' | 'ht'
   /** Called with the freshly-created article after a successful save.
    *  Parent should refetch the law so the new row appears in the
@@ -69,9 +76,11 @@ export function AddArticleDialog({
   lawId,
   afterArticleId,
   afterArticleLabel,
+  mode = 'amendment',
   lang,
   onCreated,
 }: Props) {
+  const isCorrection = mode === 'correction'
   const [number, setNumber] = useState('')
   const [titleFr, setTitleFr] = useState('')
   const [textFr, setTextFr] = useState('')
@@ -145,7 +154,7 @@ export function AddArticleDialog({
       )
       return
     }
-    if (!picked) {
+    if (!isCorrection && !picked) {
       setError(
         lang === 'fr'
           ? "Choisissez le texte modificateur qui introduit cet article."
@@ -163,7 +172,9 @@ export function AddArticleDialog({
         text_ht: textHt.trim() || null,
         after_article_id: afterArticleId,
         effective_from: effectiveFrom || null,
-        source_legal_text_id: picked.id,
+        // Parser-correction mode: omit source so no LegalChange is
+        // written. Amendment mode: pass the picked law's id.
+        source_legal_text_id: isCorrection ? null : picked!.id,
       })
       onCreated?.(result)
       onOpenChange(false)
@@ -179,16 +190,30 @@ export function AddArticleDialog({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {lang === 'fr' ? 'Ajouter un article' : 'Ajoute yon atik'}
+            {isCorrection
+              ? lang === 'fr'
+                ? "Corriger le parser : ajouter un article"
+                : 'Korije pasè a : ajoute yon atik'
+              : lang === 'fr'
+                ? 'Ajouter un article'
+                : 'Ajoute yon atik'}
           </DialogTitle>
           <DialogDescription>
-            {afterArticleLabel
-              ? lang === 'fr'
-                ? `Le nouvel article sera inséré juste après ${afterArticleLabel}, dans la même section. Le texte qui l'introduit doit déjà exister dans le corpus.`
-                : `Nouvo atik la pral mete jis apre ${afterArticleLabel}, nan menm seksyon an. Tèks ki entwodwi l dwe deja egziste nan korpis la.`
-              : lang === 'fr'
+            {(() => {
+              if (isCorrection) {
+                return lang === 'fr'
+                  ? "Cas où le parser a oublié un article du texte original. Aucune loi modifiante n'est requise — l'article est considéré comme ayant toujours fait partie du texte."
+                  : "Ka kote pasè a bliye yon atik nan tèks orijinal la. Pa gen lwa modifikatè ki obligatwa — atik la konsidere kòm te toujou fè pati tèks la."
+              }
+              if (afterArticleLabel) {
+                return lang === 'fr'
+                  ? `Le nouvel article sera inséré juste après ${afterArticleLabel}, dans la même section. Le texte qui l'introduit doit déjà exister dans le corpus.`
+                  : `Nouvo atik la pral mete jis apre ${afterArticleLabel}, nan menm seksyon an. Tèks ki entwodwi l dwe deja egziste nan korpis la.`
+              }
+              return lang === 'fr'
                 ? "Le nouvel article sera inséré au début du texte. Le texte qui l'introduit doit déjà exister dans le corpus."
-                : 'Nouvo atik la pral mete nan kòmansman tèks la. Tèks ki entwodwi l dwe deja egziste nan korpis la.'}
+                : 'Nouvo atik la pral mete nan kòmansman tèks la. Tèks ki entwodwi l dwe deja egziste nan korpis la.'
+            })()}
           </DialogDescription>
         </DialogHeader>
 
@@ -216,7 +241,11 @@ export function AddArticleDialog({
             </p>
           </div>
 
-          {/* Source-law picker — same UX as AddVersionDialog. */}
+          {/* Source-law picker — amendment mode only. In correction
+              mode the article has no amending law, so the whole
+              picker block is hidden and the save path passes
+              ``source_legal_text_id=null``. */}
+          {!isCorrection && (
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">
               {lang === 'fr'
@@ -326,6 +355,7 @@ export function AddArticleDialog({
               </div>
             )}
           </div>
+          )}
 
           {/* Effective from */}
           <div>

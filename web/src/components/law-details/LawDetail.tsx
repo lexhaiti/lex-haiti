@@ -47,6 +47,7 @@ import TableOfContents from '@/components/law-details/TableOfContent'
 import { EditorBar } from './EditorBar'
 import { EditableFormalBlock } from './EditableFormalBlock'
 import {
+  deleteHeading,
   moniteurIssueSlug,
   updateHeadingTitle,
   updateLegalTextMetadata,
@@ -829,6 +830,10 @@ export default function LawDetail() {
                           await updateHeadingTitle(id, { [field]: next })
                           refetch()
                         }}
+                        onHeadingDelete={async (id, reparentChildren) => {
+                          await deleteHeading(id, { reparentChildren })
+                          refetch()
+                        }}
                         activeHeadingIds={articleBreadcrumb.map((h) => h.id)}
                       />
                     </div>
@@ -912,6 +917,10 @@ export default function LawDetail() {
                     isEditor={isEditor}
                     onHeadingTitleSave={async (id, field, next) => {
                       await updateHeadingTitle(id, { [field]: next })
+                      refetch()
+                    }}
+                    onHeadingDelete={async (id, reparentChildren) => {
+                      await deleteHeading(id, { reparentChildren })
                       refetch()
                     }}
                     activeHeadingIds={articleBreadcrumb.map((h) => h.id)}

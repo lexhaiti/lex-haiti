@@ -20,6 +20,7 @@ import {
   Pencil,
   Plus,
   Share2,
+  Trash2,
   Volume2,
   X,
 } from 'lucide-react'
@@ -42,6 +43,7 @@ import { useToast } from '@/components/ui/toast-simple'
 import {
   citationsFromArticle,
   citationsToArticle,
+  deleteArticle,
   listArticleVersions,
   resolveArticles,
   updateArticleContent,
@@ -49,6 +51,7 @@ import {
   type ArticleResolved,
   type ArticleVersionRead,
 } from '@/lib/api/endpoints'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   mapCitations,
   type CitationEntry,
@@ -331,8 +334,18 @@ export default function ArticleViewer({
   const [addVersionOpen, setAddVersionOpen] = useState(false)
   // Add-article modal — editor opens it to insert a new article
   // (typically "N-1" or "N bis") immediately after the current one,
-  // anchored to the amending law that introduced it.
+  // anchored to the amending law that introduced it. The mode flag
+  // toggles between "amendment" (anchored to a source law) and
+  // "correction" (parser missed the article, no source law) — both
+  // share the same modal component, only the picker differs.
   const [addArticleOpen, setAddArticleOpen] = useState(false)
+  const [addArticleMode, setAddArticleMode] = useState<
+    'amendment' | 'correction'
+  >('amendment')
+  // Delete confirmation — staged so the ConfirmDialog can show the
+  // version count + amending-law count before the editor commits.
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Inline edit state — keyed by article.id so switching to a different
   // article cancels any in-flight edit instead of carrying drafts across.
@@ -1085,19 +1098,66 @@ export default function ArticleViewer({
             {isEditor && lawId != null && (
               <button
                 type="button"
-                onClick={() => setAddArticleOpen(true)}
+                onClick={() => {
+                  setAddArticleMode('amendment')
+                  setAddArticleOpen(true)
+                }}
                 className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
                 title={
                   currentLang === 'fr'
-                    ? 'Insérer un nouvel article (ex. Article 9-1, 9 bis…) juste après celui-ci'
-                    : 'Mete yon nouvo atik (egz. Atik 9-1, 9 bis…) jis apre sa a'
+                    ? 'Insérer un nouvel article via amendement (ex. Article 9-1, 9 bis…)'
+                    : 'Mete yon nouvo atik via amannman (egz. Atik 9-1, 9 bis…)'
                 }
               >
                 <Plus className="w-4 h-4" />
                 <span className="font-medium">
                   {currentLang === 'fr'
-                    ? 'Ajouter un article'
-                    : 'Ajoute yon atik'}
+                    ? 'Ajouter un article (amendement)'
+                    : 'Ajoute yon atik (amannman)'}
+                </span>
+              </button>
+            )}
+            {/* Parser-correction sibling — same modal, source-law
+                picker hidden. Used when the OCR/parser missed an
+                article from the original text. */}
+            {isEditor && lawId != null && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAddArticleMode('correction')
+                  setAddArticleOpen(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-white text-slate-700 border border-slate-200 hover:border-slate-400 hover:text-slate-900 transition-colors"
+                title={
+                  currentLang === 'fr'
+                    ? 'Le parser a oublié un article du texte original ? Ajoutez-le ici.'
+                    : 'Pasè a bliye yon atik nan tèks orijinal la ? Ajoute l isit.'
+                }
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">
+                  {currentLang === 'fr'
+                    ? 'Corriger le parser'
+                    : 'Korije pasè a'}
+                </span>
+              </button>
+            )}
+            {/* Delete this article — destructive, gated behind a
+                ConfirmDialog showing the version count. */}
+            {isEditor && (
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-white text-red-700 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+                title={
+                  currentLang === 'fr'
+                    ? "Supprimer cet article du texte (parser-cleanup)"
+                    : 'Efase atik sa nan tèks la (netwaye pasè)'
+                }
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="font-medium">
+                  {currentLang === 'fr' ? 'Supprimer' : 'Efase'}
                 </span>
               </button>
             )}
@@ -1249,7 +1309,9 @@ export default function ArticleViewer({
       {/* Editor-only insert-article modal — companion to AddVersion.
           Slots a new article (Article 9-1, 9 bis…) right after the
           current one. ``onCreated`` triggers a parent refetch so the
-          TOC and article-nav pick up the new row immediately. */}
+          TOC and article-nav pick up the new row immediately. The
+          ``mode`` prop is reset by the two trigger buttons in the
+          action row above. */}
       {isEditor && lawId != null && lawSlug && (
         <AddArticleDialog
           open={addArticleOpen}
@@ -1262,8 +1324,74 @@ export default function ArticleViewer({
               ? `Atik ${article.number}`
               : `Article ${article.number}`
           }
+          mode={addArticleMode}
           lang={currentLang}
           onCreated={() => onArticleSaved?.()}
+        />
+      )}
+      {/* Delete-article confirm. Hard delete with cascade — the
+          article and all its versions are wiped, plus any LegalChange
+          rows targeting it. Confirms with the version count so the
+          editor sees what's about to be lost. */}
+      {isEditor && (
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={(o) => {
+            if (!o && !deleting) setDeleteOpen(false)
+          }}
+          onConfirm={async () => {
+            setDeleting(true)
+            try {
+              await deleteArticle(article.id)
+              setDeleteOpen(false)
+              onArticleSaved?.()
+            } catch (e) {
+              toast(
+                currentLang === 'fr'
+                  ? `Échec : ${(e as any)?.body?.detail ?? (e as Error).message}`
+                  : `Echèk : ${(e as any)?.body?.detail ?? (e as Error).message}`,
+              )
+            } finally {
+              setDeleting(false)
+            }
+          }}
+          title={
+            currentLang === 'fr'
+              ? `Supprimer l’article ${article.number} ?`
+              : `Efase atik ${article.number} ?`
+          }
+          description={
+            <div className="space-y-2">
+              <p>
+                {currentLang === 'fr'
+                  ? 'Cette suppression est irréversible. Elle retire :'
+                  : 'Efaze sa pa ka anile. Li retire :'}
+              </p>
+              <ul className="list-disc pl-5 space-y-0.5 text-slate-600">
+                <li>
+                  {versions.length || 1}{' '}
+                  {currentLang === 'fr'
+                    ? versions.length > 1
+                      ? 'versions de l’article'
+                      : "version de l'article"
+                    : 'vèsyon atik la'}
+                </li>
+                <li>
+                  {currentLang === 'fr'
+                    ? "tout lien d'amendement entrant pointant sur cet article"
+                    : 'tout lyen amannman ki pwente sou atik sa'}
+                </li>
+              </ul>
+            </div>
+          }
+          confirmLabel={
+            currentLang === 'fr'
+              ? 'Supprimer définitivement'
+              : 'Efase definitivman'
+          }
+          cancelLabel={currentLang === 'fr' ? 'Annuler' : 'Anile'}
+          destructive
+          loading={deleting}
         />
       )}
     </motion.div>
