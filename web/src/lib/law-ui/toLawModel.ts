@@ -80,10 +80,18 @@ export function toLawCardModel(args: {
   // subtitle priority: publication_date > moniteur_ref. Render the date in
   // long French/Kreyòl form ("28 avril 1987") instead of the raw ISO string
   // — the audit caught raw "1987-04-28" landing in the card grid.
-  const subtitle =
+  //
+  // When the editor has written a description ("Résumé sur les fiches"),
+  // the resume takes over as the card's secondary line and the date
+  // subtitle is dropped. The intent is editorial: a date next to a
+  // hand-written summary doubles up on metadata you can already read in
+  // the title or click through to. The date stays as fallback for cards
+  // that have no resume yet.
+  const rawSubtitle =
     formatLongDate(item.publication_date ?? undefined, language) ??
     item.moniteur_ref ??
     undefined
+  const subtitle = description ? undefined : rawSubtitle
 
   const [s1, s2] = statsForLaw(item)
 
