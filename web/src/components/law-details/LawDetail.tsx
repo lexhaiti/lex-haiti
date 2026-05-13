@@ -1153,6 +1153,18 @@ export default function LawDetail() {
                   lawSlug={law.slug}
                   lawId={law.id}
                   blockKind="enacting_formula"
+                  align={
+                    (law.enacting_formula_align as
+                      | 'left'
+                      | 'center'
+                      | undefined) ?? 'left'
+                  }
+                  onAlignChange={async (next) => {
+                    await updateLegalTextMetadata(law.slug, {
+                      enacting_formula_align: next,
+                    } as any)
+                    refetch()
+                  }}
                   onSave={async (v) => {
                     await updateLegalTextMetadata(law.slug, { enacting_formula_fr: v })
                     refetch()

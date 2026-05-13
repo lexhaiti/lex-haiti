@@ -83,6 +83,7 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "considerants_ht",
     "enacting_formula_fr",
     "enacting_formula_ht",
+    "enacting_formula_align",
 )
 
 # Constraint on editor-supplied slugs. Lowercase ASCII letters,
@@ -479,6 +480,14 @@ class EditorialService:
                         f'slug "{new_slug}" is already in use by another text'
                     )
             updates["slug"] = new_slug
+
+        if "enacting_formula_align" in updates:
+            align = (updates["enacting_formula_align"] or "left").strip().lower()
+            if align not in ("left", "center"):
+                raise InvalidInput(
+                    "enacting_formula_align must be 'left' or 'center'"
+                )
+            updates["enacting_formula_align"] = align
 
         diff: dict[str, dict[str, Any]] = {}
         for field, new_value in updates.items():

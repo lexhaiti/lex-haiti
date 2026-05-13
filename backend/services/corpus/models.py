@@ -198,6 +198,15 @@ class LegalText(Base):
     considerants_ht: Mapped[Optional[str]] = mapped_column(Text)
     enacting_formula_fr: Mapped[Optional[str]] = mapped_column(Text)
     enacting_formula_ht: Mapped[Optional[str]] = mapped_column(Text)
+    # Display alignment for the enacting-formula block on the reader.
+    # ``left`` (default) or ``center``. Stored as a short string
+    # rather than a Postgres enum so the value set can grow cheaply.
+    enacting_formula_align: Mapped[str] = mapped_column(
+        String(8),
+        nullable=False,
+        default="left",
+        server_default="left",
+    )
 
     promulgation_date: Mapped[Optional[date]] = mapped_column(Date)
     publication_date: Mapped[Optional[date]] = mapped_column(Date, index=True)

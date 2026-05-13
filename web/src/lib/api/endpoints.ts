@@ -1164,6 +1164,9 @@ export type LegalTextMetadataPatch = {
   considerants_ht?: string | null
   enacting_formula_fr?: string | null
   enacting_formula_ht?: string | null
+  /** 'left' (default) or 'center' — display alignment of the
+   *  enacting-formula block on the reader page. */
+  enacting_formula_align?: 'left' | 'center'
   comment?: string | null
 }
 

@@ -35,6 +35,10 @@ class LegalTextBase(BaseModel):
     considerants_ht: Optional[str] = None
     enacting_formula_fr: Optional[str] = None
     enacting_formula_ht: Optional[str] = None
+    # 'left' (default) or 'center' — controls how the reader page
+    # aligns the enacting-formula block. Editor-controlled via
+    # MetadataEditor; mirrors the SQL column with the same default.
+    enacting_formula_align: str = "left"
 
     promulgation_date: Optional[date] = None
     publication_date: Optional[date] = None

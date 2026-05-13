@@ -563,6 +563,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editorial/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Hard-delete an article and its versions (parser-error cleanup)
+         * @description Hard-delete a phantom article that the OCR/parser produced
+         *     but doesn't exist in the source text.
+         *
+         *     Wipes the article + all its versions (CASCADE) + any
+         *     ``LegalChange`` rows targeting it (CASCADE). The audit log
+         *     captures the article number + version count for the record.
+         *     Irreversible — UI should warn the editor with a ConfirmDialog.
+         */
+        delete: operations["delete_article_api_v1_editorial_articles__article_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/headings/{heading_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a TOC node (Titre / Chapitre / Section / …)
+         * @description Delete a TOC node — used by the editor to clean up parser
+         *     output that produced phantom headings or duplicate Titres /
+         *     Chapitres / Sections.
+         *
+         *     Default (``reparent_children=false``) refuses non-empty headings
+         *     so the editor must explicitly opt in to either: (a) clear the
+         *     subtree first, or (b) re-parent via ``reparent_children=true``.
+         */
+        delete: operations["delete_heading_api_v1_editorial_headings__heading_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Full update of a heading (re-parent, renumber, change level…)
+         * @description Patch the full set of editor-writable heading fields. Distinct
+         *     from ``PATCH /headings/{id}/title`` which is title-only. Use this
+         *     one when:
+         *     - the parser mis-classified a section as a chapter (``level``)
+         *     - a heading needs to move under a different parent (``parent_id``)
+         *     - the displayed number is wrong (``number``)
+         *     - position needs manual reordering (``position``)
+         */
+        patch: operations["update_heading_api_v1_editorial_headings__heading_id__patch"];
+        trace?: never;
+    };
     "/api/v1/editorial/legal-texts/{slug}/articles": {
         parameters: {
             query?: never;
@@ -619,6 +681,32 @@ export interface paths {
          *     review page.
          */
         patch: operations["update_heading_title_api_v1_editorial_headings__heading_id__title_patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/headings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Insert a new TOC heading (Titre / Chapitre / Section / …)
+         * @description Insert a new structural heading into a legal text — used to
+         *     fix parser output that missed a structural break.
+         *
+         *     Anchor is either ``after_heading_id`` (slot after that heading,
+         *     inherit its parent) or ``parent_id`` (append to end of that
+         *     parent's children). The ``key`` field must be unique within the
+         *     text — backend rejects duplicates with a 409-style InvalidInput.
+         */
+        post: operations["insert_heading_api_v1_editorial_legal_texts__slug__headings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/editorial/legal-texts/{slug}/signers": {
@@ -1571,20 +1659,27 @@ export interface components {
         /**
          * ArticleInsertInput
          * @description Editor-supplied payload to insert a brand-new article into a
-         *     legal text — typically the case where an amendment introduces an
-         *     article like "9-1" or "9 bis" between two existing articles.
+         *     legal text.
          *
-         *     Position is computed server-side from ``after_article_id``: the new
-         *     article inherits that article's ``heading_id`` (same TOC node) and
-         *     slots at ``position + 1``, with all later siblings in the same
-         *     heading bumped by one. To insert at the very top of a heading,
-         *     omit ``after_article_id`` and supply ``heading_id`` instead — the
-         *     article goes at position 0 of that heading.
+         *     Two modes share the same shape, distinguished by whether
+         *     ``source_legal_text_id`` is supplied:
          *
-         *     ``source_legal_text_id`` is mandatory (this is amendment plumbing,
-         *     not editorial seeding) and writes a ``LegalChange`` row with
-         *     ``change_kind=add`` so the amending law's "Modifications apportées"
-         *     panel picks the new article up.
+         *     - **Amendment** (``source_legal_text_id`` set): the article is
+         *       introduced by a modifying law (e.g. "Article 9-1" inserted by
+         *       a 2024 loi between 9 and 10). Writes a ``LegalChange`` row
+         *       with ``change_kind=add`` so the amending law's "Modifications
+         *       apportées" panel picks it up.
+         *     - **Parser correction** (``source_legal_text_id`` omitted): the
+         *       article was always in the original text but the OCR/parser
+         *       missed it. No ``LegalChange`` row; the article is treated as
+         *       part of the original corpus. ``effective_from`` falls back to
+         *       the parent text's own promulgation / publication date.
+         *
+         *     Position is computed server-side from ``after_article_id``: the
+         *     new article inherits that article's ``heading_id`` (same TOC
+         *     node) and slots at ``position + 1``, with later siblings in the
+         *     same heading bumped by one. Omit ``after_article_id`` and supply
+         *     ``heading_id`` to insert at position 0 of that heading.
          */
         ArticleInsertInput: {
             /** Number */
@@ -1604,7 +1699,7 @@ export interface components {
             /** Effective From */
             effective_from?: string | null;
             /** Source Legal Text Id */
-            source_legal_text_id: number;
+            source_legal_text_id?: number | null;
             /** Source Article Id */
             source_article_id?: number | null;
             /** Comment */
@@ -2287,6 +2382,72 @@ export interface components {
              */
             position: number;
         };
+        /**
+         * LegalHeadingInsertInput
+         * @description Editor-supplied payload to insert a brand-new heading (Titre /
+         *     Chapitre / Section / …) into a legal text — typically used to fix
+         *     parser output that missed a structural break.
+         *
+         *     Position is computed server-side from one of two anchors (the
+         *     editor supplies one, never both):
+         *     - ``after_heading_id``: new heading inherits that heading's
+         *       ``parent_id`` and slots at ``position + 1``, with later siblings
+         *       bumped by one. Same pattern as article insertion.
+         *     - ``parent_id``: new heading is created at the *end* of that
+         *       parent's children list (or at the text root when ``parent_id``
+         *       is null). No sibling shift needed.
+         *
+         *     ``key`` is required and must be unique within the text — the
+         *     repository / migration enforces a UNIQUE constraint on
+         *     ``(legal_text_id, key)``.
+         */
+        LegalHeadingInsertInput: {
+            /** Key */
+            key: string;
+            level: components["schemas"]["HeadingLevel"];
+            /** Number */
+            number?: string | null;
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Content Fr */
+            content_fr?: string | null;
+            /** Content Ht */
+            content_ht?: string | null;
+            /** After Heading Id */
+            after_heading_id?: number | null;
+            /** Parent Id */
+            parent_id?: number | null;
+        };
+        /**
+         * LegalHeadingPatch
+         * @description Full editor-supplied patch for an existing heading. Every field
+         *     is optional (``exclude_unset=True`` on the model_dump call); only
+         *     the fields the editor changed flow through to the service.
+         *
+         *     Distinct from the existing title-only PATCH route at
+         *     ``/headings/{id}/title``: this one can also re-parent the heading
+         *     (``parent_id``), change its level (``Section`` → ``Chapitre`` when
+         *     the parser mis-classified), renumber it, or move its position.
+         */
+        LegalHeadingPatch: {
+            level?: components["schemas"]["HeadingLevel"] | null;
+            /** Number */
+            number?: string | null;
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Content Fr */
+            content_fr?: string | null;
+            /** Content Ht */
+            content_ht?: string | null;
+            /** Parent Id */
+            parent_id?: number | null;
+            /** Position */
+            position?: number | null;
+        };
         /** LegalHeadingRead */
         LegalHeadingRead: {
             /** Id */
@@ -2447,6 +2608,11 @@ export interface components {
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
             enacting_formula_ht?: string | null;
+            /**
+             * Enacting Formula Align
+             * @default left
+             */
+            enacting_formula_align: string;
             /** Promulgation Date */
             promulgation_date?: string | null;
             /** Publication Date */
@@ -2515,6 +2681,8 @@ export interface components {
          *     to clear nullable fields. `title_fr` is non-nullable and rejects empty.
          */
         LegalTextMetadataUpdate: {
+            /** Slug */
+            slug?: string | null;
             /** Title Fr */
             title_fr?: string | null;
             /** Title Ht */
@@ -2554,6 +2722,8 @@ export interface components {
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
             enacting_formula_ht?: string | null;
+            /** Enacting Formula Align */
+            enacting_formula_align?: string | null;
             /** Comment */
             comment?: string | null;
         };
@@ -2595,6 +2765,11 @@ export interface components {
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
             enacting_formula_ht?: string | null;
+            /**
+             * Enacting Formula Align
+             * @default left
+             */
+            enacting_formula_align: string;
             /** Promulgation Date */
             promulgation_date?: string | null;
             /** Publication Date */
@@ -4535,6 +4710,102 @@ export interface operations {
             };
         };
     };
+    delete_article_api_v1_editorial_articles__article_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_heading_api_v1_editorial_headings__heading_id__delete: {
+        parameters: {
+            query?: {
+                /** @description When true, lift this heading's articles + sub-headings to its parent (or to the text root) before deletion. When false (default), refuse the delete if the heading is not empty so the editor consciously chooses the cascade. */
+                reparent_children?: boolean;
+            };
+            header?: never;
+            path: {
+                heading_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_heading_api_v1_editorial_headings__heading_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                heading_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalHeadingPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHeadingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     insert_article_api_v1_editorial_legal_texts__slug__articles_post: {
         parameters: {
             query?: never;
@@ -4587,6 +4858,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHeadingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insert_heading_api_v1_editorial_legal_texts__slug__headings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalHeadingInsertInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

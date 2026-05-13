@@ -20,6 +20,8 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
+  AlignCenter,
+  AlignLeft,
   Check,
   ChevronDown,
   ChevronRight,
@@ -73,6 +75,13 @@ export interface EditableFormalBlockProps {
    *  visible-language side; the dialog needs both to pre-fill. The
    *  ``value`` prop is whatever the page shows in the active language. */
   valueHt?: string | null
+  /** Alignment for the compact display variant ('left' or 'center').
+   *  Only meaningful when ``variant === 'compact'``. Defaults to
+   *  'left' to match the article-body alignment. */
+  align?: 'left' | 'center'
+  /** Save handler for the alignment toggle. Editor-only. When
+   *  unset, the toggle isn't shown. */
+  onAlignChange?: (next: 'left' | 'center') => Promise<void>
 }
 
 export function EditableFormalBlock({
@@ -88,6 +97,8 @@ export function EditableFormalBlock({
   lawId,
   blockKind,
   valueHt,
+  align = 'left',
+  onAlignChange,
 }: EditableFormalBlockProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [editing, setEditing] = useState(false)
@@ -153,9 +164,50 @@ export function EditableFormalBlock({
         </div>
       ) : value ? (
         <div className="flex items-start gap-2">
-          <p className="flex-1 text-sm font-semibold italic text-slate-500 tracking-wide whitespace-pre-line leading-relaxed">
+          <p
+            className={cn(
+              'flex-1 text-sm font-semibold italic text-slate-500 tracking-wide whitespace-pre-line leading-relaxed',
+              align === 'center' ? 'text-center' : 'text-left',
+            )}
+          >
             {value}
           </p>
+          {isEditor && onAlignChange && (
+            // Two-state alignment toggle — quick affordance to flip
+            // between left and center without opening MetadataEditor.
+            // Editor-only. Hidden when no save handler is plumbed in.
+            <button
+              type="button"
+              onClick={() => {
+                void onAlignChange(align === 'center' ? 'left' : 'center')
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-primary flex-shrink-0 mt-0.5"
+              aria-label={
+                align === 'center'
+                  ? isFr
+                    ? 'Aligner à gauche'
+                    : 'Aliyen agoch'
+                  : isFr
+                    ? 'Centrer'
+                    : 'Mete nan mitan'
+              }
+              title={
+                align === 'center'
+                  ? isFr
+                    ? 'Aligner à gauche'
+                    : 'Aliyen agoch'
+                  : isFr
+                    ? 'Centrer'
+                    : 'Mete nan mitan'
+              }
+            >
+              {align === 'center' ? (
+                <AlignLeft className="w-3.5 h-3.5" />
+              ) : (
+                <AlignCenter className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
           {isEditor && (
             <button
               type="button"

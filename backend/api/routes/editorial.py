@@ -278,6 +278,9 @@ class LegalTextMetadataUpdate(BaseModel):
     considerants_ht: Optional[str] = None
     enacting_formula_fr: Optional[str] = None
     enacting_formula_ht: Optional[str] = None
+    # 'left' (default) or 'center' — display alignment for the
+    # enacting-formula block on the reader page.
+    enacting_formula_align: Optional[str] = None
     comment: Optional[str] = Field(default=None, max_length=2000)
 
 
