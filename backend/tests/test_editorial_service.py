@@ -173,6 +173,50 @@ class TestUpdateArticleContentDraft:
         with pytest.raises(InvalidInput, match="non-editable"):
             self._run({"slug": "hacked"})
 
+    def test_sanitizes_text_fr_html(self):
+        """text_fr from the Tiptap editor lands as HTML — bleach should
+        scrub <script> + dangerous attrs while preserving <strong>,
+        <em>, lists, and ``text-align`` styles."""
+        _, version, _, _ = self._run(
+            {
+                "text_fr": (
+                    '<p>Bold <strong>here</strong>.</p>'
+                    '<p><script>alert(1)</script></p>'
+                    '<p style="text-align: center">Centered</p>'
+                )
+            }
+        )
+        assert "<script>" not in version.text_fr
+        assert "<strong>here</strong>" in version.text_fr
+        assert "text-align: center" in version.text_fr
+
+    def test_strips_dangerous_handlers_from_html(self):
+        _, version, _, _ = self._run(
+            {"text_fr": '<p onclick="steal()">click bait</p>'}
+        )
+        assert "onclick" not in version.text_fr
+        assert "click bait" in version.text_fr
+
+    def test_script_tag_text_content_is_preserved_as_plain_text(self):
+        """Bleach drops the ``<script>`` tag but keeps its text
+        content — the result is harmless prose in a paragraph
+        context. The test pins the behaviour so a future bleach
+        upgrade that changes it surfaces here."""
+        _, version, _, _ = self._run(
+            {"text_fr": "<p>before<script>alert(1)</script>after</p>"}
+        )
+        assert "<script>" not in version.text_fr
+        # Script content survives as text — not executable in a body.
+        assert "alert(1)" in version.text_fr
+
+    def test_preserves_plain_text_text_fr_unchanged(self):
+        """Legacy plain-text bodies pass through the sanitizer
+        untouched (no tags ⇒ bleach is a no-op)."""
+        _, version, _, _ = self._run(
+            {"text_fr": "Texte brut sans HTML."}
+        )
+        assert version.text_fr == "Texte brut sans HTML."
+
 
 # ---------------------------------------------------------------------------
 # Versioning policy: published → create new draft version

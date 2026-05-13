@@ -9,6 +9,8 @@ import re
 from datetime import date, datetime, timezone
 from typing import Any, List, Optional
 
+import bleach
+from bleach.css_sanitizer import CSSSanitizer
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -92,6 +94,80 @@ _METADATA_FIELDS: tuple[str, ...] = (
 # arrete-du-3-juin-…"), which is the whole reason the editor needs
 # to be able to override them.
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,198}[a-z0-9])?$")
+
+
+# ---------------------------------------------------------------------------
+# Article-body HTML sanitization
+# ---------------------------------------------------------------------------
+#
+# The Tiptap editor in the law-detail article view persists rich text as
+# HTML (bold/italic, lists, paragraph alignment). We scrub it server-side
+# before persisting so the renderer can use ``dangerouslySetInnerHTML``
+# without risk: no <script>, <iframe>, on-handlers, javascript: URLs, or
+# style values outside the allowlisted ``text-align`` set get through.
+#
+# Plain-text bodies pass through unchanged (bleach is a no-op when there
+# are no tags), so legacy articles imported before Tiptap landed are not
+# disturbed.
+
+_ALLOWED_TAGS: frozenset[str] = frozenset(
+    {
+        "p", "br",
+        "strong", "b", "em", "i", "u", "s",
+        "sub", "sup",
+        "ul", "ol", "li",
+        "blockquote",
+    }
+)
+
+def _attribute_filter(tag: str, name: str, value: str) -> bool:
+    """Per-(tag, attr) allowlist used by ``_sanitize_article_html``.
+
+    - ``class`` is allowed on any allowed tag (Tiptap stamps utility-
+      flavoured class names on its output; the renderer's CSS is global
+      so harmless classes won't break layout).
+    - ``style`` is allowed on ``p`` / ``li`` and further restricted by
+      the CSS sanitizer below to a single ``text-align`` property.
+    """
+    if name == "class":
+        return True
+    if name == "style" and tag in ("p", "li"):
+        return True
+    return False
+
+
+# Restrict CSS in ``style`` attributes to the single property we
+# actually need on paragraphs: ``text-align``. Bleach 6 drops the
+# entire ``style`` value unless ``CSSSanitizer`` says otherwise, so
+# this is what makes ``<p style="text-align: center">`` survive the
+# scrub.
+_CSS_SANITIZER = CSSSanitizer(allowed_css_properties=["text-align"])
+
+
+def _sanitize_article_html(value: str | None) -> str | None:
+    """Scrub an editor-supplied rich-text article body.
+
+    Plain text is returned unchanged (no escaping — the renderer treats
+    legacy plain bodies separately). Bleach normalizes attribute order
+    and drops anything outside ``_ALLOWED_TAGS`` + ``_attribute_filter``.
+    Returns ``None`` on a ``None`` input so the caller can pipe nullable
+    fields through without branching.
+    """
+    if value is None:
+        return None
+    # Trim and short-circuit empty / whitespace-only.
+    stripped = value.strip()
+    if not stripped:
+        return ""
+    return bleach.clean(
+        stripped,
+        tags=_ALLOWED_TAGS,
+        attributes=_attribute_filter,
+        css_sanitizer=_CSS_SANITIZER,
+        protocols=[],  # no anchors allowed; legal article bodies don't carry links
+        strip=True,
+        strip_comments=True,
+    )
 
 
 def _audit(
@@ -606,11 +682,19 @@ class EditorialService:
             raise InvalidInput(f"non-editable article fields: {sorted(bad)}")
 
         # Normalize blanks → None for nullable cols, while keeping text_fr
-        # as a required non-empty string.
+        # as a required non-empty string. Body fields go through the
+        # HTML sanitizer so the Tiptap output is scrubbed to the
+        # allowlisted tags + attributes before persistence — the
+        # public renderer trusts ``article_versions.text_*`` enough to
+        # ``dangerouslySetInnerHTML`` it, so the cleaning has to happen
+        # at write time.
+        body_fields = ("text_fr", "text_ht")
         normalized: dict[str, Any] = {}
         for field, value in updates.items():
             if isinstance(value, str):
                 value = value.strip()
+            if field in body_fields and isinstance(value, str):
+                value = _sanitize_article_html(value)
             if field == "text_fr":
                 if not value:
                     raise InvalidInput("text_fr cannot be empty")

@@ -63,6 +63,7 @@ import { ComparePanel } from './_panels/ComparePanel'
 import { CitationColumn } from './_panels/CitationColumn'
 import { AddVersionDialog } from './_panels/AddVersionDialog'
 import { AddArticleDialog } from './_panels/AddArticleDialog'
+import { RichArticleEditor } from './_editor/RichArticleEditor'
 
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
@@ -173,6 +174,25 @@ function formatEffectiveSince(
 // Body renderer — handles French legal enumerations (1°, a), 1)) inside paragraphs.
 // TODO(api): once the parser produces structured enumeration data, drop the heuristic.
 
+// Rich-text bodies emitted by the Tiptap editor start with a block-
+// level tag (``<p>``, ``<ul>``, etc.). The backend's HTML sanitizer
+// allowlists a tight set of tags + a single ``text-align`` style, so
+// we can render through ``dangerouslySetInnerHTML`` without further
+// scrubbing. Legacy plain-text bodies (imports made before Tiptap
+// shipped) fall through to the paragraph splitter below so the
+// French-enumeration heuristics still apply.
+const HTML_BODY_RE = /^\s*<[a-z][^>]*>/i
+
+/**
+ * Tiptap emits ``<p></p>`` (or nested empty tags) for a cleared editor —
+ * a string truthiness check misses that. Strip tags + whitespace and
+ * check the remainder so "the editor looks empty to the user" is what
+ * we measure, not "the HTML string has any characters at all."
+ */
+function isHtmlEffectivelyEmpty(html: string): boolean {
+  return html.replace(/<[^>]*>/g, '').replace(/[\s ]+/g, '').length === 0
+}
+
 const ENUMERATION_RE = /(?<=^|\s)(\d+°|\d+\)|[a-z]\))(?=\s+\S)/gi
 
 interface BodyBlock {
@@ -210,6 +230,16 @@ function splitParagraphIntoBlocks(paragraph: string): BodyBlock[] {
 }
 
 function renderArticleBody(content: string, currentLang: 'fr' | 'ht') {
+  if (HTML_BODY_RE.test(content)) {
+    // Sanitized server-side; safe to inject. Wrap in the same legal-
+    // article container so prose styles still apply.
+    return (
+      <div
+        className="article-html"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    )
+  }
   const paragraphs = content
     .split(/\n\s*\n+/)
     .map((para) =>
@@ -639,7 +669,11 @@ export default function ArticleViewer({
         patch[titleField] = trimmedTitle || null
       }
       if (trimmedBody !== (originalBody ?? '').trim()) {
-        if (textField === 'text_fr' && !trimmedBody) {
+        // Tiptap emits ``<p></p>`` for a cleared editor — treat that
+        // as empty so the "FR body is required" rule fires on an
+        // empty rich-text doc, not just on an empty plain-text one.
+        const bodyIsEmpty = isHtmlEffectivelyEmpty(trimmedBody)
+        if (textField === 'text_fr' && bodyIsEmpty) {
           toast(
             currentLang === 'fr'
               ? 'Le texte français est obligatoire.'
@@ -647,7 +681,8 @@ export default function ArticleViewer({
           )
           return
         }
-        ;(patch as Record<string, string | null>)[textField] = trimmedBody
+        ;(patch as Record<string, string | null>)[textField] =
+          bodyIsEmpty ? null : trimmedBody
       }
     }
 
@@ -894,75 +929,62 @@ export default function ArticleViewer({
                       <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1.5">
                         Français (FR)
                       </p>
-                      <textarea
+                      <RichArticleEditor
                         value={editing!.bodyFrDraft}
-                        onChange={(e) =>
+                        onChange={(html) =>
                           setEditing((prev) =>
-                            prev
-                              ? { ...prev, bodyFrDraft: e.target.value }
-                              : prev,
+                            prev ? { ...prev, bodyFrDraft: html } : prev,
                           )
                         }
-                        rows={Math.max(
-                          6,
-                          (editing!.bodyFrDraft.match(/\n/g)?.length ?? 0) + 4,
-                        )}
                         placeholder="Texte de l'article (FR)"
-                        aria-label="Texte français"
-                        className="w-full text-base leading-relaxed text-gray-900 border border-amber-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 rounded-md px-4 py-3 bg-amber-50/30 outline-none resize-y placeholder:text-slate-400 placeholder:italic font-sans"
+                        ariaLabel="Texte français"
+                        tone="amber"
+                        disabled={saving}
                       />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-blue-700 mb-1.5">
                         Kreyòl (HT)
                       </p>
-                      <textarea
+                      <RichArticleEditor
                         value={editing!.bodyHtDraft}
-                        onChange={(e) =>
+                        onChange={(html) =>
                           setEditing((prev) =>
-                            prev
-                              ? { ...prev, bodyHtDraft: e.target.value }
-                              : prev,
+                            prev ? { ...prev, bodyHtDraft: html } : prev,
                           )
                         }
-                        rows={Math.max(
-                          6,
-                          (editing!.bodyHtDraft.match(/\n/g)?.length ?? 0) + 4,
-                        )}
                         placeholder="Tèks atik la (HT)"
-                        aria-label="Tèks kreyòl"
-                        className="w-full text-base leading-relaxed text-gray-900 border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-md px-4 py-3 bg-blue-50/30 outline-none resize-y placeholder:text-slate-400 placeholder:italic font-sans"
+                        ariaLabel="Tèks kreyòl"
+                        tone="blue"
+                        disabled={saving}
                       />
                     </div>
                   </div>
                 ) : (
-                  <textarea
+                  <RichArticleEditor
                     value={
                       currentLang === 'ht'
                         ? editing!.bodyHtDraft
                         : editing!.bodyFrDraft
                     }
-                    onChange={(e) =>
+                    onChange={(html) =>
                       setEditing((prev) => {
                         if (!prev) return prev
                         return currentLang === 'ht'
-                          ? { ...prev, bodyHtDraft: e.target.value }
-                          : { ...prev, bodyFrDraft: e.target.value }
+                          ? { ...prev, bodyHtDraft: html }
+                          : { ...prev, bodyFrDraft: html }
                       })
                     }
-                    rows={Math.max(
-                      6,
-                      ((currentLang === 'ht'
-                        ? editing!.bodyHtDraft
-                        : editing!.bodyFrDraft
-                      ).match(/\n/g)?.length ?? 0) + 4,
-                    )}
                     placeholder={
                       currentLang === 'fr'
                         ? `Texte de l'article (${currentLang.toUpperCase()})`
                         : `Tèks atik la (${currentLang.toUpperCase()})`
                     }
-                    className="w-full text-base lg:text-lg leading-relaxed text-gray-900 border border-amber-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 rounded-md px-4 py-3 bg-amber-50/30 outline-none resize-y placeholder:text-slate-400 placeholder:italic font-sans"
+                    ariaLabel={
+                      currentLang === 'fr' ? 'Texte français' : 'Tèks kreyòl'
+                    }
+                    tone="amber"
+                    disabled={saving}
                   />
                 )}
                 <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
@@ -972,8 +994,8 @@ export default function ArticleViewer({
                         ? 'Édition bilingue : remplissez les deux colonnes pour synchroniser FR + HT.'
                         : 'Edisyon bilang : ranpli toulède kolòn yo pou senkronize FR + HT.'
                       : currentLang === 'fr'
-                        ? `Vous éditez la version française. Les sauts de ligne sont conservés.`
-                        : `W ap edite vèsyon kreyòl la. Liy nouvèl yo konsève.`}
+                        ? 'Gras, italique, listes et alignement sont conservés à l’enregistrement.'
+                        : 'Gra, italik, lis ak aliyman yo konsève lè w anrejistre.'}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
