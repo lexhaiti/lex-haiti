@@ -3,7 +3,16 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { signOut, useSession } from 'next-auth/react'
-import { LayoutDashboard, LogOut, Plus, ShieldCheck, User as UserIcon } from 'lucide-react'
+import {
+  Braces,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Newspaper,
+  Plus,
+  ShieldCheck,
+  User as UserIcon,
+} from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -18,69 +27,90 @@ import { cn } from '@/lib/utils'
 // Copy lives at `userMenu.*` in i18n/{fr,ht}.ts.
 
 /**
- * "+" button shown left of the avatar when an editor is signed in.
- * One-click entry into the import chooser (texte légal | Le Moniteur).
- * Mobile-friendly: visible at md+ alongside the UserMenu.
+ * "+" header button — opens a dropdown with the editorial quick
+ * actions: per-type import shortcuts ("Importer un texte", "Importer
+ * un numéro Moniteur", "Importer JSON") plus the Console éditoriale
+ * link at the bottom. Single focal point in the header instead of two
+ * pills competing for attention.
+ *
+ * The Console éditoriale entry also lives in the avatar's UserMenu
+ * dropdown — kept for muscle memory and the mobile-only path where
+ * this button is hidden.
  */
 export function AddTextButton({ className }: { className?: string }) {
   const { status } = useSession()
   const { t } = useT()
+  const [open, setOpen] = useState(false)
 
   if (status !== 'authenticated') return null
 
   const addText = t('userMenu.addText')
   return (
-    <Link
-      href="/editorial/import"
-      aria-label={addText}
-      title={addText}
-      className={cn(
-        'inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full',
-        'bg-primary text-white shadow-sm',
-        'hover:bg-primary/90 hover:shadow-md',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-        'transition-all',
-        className,
-      )}
-    >
-      <Plus className="w-4.5 h-4.5" strokeWidth={2.25} />
-    </Link>
-  )
-}
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={addText}
+          title={addText}
+          className={cn(
+            'inline-flex h-11 w-11 sm:h-10 sm:w-10 items-center justify-center rounded-full',
+            'bg-primary text-white shadow-sm',
+            'hover:bg-primary/90 hover:shadow-md',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+            'transition-all',
+            className,
+          )}
+        >
+          <Plus className="w-4.5 h-4.5" strokeWidth={2.25} />
+        </button>
+      </DropdownMenuTrigger>
 
-/**
- * Discoverable shortcut to the editorial dashboard (``/editorial``).
- * Sits in the header next to ``AddTextButton`` so editors can reach
- * the dashboard without opening the user-menu dropdown. Editor-only.
- */
-export function EditorialDashboardButton({
-  className,
-}: {
-  className?: string
-}) {
-  const { status } = useSession()
-  const { t } = useT()
-  if (status !== 'authenticated') return null
-  const label = t('userMenu.editorial')
-  return (
-    <Link
-      href="/editorial"
-      aria-label={label}
-      title={label}
-      className={cn(
-        'hidden sm:inline-flex h-10 items-center gap-2 rounded-full px-4',
-        'bg-white text-primary border border-primary/20 shadow-sm',
-        'hover:bg-primary/5 hover:border-primary/40',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-        'transition-all',
-        className,
-      )}
-    >
-      <LayoutDashboard className="w-4 h-4" />
-      <span className="text-xs font-bold uppercase tracking-wider">
-        {label}
-      </span>
-    </Link>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-72">
+        <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          {t('userMenu.importGroup', { fallback: 'Importer' })}
+        </DropdownMenuLabel>
+        <DropdownMenuItem asChild>
+          <Link
+            href="/editorial/import?type=legal_text"
+            className="cursor-pointer"
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            {t('userMenu.importLegalText', {
+              fallback: 'Texte légal (loi, décret, arrêté)',
+            })}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            href="/editorial/import?type=moniteur"
+            className="cursor-pointer"
+          >
+            <Newspaper className="mr-2 h-4 w-4" />
+            {t('userMenu.importMoniteur', {
+              fallback: 'Numéro du Moniteur',
+            })}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            href="/editorial/import?type=json"
+            className="cursor-pointer"
+          >
+            <Braces className="mr-2 h-4 w-4" />
+            {t('userMenu.importJson', {
+              fallback: 'JSON (dev)',
+            })}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/editorial" className="cursor-pointer">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            {t('userMenu.editorial')}
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
