@@ -495,31 +495,45 @@ export default function LawDetail() {
                       {t('lawDetail.meta.year')}
                     </p>
                     <p className="text-white font-bold">
-                      <EditableHeroField
-                        value={law.publication_date?.slice(0, 4) ?? ''}
-                        isEditor={isEditor}
-                        kind="year"
-                        emptyPlaceholder="—"
-                        editAriaLabel={
-                          currentLang === 'fr'
-                            ? "Modifier l'année"
-                            : 'Modifye ane a'
-                        }
-                        inputClassName="w-20 text-center font-bold"
-                        onSave={async (next) => {
-                          // 4-digit year → store as YYYY-01-01 on the
-                          // publication_date column. Editing this field is
-                          // a year-only intent; finer-grained dates live
-                          // in the MetadataEditor sheet.
-                          const value = next ? `${next}-01-01` : null
-                          await updateLegalTextMetadata(law.slug, {
-                            publication_date: value,
-                          } as any)
-                          refetch()
-                        }}
-                      >
-                        {law.publication_date?.slice(0, 4) ?? '—'}
-                      </EditableHeroField>
+                      {(() => {
+                        // Year display falls back to the linked Moniteur
+                        // issue's publication date when the text's own
+                        // ``publication_date`` is null — typical for
+                        // historical imports (e.g. the 1987 Constitution,
+                        // which carries no per-text date but is attached
+                        // to its Moniteur issue from 28 April 1987).
+                        const ownYear = law.publication_date?.slice(0, 4)
+                        const fallbackYear =
+                          law.moniteur_issue_publication_date?.slice(0, 4)
+                        const shownYear = ownYear || fallbackYear || ''
+                        return (
+                          <EditableHeroField
+                            value={ownYear ?? ''}
+                            isEditor={isEditor}
+                            kind="year"
+                            emptyPlaceholder="—"
+                            editAriaLabel={
+                              currentLang === 'fr'
+                                ? "Modifier l'année"
+                                : 'Modifye ane a'
+                            }
+                            inputClassName="w-20 text-center font-bold"
+                            onSave={async (next) => {
+                              // 4-digit year → store as YYYY-01-01 on the
+                              // publication_date column. Editing this field is
+                              // a year-only intent; finer-grained dates live
+                              // in the MetadataEditor sheet.
+                              const value = next ? `${next}-01-01` : null
+                              await updateLegalTextMetadata(law.slug, {
+                                publication_date: value,
+                              } as any)
+                              refetch()
+                            }}
+                          >
+                            {shownYear || '—'}
+                          </EditableHeroField>
+                        )
+                      })()}
                     </p>
                   </div>
                 </div>

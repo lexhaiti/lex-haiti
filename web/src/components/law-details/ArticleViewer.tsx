@@ -97,33 +97,27 @@ const STATUS_PILL: Record<
   {
     label: { fr: string; ht: string }
     cls: string
-    rail: string
   }
 > = {
   in_force: {
     label: { fr: 'En vigueur', ht: 'An vigè' },
     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    rail: 'from-emerald-400 to-emerald-600',
   },
   abrogated: {
     label: { fr: 'Abrogé', ht: 'Abwoje' },
     cls: 'bg-red-50 text-red-700 border-red-200',
-    rail: 'from-red-400 to-red-600',
   },
   suspended: {
     label: { fr: 'Suspendu', ht: 'Sispann' },
     cls: 'bg-amber-50 text-amber-800 border-amber-200',
-    rail: 'from-amber-400 to-amber-600',
   },
   transferred: {
     label: { fr: 'Transféré', ht: 'Transfere' },
     cls: 'bg-blue-50 text-blue-700 border-blue-200',
-    rail: 'from-blue-400 to-blue-600',
   },
   obsolete: {
     label: { fr: 'Obsolète', ht: 'Demode' },
     cls: 'bg-slate-100 text-slate-600 border-slate-200',
-    rail: 'from-slate-400 to-slate-500',
   },
 }
 
@@ -786,19 +780,16 @@ export default function ArticleViewer({
 
       </div>
 
-      {/* Article body — semantic accent rail */}
+      {/* Article body — status is already conveyed by the pill above
+          (En vigueur / Abrogé / Suspendu / …); a coloured left rail
+          duplicated that signal and added visual noise. Editing-state
+          framing comes back via the textarea's amber border while
+          the editor is typing. */}
       <div className="py-6 sm:py-8">
         <article className="max-w-none">
           <div className="relative">
-            <div
-              className={`absolute -left-3 sm:-left-4 top-0 bottom-0 w-1 bg-gradient-to-b ${
-                isCurrentEdit
-                  ? 'from-amber-400 to-amber-600'
-                  : statusMeta.rail
-              } rounded-full`}
-            />
             {isCurrentEdit ? (
-              <div className="ml-5 sm:ml-6">
+              <div>
                 {isBilingualEdit ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -916,7 +907,7 @@ export default function ArticleViewer({
                 </div>
               </div>
             ) : (
-              <div className="ml-5 sm:ml-6 max-w-none text-gray-800 text-base lg:text-lg leading-relaxed legal-article">
+              <div className="max-w-none text-gray-800 text-base lg:text-lg leading-relaxed legal-article">
                 {renderArticleBody(content || '', currentLang)}
               </div>
             )}

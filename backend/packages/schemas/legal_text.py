@@ -106,6 +106,23 @@ class LegalTextListItem(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):  # type: ignore[override]
+        """Fall back ``publication_date`` to the linked Moniteur issue's
+        publication date when the text's own date is null. Historical
+        texts (e.g. the 1987 Constitution) carry no per-text date but
+        are attached to a Moniteur issue dated when they appeared in
+        the Journal Officiel — that date is the right thing to show on
+        listings and on the card subtitle ("28 avril 1987"). The
+        repo's ``list_texts`` eagerly loads ``moniteur_issue`` so this
+        access is N+0."""
+        result = super().model_validate(obj, *args, **kwargs)
+        if result.publication_date is None:
+            issue = getattr(obj, "moniteur_issue", None)
+            if issue is not None:
+                result.publication_date = getattr(issue, "publication_date", None)
+        return result
+
 
 class LegalTextRead(LegalTextBase):
     """Full shape with timestamps. Children loaded on demand via includes."""

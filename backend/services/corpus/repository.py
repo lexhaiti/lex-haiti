@@ -328,6 +328,11 @@ class CorpusRepository:
 
         stmt = stmt.order_by(*order_clauses).offset(offset).limit(limit)
 
+        # Eager-load the linked Moniteur issue so the schema-side
+        # publication_date fallback can read ``moniteur_issue.publication_date``
+        # without firing an extra query per row.
+        stmt = stmt.options(selectinload(LegalText.moniteur_issue))
+
         rows = list(self.session.execute(stmt).scalars().all())
         return rows, total
 
@@ -456,6 +461,10 @@ class CorpusRepository:
             ]
 
         stmt = stmt.order_by(*order_clauses).offset(offset).limit(limit)
+
+        # Same Moniteur-issue eager-load as list_texts so the schema-side
+        # publication_date fallback doesn't fire per-row queries.
+        stmt = stmt.options(selectinload(LegalText.moniteur_issue))
 
         rows = list(self.session.execute(stmt).scalars().all())
         return rows, total
