@@ -176,7 +176,7 @@ function SommaireCard({
 
   // Promulgations don't carry their own titles — they're accompanying
   // letters, not standalone documents. Render with the dedicated
-  // PromulgationRow (no card chrome, no "Sans titre" placeholder, just
+  // CompanionRow (no card chrome, no "Sans titre" placeholder, just
   // a label + page range + inline expand). Used at both top-level and
   // nested-under-parent positions; the row is intentionally identical
   // in both contexts so the eye doesn't have to learn two layouts.
@@ -188,7 +188,7 @@ function SommaireCard({
         transition={{ delay: index * 0.04 }}
         className="rounded-lg border border-slate-200/60 bg-slate-50/40 px-3 py-1"
       >
-        <PromulgationRow candidate={candidate} />
+        <CompanionRow candidate={candidate} />
       </motion.div>
     )
   }
@@ -337,7 +337,7 @@ function SommaireCard({
       {childCandidates.length > 0 && (
         <div className="px-5 sm:px-6 pb-5 border-t border-slate-100 pt-3">
           {childCandidates.map((child) => (
-            <PromulgationRow key={child.id} candidate={child} />
+            <CompanionRow key={child.id} candidate={child} />
           ))}
         </div>
       )}
@@ -347,15 +347,27 @@ function SommaireCard({
 
 
 /**
- * Flat row renderer for a promulgation candidate, rendered as a child of
- * its parent SommaireCard. Promulgations never carry titles of their own
- * (they're letters/notes accompanying the promoted law), so we don't
- * show a "Sans titre" placeholder — just the label, the page range, and
- * an optional inline expansion of the raw text on click.
+ * Flat row renderer for a companion candidate (promulgation,
+ * communiqué, correspondance, errata, …), rendered as a child of its
+ * parent SommaireCard. Companion documents rarely carry titles of
+ * their own (they're letters/notes accompanying the promoted law),
+ * so we don't show a "Sans titre" placeholder — just the type label,
+ * the page range, and an optional inline expansion of the raw text
+ * on click. The label reflects the row's own ``detected_category``
+ * (not the hardcoded "Promulgation" the previous shape used), so
+ * a communiqué attached to an arrêté reads as "Communiqué", not as
+ * a promulgation.
  */
-function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
+function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
   const [expanded, setExpanded] = useState(false)
   const hasRawText = !!candidate.raw_text
+  const meta = candidate.detected_category
+    ? CATEGORY_META[candidate.detected_category]
+    : null
+  // Fallback to the raw category code if our label table doesn't carry
+  // it — better than a blank chip. ``autre`` and any future enum value
+  // get the slate styling below.
+  const label = meta?.label ?? candidate.detected_category ?? 'Document'
 
   return (
     <div className="-mx-1">
@@ -379,8 +391,13 @@ function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
               )}
             />
           )}
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Promulgation
+          <span
+            className={cn(
+              'text-[10px] font-bold uppercase tracking-widest',
+              meta?.icon ?? 'text-slate-400',
+            )}
+          >
+            {label}
           </span>
           {candidate.detected_number && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px]">
@@ -486,6 +503,28 @@ export default function MoniteurDetailClient() {
         }
       }
     }
+
+    // Print order: ``page_from`` first (entries follow the printed
+    // Moniteur), then ``position`` (stable tie-break inside the same
+    // page), then ``id`` (deterministic when both are equal). Entries
+    // with no ``page_from`` trail. Same key used by the PDF export
+    // so the on-screen and exported sommaire match.
+    const PAGE_TRAILER = Number.MAX_SAFE_INTEGER
+    const orderKey = (e: MoniteurEntryRead) => [
+      e.page_from ?? PAGE_TRAILER,
+      e.position,
+      e.id,
+    ] as const
+    const byOrder = (a: MoniteurEntryRead, b: MoniteurEntryRead) => {
+      const ka = orderKey(a)
+      const kb = orderKey(b)
+      for (let i = 0; i < ka.length; i++) {
+        if (ka[i] !== kb[i]) return ka[i] - kb[i]
+      }
+      return 0
+    }
+    top.sort(byOrder)
+    for (const list of childrenMap.values()) list.sort(byOrder)
 
     return {
       topLevel: top,

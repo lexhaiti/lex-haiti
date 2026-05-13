@@ -83,12 +83,26 @@ def _entry_label(entry: MoniteurEntry) -> str:
 
 
 def _ordered_entries(issue: MoniteurIssue) -> list[MoniteurEntry]:
-    """Top-level entries in print order. Promulgation children stay
-    nested under their parent and are rendered inline in the body, so
-    the sommaire only lists top-level documents."""
+    """Top-level entries in print order. Companion children
+    (promulgation, communiqué, errata, …) stay nested under their
+    parent and are rendered inline in the body, so the sommaire only
+    lists top-level documents.
+
+    Sort key is ``(page_from, position, id)``: entries with a known
+    page range appear in printed-Moniteur order, which is the order
+    a reader expects in the export. Entries without a ``page_from``
+    fall to the back (sorted by their saved ``position``) — that
+    handles the rare case where the editor created a row before the
+    sommaire's page range was known."""
+    # ``page_from`` is nullable; coerce ``None`` to a sentinel that
+    # sorts AFTER any real page number so unpaged rows trail.
     return sorted(
         (e for e in issue.entries if not e.parent_entry_id),
-        key=lambda e: (e.position, e.id),
+        key=lambda e: (
+            e.page_from if e.page_from is not None else 10**9,
+            e.position,
+            e.id,
+        ),
     )
 
 
