@@ -1211,6 +1211,70 @@ class TocNode(Base):
     )
 
 
+class LegalTextBlockVersion(Base):
+    """Versioned content of a formal block (preamble / visas /
+    considérants / enacting formula) on a legal text.
+
+    Parallels ``ArticleVersion`` for the four flat columns that today
+    live on ``LegalText``. The text's columns stay in place as the
+    denormalised "current" content (so the public read path stays
+    unchanged); each amendment writes a new row here AND updates the
+    column, in one transaction.
+
+    ``block_kind`` is restricted (by convention; the enum allows more
+    values for the TocNode usage) to: preamble, visa, considerant,
+    enacting_formula.
+    """
+
+    __tablename__ = "legal_text_block_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "legal_text_id",
+            "block_kind",
+            "version_number",
+            name="uq_block_versions_text_kind_n",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    legal_text_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+    )
+    block_kind: Mapped[BlockKind] = mapped_column(
+        _enum(BlockKind, "block_kind"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )
+    text_fr: Mapped[Optional[str]] = mapped_column(Text)
+    text_ht: Mapped[Optional[str]] = mapped_column(Text)
+    effective_from: Mapped[Optional[date]] = mapped_column(Date)
+    effective_to: Mapped[Optional[date]] = mapped_column(Date)
+    source_amendment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL"
+        )
+    )
+    editorial_status: Mapped[EditorialStatus] = mapped_column(
+        _enum(EditorialStatus, "editorial_status"),
+        nullable=False,
+        default=EditorialStatus.draft,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class LegalChange(Base):
     """Explicit graph row: this amending act changed something in this
     amended act.
@@ -1220,6 +1284,13 @@ class LegalChange(Base):
     - all laws amended by X
     - all amending acts that touched article Y
     - article history timeline
+
+    Three target shapes share this table — the populated FK indicates
+    which one:
+    - ``amended_article_id`` + ``new_version_id`` for article edits
+    - ``amended_block_kind`` + ``new_block_version_id`` for formal-block
+      edits (preamble / visas / considérants / enacting formula)
+    - neither set for whole-text events (e.g. "abrogé en bloc")
     """
 
     __tablename__ = "legal_changes"
@@ -1248,6 +1319,15 @@ class LegalChange(Base):
     new_version_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey(
             f"{PUBLIC_CORPUS_SCHEMA}.article_versions.id", ondelete="SET NULL"
+        ),
+    )
+    amended_block_kind: Mapped[Optional[BlockKind]] = mapped_column(
+        _enum(BlockKind, "block_kind")
+    )
+    new_block_version_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_text_block_versions.id",
+            ondelete="SET NULL",
         ),
     )
     change_kind: Mapped[ChangeKind] = mapped_column(

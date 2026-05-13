@@ -24,7 +24,7 @@ from packages.schemas.legal_text import LegalTextCreate, LegalTextRead
 from packages.schemas.signer import LegalSignerCreate
 from services.auth.models import User
 from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
-from packages.schemas.enums import ChangeKind
+from packages.schemas.enums import BlockKind, ChangeKind
 from services.corpus.models import (
     Article,
     ArticleVersion,
@@ -33,6 +33,7 @@ from services.corpus.models import (
     LegalHeading,
     LegalSigner,
     LegalText,
+    LegalTextBlockVersion,
 )
 from services.corpus.repository import CorpusRepository
 from services.corpus.service import CorpusService, article_to_embed
@@ -939,6 +940,177 @@ class EditorialService:
         refreshed = self.repo.get_article(article.id)
         assert refreshed is not None
         return refreshed
+
+    # -------------------------------------------------------------------
+    # Formal-block versions (preamble / visas / considérants / enacting)
+    # -------------------------------------------------------------------
+
+    # BlockKind → (fr_column, ht_column) on LegalText. Only the four
+    # versionable formal blocks are mapped; structural / signature /
+    # promulgation kinds aren't text blocks and have no flat columns.
+    _BLOCK_COLUMNS: dict[BlockKind, tuple[str, str]] = {
+        BlockKind.preamble: ("preamble_fr", "preamble_ht"),
+        BlockKind.visa: ("visas_fr", "visas_ht"),
+        BlockKind.considerant: ("considerants_fr", "considerants_ht"),
+        BlockKind.enacting_formula: ("enacting_formula_fr", "enacting_formula_ht"),
+    }
+
+    def list_block_versions(
+        self, slug: str, block_kind: BlockKind
+    ) -> List[LegalTextBlockVersion]:
+        """All versions of a formal block on a text — newest first.
+
+        Used by the editor "Versions" accordion on each formal block.
+        Editorial filter is intentionally absent: editors see every
+        version regardless of editorial_status; public-side block
+        history is not surfaced today.
+        """
+        if block_kind not in self._BLOCK_COLUMNS:
+            raise InvalidInput(
+                f"block_kind {block_kind.value!r} is not a versionable block"
+            )
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+        rows = (
+            self.session.query(LegalTextBlockVersion)
+            .filter(
+                LegalTextBlockVersion.legal_text_id == text.id,
+                LegalTextBlockVersion.block_kind == block_kind,
+            )
+            .order_by(LegalTextBlockVersion.version_number.desc())
+            .all()
+        )
+        return rows
+
+    def add_block_version(
+        self,
+        slug: str,
+        block_kind: BlockKind,
+        *,
+        actor: User,
+        payload: dict[str, Any],
+    ) -> LegalTextBlockVersion:
+        """Add a new version of a formal block, anchored to an
+        amending legal text.
+
+        Mirrors ``add_article_version`` for blocks: writes a new
+        ``LegalTextBlockVersion`` row, denormalises the new content
+        onto the corresponding ``legal_texts`` column (the public
+        read path stays unchanged), caps the previous version's
+        ``effective_to`` so the timeline is gap-free, and writes a
+        ``LegalChange`` row (``change_kind=amend``,
+        ``amended_block_kind=<kind>``, ``new_block_version_id=<id>``)
+        so the amending law's "Modifications apportées" panel picks
+        up the block edit.
+        """
+        if block_kind not in self._BLOCK_COLUMNS:
+            raise InvalidInput(
+                f"block_kind {block_kind.value!r} is not a versionable block"
+            )
+
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        # At least one language must carry the new content. Blocks are
+        # bilingual; allowing both-empty would replace the block with
+        # nothing, which is what abrogation means — that path goes
+        # through change_kind=abrogate, not amend.
+        text_fr = (payload.get("text_fr") or "").strip() or None
+        text_ht = (payload.get("text_ht") or "").strip() or None
+        if not text_fr and not text_ht:
+            raise InvalidInput(
+                "at least one of text_fr / text_ht must be non-empty"
+            )
+
+        source_id = payload.get("source_legal_text_id")
+        if source_id is None:
+            raise InvalidInput("source_legal_text_id is required")
+        amending = (
+            self.session.query(LegalText)
+            .filter(LegalText.id == source_id)
+            .one_or_none()
+        )
+        if amending is None:
+            raise NotFound(f"Amending legal text not found: {source_id}")
+        if amending.id == text.id:
+            raise InvalidInput(
+                "Amending text must be different from the amended text"
+            )
+
+        # Find the current latest version (any editorial status) to
+        # compute the next version_number and cap effective_to.
+        latest = (
+            self.session.query(LegalTextBlockVersion)
+            .filter(
+                LegalTextBlockVersion.legal_text_id == text.id,
+                LegalTextBlockVersion.block_kind == block_kind,
+            )
+            .order_by(LegalTextBlockVersion.version_number.desc())
+            .first()
+        )
+        next_version_number = (latest.version_number + 1) if latest else 1
+
+        effective_from = payload.get("effective_from")
+        if effective_from is None:
+            effective_from = (
+                amending.promulgation_date or amending.publication_date
+            )
+
+        # Cap previous version's effective_to so the timeline is gap-free.
+        if latest and effective_from and latest.effective_to is None:
+            latest.effective_to = effective_from
+
+        new_version = LegalTextBlockVersion(
+            legal_text_id=text.id,
+            block_kind=block_kind,
+            version_number=next_version_number,
+            text_fr=text_fr,
+            text_ht=text_ht,
+            effective_from=effective_from,
+            source_amendment_id=amending.id,
+            editorial_status=EditorialStatus.draft,
+        )
+        self.session.add(new_version)
+        self.session.flush()
+
+        # Denormalise onto the LegalText columns so the public read
+        # path (which still reads the columns directly) reflects the
+        # new content. Writing both at once keeps the column and the
+        # versioned row in lockstep.
+        col_fr, col_ht = self._BLOCK_COLUMNS[block_kind]
+        setattr(text, col_fr, text_fr)
+        setattr(text, col_ht, text_ht)
+
+        change = LegalChange(
+            amending_text_id=amending.id,
+            amended_text_id=text.id,
+            amended_block_kind=block_kind,
+            new_block_version_id=new_version.id,
+            change_kind=ChangeKind.amend,
+            effective_on=effective_from,
+        )
+        self.session.add(change)
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="amend_block",
+            target_type="block_version",
+            target_id=new_version.id,
+            diff={
+                "block_kind": {"before": None, "after": block_kind.value},
+                "version_number": {
+                    "before": latest.version_number if latest else None,
+                    "after": new_version.version_number,
+                },
+                "source_legal_text_id": {"before": None, "after": amending.id},
+            },
+            comment=payload.get("comment"),
+        )
+        self.session.flush()
+        return new_version
 
     # -------------------------------------------------------------------
     # Listing — editor sees everything, including drafts

@@ -435,12 +435,46 @@ class CorpusService:
         articles = self.repo.list_amended_articles(text.id)
         return [ArticleWithHistoryRead.model_validate(a) for a in articles]
 
+    def list_block_versions(self, slug: str, block_kind):
+        """Version history of a formal block on a legal text — newest
+        first. Public read path for the "Versions" accordion shown on
+        each formal block in the law-detail view.
+        """
+        from packages.schemas.enums import BlockKind  # noqa: PLC0415
+        from services.corpus.models import LegalTextBlockVersion  # noqa: PLC0415
+
+        valid = {
+            BlockKind.preamble,
+            BlockKind.visa,
+            BlockKind.considerant,
+            BlockKind.enacting_formula,
+        }
+        if block_kind not in valid:
+            raise NotFound(
+                f"block_kind {block_kind.value!r} is not a versionable block"
+            )
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if not text:
+            raise NotFound(f"LegalText not found: {slug}")
+        rows = (
+            self.session.query(LegalTextBlockVersion)
+            .filter(
+                LegalTextBlockVersion.legal_text_id == text.id,
+                LegalTextBlockVersion.block_kind == block_kind,
+            )
+            .order_by(LegalTextBlockVersion.version_number.desc())
+            .all()
+        )
+        return rows
+
     def list_changes_made_by_slug(self, slug: str):
-        """All edits this legal text made to articles in other texts.
+        """All edits this legal text made to articles + formal blocks
+        in other texts.
 
         Powers the "Modifications apportées" panel on an amending law's
-        detail page. Each row is denormalised with the amended text +
-        article so the panel can render the link without N+1.
+        detail page. Each row is denormalised with the amended text and
+        whichever target it touched (article or formal block) so the
+        panel can render the link + label without an N+1 fetch.
         """
         from packages.schemas.article import LegalChangeMadeRead  # noqa: PLC0415
 
@@ -450,7 +484,13 @@ class CorpusService:
 
         rows = self.repo.list_changes_made_by(text.id)
         out: list[LegalChangeMadeRead] = []
-        for change, amended_text, amended_article, new_version in rows:
+        for (
+            change,
+            amended_text,
+            amended_article,
+            new_version,
+            new_block_version,
+        ) in rows:
             out.append(
                 LegalChangeMadeRead(
                     id=change.id,
@@ -471,6 +511,19 @@ class CorpusService:
                     ),
                     amended_article_slug=(
                         amended_article.slug if amended_article else None
+                    ),
+                    amended_block_kind=(
+                        change.amended_block_kind.value
+                        if change.amended_block_kind
+                        else None
+                    ),
+                    new_block_version_id=(
+                        new_block_version.id if new_block_version else None
+                    ),
+                    new_block_version_number=(
+                        new_block_version.version_number
+                        if new_block_version
+                        else None
                     ),
                     created_at=change.created_at,
                 )

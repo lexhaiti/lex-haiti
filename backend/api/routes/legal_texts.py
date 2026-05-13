@@ -11,6 +11,8 @@ from packages.schemas.article import (
     ArticleWithHistoryRead,
     LegalChangeMadeRead,
 )
+from packages.schemas.block_version import BlockVersionRead
+from packages.schemas.enums import BlockKind
 from packages.schemas.common import PaginatedResponse
 from packages.schemas.enums import (
     CodeSubcategory,
@@ -242,6 +244,27 @@ def get_amendments(slug: str, service: CorpusServiceDep):
     frontend renders the timeline; the API doesn't pre-compute diffs.
     """
     return service.list_amendments_by_text_slug(slug)
+
+
+@router.get(
+    "/{slug}/blocks/{block_kind}/versions",
+    response_model=List[BlockVersionRead],
+)
+def list_block_versions(
+    slug: str,
+    block_kind: BlockKind,
+    service: CorpusServiceDep,
+):
+    """Version history for a formal block on a legal text.
+
+    Powers the "Versions" accordion under each EditableFormalBlock
+    (preamble, visas, considérants, enacting formula). Returns rows
+    newest-first; v1 is the original content captured at backfill
+    time (with ``effective_from`` set to the text's promulgation /
+    publication date when available).
+    """
+    rows = service.list_block_versions(slug, block_kind)
+    return [BlockVersionRead.model_validate(r) for r in rows]
 
 
 @router.get(

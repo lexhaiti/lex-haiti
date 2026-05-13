@@ -143,13 +143,20 @@ class ArticleResolved(BaseModel):
 
 
 class LegalChangeMadeRead(BaseModel):
-    """One edit a law made to an article in another text.
+    """One edit a law made to an article *or* a formal block in
+    another text.
 
     Used by the "Modifications apportées" panel on an amending law's
     detail page. Each row is a denormalised view of a ``LegalChange``
-    row, joined with the amended legal text + article so the panel can
-    render the link + label without an N+1 fetch:
-    "→ Code Civil, Article 1444 — v3 (28 avril 2024)".
+    row, joined with the amended legal text + the touched target so
+    the panel can render the link + label without an N+1 fetch:
+    "→ Code Civil, Article 1444 — v3 (28 avril 2024)" or
+    "→ Constitution, Préambule — v2 (15 mai 2026)".
+
+    Exactly one of the two target groups is populated per row:
+    - ``amended_article_*`` for an article edit
+    - ``amended_block_kind`` + ``new_block_version_*`` for a formal-
+      block edit
     """
 
     id: int
@@ -163,6 +170,9 @@ class LegalChangeMadeRead(BaseModel):
     amended_article_id: Optional[int] = None
     amended_article_number: Optional[str] = None
     amended_article_slug: Optional[str] = None
+    amended_block_kind: Optional[str] = None
+    new_block_version_id: Optional[int] = None
+    new_block_version_number: Optional[int] = None
     created_at: datetime
 
 

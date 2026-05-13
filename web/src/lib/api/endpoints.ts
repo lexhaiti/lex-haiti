@@ -303,9 +303,72 @@ export async function insertArticle(
   )
 }
 
-/** One change this legal text made to an article in another text.
- *  Powers the "Modifications apportées" panel on an amending law's
- *  detail page. */
+// -----------------------------------------------------------------------
+// Formal-block versions (preamble / visas / considérants / enacting)
+// -----------------------------------------------------------------------
+
+/** Versionable formal-block kinds — subset of the backend BlockKind
+ *  enum. The other BlockKind values (``structural``, ``signature_block``,
+ *  …) belong to the TocNode usage and don't have a versions table. */
+export type FormalBlockKind =
+  | 'preamble'
+  | 'visa'
+  | 'considerant'
+  | 'enacting_formula'
+
+/** One row of a formal block's version timeline. Mirrors the backend
+ *  ``BlockVersionRead`` shape. */
+export type BlockVersionRead = {
+  id: number
+  legal_text_id: number
+  block_kind: FormalBlockKind
+  version_number: number
+  text_fr: string | null
+  text_ht: string | null
+  effective_from: string | null
+  effective_to: string | null
+  source_amendment_id: number | null
+  editorial_status: 'draft' | 'pending_review' | 'published' | 'rejected'
+  created_at: string
+  updated_at: string
+}
+
+/** Version history for a formal block — newest first. */
+export async function listBlockVersions(slug: string, kind: FormalBlockKind) {
+  return apiGet<BlockVersionRead[]>(
+    `/legal-texts/${encodeURIComponent(slug)}/blocks/${kind}/versions`,
+  )
+}
+
+/** Editor input for adding a new version of a formal block, anchored
+ *  to an amending legal text. */
+export type BlockVersionAddInput = {
+  text_fr?: string | null
+  text_ht?: string | null
+  effective_from?: string | null
+  source_legal_text_id: number
+  comment?: string | null
+}
+
+/** Add a new version of a formal block. Creates a LegalChange row
+ *  with ``amended_block_kind=<kind>`` so the amending law's
+ *  Modifications panel picks it up. */
+export async function addBlockVersion(
+  slug: string,
+  kind: FormalBlockKind,
+  body: BlockVersionAddInput,
+) {
+  return apiPost<BlockVersionRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/blocks/${kind}/versions`,
+    body,
+  )
+}
+
+/** One change this legal text made to an article *or* a formal
+ *  block in another text. Powers the "Modifications apportées" panel
+ *  on an amending law's detail page. Exactly one target group is
+ *  populated per row — article (``amended_article_*``) or block
+ *  (``amended_block_kind`` + ``new_block_version_*``). */
 export type LegalChangeMadeRead = {
   id: number
   change_kind: string
@@ -318,6 +381,9 @@ export type LegalChangeMadeRead = {
   amended_article_id: number | null
   amended_article_number: string | null
   amended_article_slug: string | null
+  amended_block_kind: string | null
+  new_block_version_id: number | null
+  new_block_version_number: number | null
   created_at: string
 }
 

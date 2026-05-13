@@ -22,6 +22,16 @@ import { cn } from '@/lib/utils'
  * that specific edit.
  */
 
+// Block-kind → display label. The backend's BlockKind enum has more
+// values (structural, signature_block…) but only the four versionable
+// formal blocks land in LegalChange.amended_block_kind.
+const BLOCK_LABEL: Record<string, { fr: string; ht: string }> = {
+  preamble: { fr: 'Préambule', ht: 'Preanmbil' },
+  visa: { fr: 'Visas', ht: 'Visa' },
+  considerant: { fr: 'Considérants', ht: 'Konsideran' },
+  enacting_formula: { fr: "Formule d'adoption", ht: 'Fòmil adopsyon' },
+}
+
 const CHANGE_KIND_LABEL: Record<
   string,
   { fr: string; ht: string; cls: string }
@@ -159,14 +169,32 @@ export function ChangesMadePanel({ lawSlug, lang }: Props) {
               ht: r.change_kind,
               cls: 'bg-slate-100 text-slate-600 border-slate-200',
             }
-            const articleNum = r.amended_article_number ?? '—'
-            const href = r.amended_article_slug
-              ? `/loi/${r.amended_text_slug}#${r.amended_article_slug}`
-              : `/loi/${r.amended_text_slug}`
+            // A change row targets either an article OR a formal block
+            // — the populated FK selects which. ``target`` flattens
+            // the two shapes into one rendering branch.
+            const target = r.amended_block_kind
+              ? {
+                  // Block edit — label like "Préambule" / "Visas".
+                  label:
+                    BLOCK_LABEL[r.amended_block_kind]?.[lang] ??
+                    r.amended_block_kind,
+                  versionNumber: r.new_block_version_number,
+                  href: `/loi/${r.amended_text_slug}`,
+                }
+              : {
+                  // Article edit — label like "Article 1444".
+                  label:
+                    (lang === 'fr' ? 'Article ' : 'Atik ') +
+                    (r.amended_article_number ?? '—'),
+                  versionNumber: r.new_version_number,
+                  href: r.amended_article_slug
+                    ? `/loi/${r.amended_text_slug}#${r.amended_article_slug}`
+                    : `/loi/${r.amended_text_slug}`,
+                }
             return (
               <li key={r.id}>
                 <Link
-                  href={href}
+                  href={target.href}
                   className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group"
                 >
                   <div className="min-w-0 flex-1">
@@ -184,15 +212,12 @@ export function ChangesMadePanel({ lawSlug, lang }: Props) {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">
-                      {lang === 'fr' ? 'Article' : 'Atik'}{' '}
-                      <span className="font-mono tabular-nums text-slate-700">
-                        {articleNum}
-                      </span>
-                      {r.new_version_number != null && (
+                      <span className="text-slate-700">{target.label}</span>
+                      {target.versionNumber != null && (
                         <>
                           {' · '}
                           <span className="font-mono">
-                            v{r.new_version_number}
+                            v{target.versionNumber}
                           </span>
                         </>
                       )}

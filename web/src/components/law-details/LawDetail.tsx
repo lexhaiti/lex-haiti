@@ -1048,6 +1048,10 @@ export default function LawDetail() {
                     isEditor={isEditor}
                     title={currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
                     value={law.preamble_fr ?? null}
+                    valueHt={law.preamble_ht ?? null}
+                    lawSlug={law.slug}
+                    lawId={law.id}
+                    blockKind="preamble"
                     onSave={async (v) => {
                       await updateLegalTextMetadata(law.slug, { preamble_fr: v })
                       refetch()
@@ -1062,6 +1066,10 @@ export default function LawDetail() {
                     title="Visas"
                     hint={currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
                     value={law.visas_fr ?? null}
+                    valueHt={law.visas_ht ?? null}
+                    lawSlug={law.slug}
+                    lawId={law.id}
+                    blockKind="visa"
                     onSave={async (v) => {
                       await updateLegalTextMetadata(law.slug, { visas_fr: v })
                       refetch()
@@ -1076,6 +1084,10 @@ export default function LawDetail() {
                     title={currentLang === 'fr' ? 'Considérants' : 'Konsideran'}
                     hint={currentLang === 'fr' ? 'Considérant que...' : 'Konsidere ke...'}
                     value={law.considerants_fr ?? null}
+                    valueHt={law.considerants_ht ?? null}
+                    lawSlug={law.slug}
+                    lawId={law.id}
+                    blockKind="considerant"
                     onSave={async (v) => {
                       await updateLegalTextMetadata(law.slug, { considerants_fr: v })
                       refetch()
@@ -1089,6 +1101,10 @@ export default function LawDetail() {
                   variant="compact"
                   title={currentLang === 'fr' ? "Formule d'adoption" : "Fòmil adopsyon"}
                   value={law.enacting_formula_fr ?? null}
+                  valueHt={law.enacting_formula_ht ?? null}
+                  lawSlug={law.slug}
+                  lawId={law.id}
+                  blockKind="enacting_formula"
                   onSave={async (v) => {
                     await updateLegalTextMetadata(law.slug, { enacting_formula_fr: v })
                     refetch()

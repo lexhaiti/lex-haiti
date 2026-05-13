@@ -43,6 +43,7 @@ from services.corpus.models import (
     LegalHeading,
     LegalSigner,
     LegalText,
+    LegalTextBlockVersion,
     LegalThemeTag,
 )
 
@@ -892,25 +893,45 @@ class CorpusRepository:
 
     def list_changes_made_by(
         self, amending_text_id: int
-    ) -> List[tuple[LegalChange, LegalText, Optional[Article], Optional[ArticleVersion]]]:
+    ) -> List[
+        tuple[
+            LegalChange,
+            LegalText,
+            Optional[Article],
+            Optional[ArticleVersion],
+            Optional[LegalTextBlockVersion],
+        ]
+    ]:
         """All changes this legal text introduced into other texts.
 
-        Returns a list of (change, amended_text, amended_article,
-        new_version) tuples — denormalised for the service to flatten
-        into LegalChangeMadeRead. The join is restricted to changes
-        whose target article + version still exist (FKs are SET NULL on
-        cascade, so a stale row would have nulls we want to skip from
-        the list — the editor view should reflect live state).
+        Returns ``(change, amended_text, amended_article, new_version,
+        new_block_version)`` tuples — denormalised for the service to
+        flatten into ``LegalChangeMadeRead``. The fifth slot is the
+        block-version target for amendments that touched a formal
+        block (preamble / visas / considérants / enacting formula)
+        instead of an article. Both target families share the same
+        ``legal_changes`` table; the populated FK selects which kind
+        of edit this row records.
 
         Sorted newest first by ``LegalChange.created_at`` so the most
         recent amendments surface at the top.
         """
         stmt = (
-            select(LegalChange, LegalText, Article, ArticleVersion)
+            select(
+                LegalChange,
+                LegalText,
+                Article,
+                ArticleVersion,
+                LegalTextBlockVersion,
+            )
             .join(LegalText, LegalText.id == LegalChange.amended_text_id)
             .outerjoin(Article, Article.id == LegalChange.amended_article_id)
             .outerjoin(
                 ArticleVersion, ArticleVersion.id == LegalChange.new_version_id
+            )
+            .outerjoin(
+                LegalTextBlockVersion,
+                LegalTextBlockVersion.id == LegalChange.new_block_version_id,
             )
             .where(LegalChange.amending_text_id == amending_text_id)
             .order_by(LegalChange.created_at.desc(), LegalChange.id.desc())

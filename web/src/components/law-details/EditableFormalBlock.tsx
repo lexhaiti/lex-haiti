@@ -20,15 +20,24 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
+  Check,
   ChevronDown,
   ChevronRight,
+  Clock,
   Loader2,
   PenLine,
+  Plus,
   X,
-  Check,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { formatLongDate } from '@/lib/format/date'
+import {
+  listBlockVersions,
+  type BlockVersionRead,
+  type FormalBlockKind,
+} from '@/lib/api/endpoints'
+import { AddBlockVersionDialog } from './_panels/AddBlockVersionDialog'
 
 export interface EditableFormalBlockProps {
   /** What the block currently shows. Either string or null. */
@@ -49,6 +58,21 @@ export interface EditableFormalBlockProps {
   onSave: (newValue: string | null) => Promise<void>
   /** Bilingual i18n hook — pass `currentLang === 'fr'` from the parent. */
   isFr: boolean
+  // --- Versioning (Option A) — all four below must be provided for
+  // the "Versions" accordion + "Ajouter une version" affordance to
+  // render. When any is missing the block stays version-less, same
+  // shape as before this opt-in was added. ---
+  /** Parent legal-text slug — used as the API path component. */
+  lawSlug?: string
+  /** Parent legal-text id — used to exclude self-amendments from the
+   *  source-law picker in the add-version dialog. */
+  lawId?: number
+  /** Which formal block this is. */
+  blockKind?: FormalBlockKind
+  /** Current HT content of the block. Mirrors ``value`` for the
+   *  visible-language side; the dialog needs both to pre-fill. The
+   *  ``value`` prop is whatever the page shows in the active language. */
+  valueHt?: string | null
 }
 
 export function EditableFormalBlock({
@@ -60,12 +84,41 @@ export function EditableFormalBlock({
   defaultExpanded = false,
   onSave,
   isFr,
+  lawSlug,
+  lawId,
+  blockKind,
+  valueHt,
 }: EditableFormalBlockProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string>(value ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Versioning state — only fetched when the four versioning props are
+  // present AND editor mode is on. Public viewers don't surface block
+  // history today, same UX call as the article side.
+  const versioningEnabled =
+    isEditor && !!lawSlug && lawId != null && !!blockKind
+  const [versions, setVersions] = useState<BlockVersionRead[]>([])
+  const [versionsExpanded, setVersionsExpanded] = useState(false)
+  const [addVersionOpen, setAddVersionOpen] = useState(false)
+
+  function refetchVersions() {
+    if (!versioningEnabled || !lawSlug || !blockKind) return
+    void listBlockVersions(lawSlug, blockKind)
+      .then(setVersions)
+      .catch(() => setVersions([]))
+  }
+
+  useEffect(() => {
+    if (!versioningEnabled) {
+      setVersions([])
+      return
+    }
+    refetchVersions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [versioningEnabled, lawSlug, blockKind])
 
   // Keep draft in sync when the live value updates from outside.
   useEffect(() => {
@@ -139,6 +192,59 @@ export function EditableFormalBlock({
             <span className="text-xs text-slate-400 ml-2">{hint}</span>
           )}
         </button>
+        {isEditor && expanded && !editing && versioningEnabled && (
+          // Versions chip toggles the inline timeline below the
+          // content. Always rendered in editor mode — even at v1 it's
+          // useful (shows the effective_from we'll supersede).
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setVersionsExpanded((v) => !v)
+            }}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border transition-colors',
+              versionsExpanded
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-slate-700 border-slate-200 hover:border-primary hover:text-primary',
+            )}
+            aria-pressed={versionsExpanded}
+            title={isFr ? 'Historique des versions' : 'Istwa vèsyon'}
+          >
+            <Clock className="w-3 h-3" />
+            {isFr ? 'Versions' : 'Vèsyon'}
+            {versions.length > 0 && (
+              <span
+                className={cn(
+                  'text-[10px] font-bold px-1 rounded',
+                  versionsExpanded
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 text-slate-500',
+                )}
+              >
+                {versions.length}
+              </span>
+            )}
+          </button>
+        )}
+        {isEditor && expanded && !editing && versioningEnabled && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setAddVersionOpen(true)
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
+            title={
+              isFr
+                ? 'Ajouter une nouvelle version, ancrée à une loi modifiante'
+                : 'Ajoute yon nouvo vèsyon, ankre nan yon lwa modifikatè'
+            }
+          >
+            <Plus className="w-3 h-3" />
+            {isFr ? 'Ajouter une version' : 'Ajoute yon vèsyon'}
+          </button>
+        )}
         {isEditor && expanded && !editing && (
           <button
             type="button"
@@ -193,9 +299,40 @@ export function EditableFormalBlock({
                 {value}
               </div>
             )}
+            {/* Versions timeline — editor-only, inline under the
+                block content. Same vocabulary as the article-side
+                VersionsPanel: numbered dots, effective range, the
+                latest entry marked "En vigueur". */}
+            {versioningEnabled && versionsExpanded && (
+              <BlockVersionsTimeline
+                versions={versions}
+                isFr={isFr}
+              />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Add-version modal — mounted at the block root so the Radix
+          portal positions it relative to the viewport. ``onCreated``
+          refetches the timeline so the new row shows up immediately
+          in the accordion above. */}
+      {versioningEnabled && lawSlug && lawId != null && blockKind && (
+        <AddBlockVersionDialog
+          open={addVersionOpen}
+          onOpenChange={setAddVersionOpen}
+          lawSlug={lawSlug}
+          lawId={lawId}
+          blockKind={blockKind}
+          blockLabel={title}
+          currentTextFr={value ?? null}
+          currentTextHt={valueHt ?? null}
+          lang={isFr ? 'fr' : 'ht'}
+          onCreated={() => {
+            refetchVersions()
+            setVersionsExpanded(true)
+          }}
+        />
+      )}
     </div>
   )
 
@@ -237,3 +374,99 @@ const saveBtnCls = cn(
   'inline-flex items-center gap-1.5 rounded-md bg-primary text-white',
   'px-3 py-1.5 text-xs font-semibold hover:bg-primary/90 disabled:opacity-50',
 )
+
+/**
+ * Inline version-timeline for a formal block. Smaller-scale than the
+ * article-side VersionsPanel — same vertical dot-and-line vocabulary
+ * but condensed (one line per version) so it tucks under the
+ * accordion content without dominating the page.
+ *
+ * "Current" semantics: the version with the highest version_number
+ * AND editorial_status=published is the live one; everything below
+ * is historical. Falls back to the latest row when no published
+ * version exists (typical for newly-added drafts that haven't been
+ * approved yet).
+ */
+function BlockVersionsTimeline({
+  versions,
+  isFr,
+}: {
+  versions: BlockVersionRead[]
+  isFr: boolean
+}) {
+  if (versions.length === 0) {
+    return (
+      <p className="mt-3 px-5 py-3 text-xs text-slate-500 italic">
+        {isFr
+          ? "Aucune version enregistrée pour ce bloc."
+          : 'Pa gen vèsyon anrejistre pou blòk sa a.'}
+      </p>
+    )
+  }
+  // Find the current version — latest published, else just the most
+  // recent row (versions are passed newest-first from the API).
+  const currentIdx = versions.findIndex(
+    (v) => v.editorial_status === 'published',
+  )
+  const liveId = (currentIdx >= 0 ? versions[currentIdx] : versions[0]).id
+
+  return (
+    <ol className="relative pl-7 mt-3 px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg">
+      <div className="absolute left-6 top-5 bottom-5 w-px bg-slate-200" />
+      {versions.map((v, idx) => {
+        const isCurrent = v.id === liveId
+        const isLast = idx === versions.length - 1
+        const fromIso = v.effective_from
+        const toIso = v.effective_to
+        const from = fromIso ? formatLongDate(fromIso, isFr ? 'fr' : 'ht', '—') : '—'
+        const to = toIso ? formatLongDate(toIso, isFr ? 'fr' : 'ht', '—') : null
+        return (
+          <li key={v.id} className={isLast ? '' : 'pb-3'}>
+            <span
+              className={cn(
+                'absolute -left-[0.4rem] w-3 h-3 rounded-full border-[2.5px] flex items-center justify-center bg-white',
+                isCurrent ? 'border-emerald-500' : 'border-slate-300',
+              )}
+            >
+              <span
+                className={cn(
+                  'w-1 h-1 rounded-full',
+                  isCurrent ? 'bg-emerald-500' : 'bg-slate-300',
+                )}
+              />
+            </span>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-widest',
+                  isCurrent ? 'text-emerald-700' : 'text-slate-400',
+                )}
+              >
+                v{v.version_number}
+              </span>
+              <span className="text-xs font-semibold text-slate-700">
+                {to
+                  ? isFr
+                    ? `Du ${from} au ${to}`
+                    : `${from} – ${to}`
+                  : isFr
+                    ? `Depuis le ${from}`
+                    : `Depi ${from}`}
+              </span>
+              {isCurrent && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                  {isFr ? 'En vigueur' : 'An vigè'}
+                </span>
+              )}
+              {v.editorial_status === 'draft' && !isCurrent && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                  {isFr ? 'Brouillon' : 'Brouyon'}
+                </span>
+              )}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}

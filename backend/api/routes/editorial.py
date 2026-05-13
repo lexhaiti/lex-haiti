@@ -26,8 +26,13 @@ from packages.schemas.article import (
     ArticleVersionAddInput,
     ArticleVersionRead,
 )
+from packages.schemas.block_version import (
+    BlockVersionAddInput,
+    BlockVersionRead,
+)
 from packages.schemas.common import PaginatedResponse
 from packages.schemas.enums import (
+    BlockKind,
     CodeSubcategory,
     EditorialStatus,
     LegalCategory,
@@ -439,6 +444,39 @@ def add_article_version(
     db.commit()
     db.refresh(new_version)
     return ArticleVersionRead.model_validate(new_version)
+
+
+@router.post(
+    "/legal-texts/{slug}/blocks/{block_kind}/versions",
+    response_model=BlockVersionRead,
+    status_code=201,
+    summary="Add a new version of a formal block, anchored to an amending law",
+)
+def add_block_version(
+    slug: str,
+    block_kind: BlockKind,
+    body: BlockVersionAddInput,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Add a new version of one of the four formal blocks of a legal
+    text (preamble, visas, considérants, enacting formula).
+
+    Symmetric with ``POST /editorial/articles/{id}/versions`` but for
+    block-typed content. Writes the new ``LegalTextBlockVersion`` row,
+    denormalises onto the corresponding ``legal_texts`` column (so the
+    public read path stays unchanged), and writes a ``LegalChange``
+    row pointing at the amending law via ``new_block_version_id`` so
+    the "Modifications apportées" panel picks it up.
+    """
+    payload = body.model_dump(exclude_unset=False)
+    new_version = service.add_block_version(
+        slug, block_kind, actor=user, payload=payload
+    )
+    db.commit()
+    db.refresh(new_version)
+    return BlockVersionRead.model_validate(new_version)
 
 
 @router.post(
