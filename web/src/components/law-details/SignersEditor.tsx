@@ -258,14 +258,17 @@ export function SignersEditor({
   return (
     <div className="flex flex-col gap-4">
       {signers.length > 0 ? (
-        /* flex-wrap so signers pack onto rows by their natural width —
-           three short names share one line, a long surname wraps to its
-           own. Draft cards switch to ``w-full`` to take a whole row
-           (the form is too tall to share a row with read-only entries). */
-        <div className="flex flex-wrap gap-x-8 gap-y-4">
+        /* Grid with fixed column count so every "column" lines up
+           vertically — without this, ``flex-wrap`` packed names by
+           their natural width and a long surname in row 1 pushed the
+           whole grid out of alignment on row 2. Three columns on
+           lg+ matches the layout the editor expects for a Constituante
+           membership list; two cols on tablet; one on mobile. The draft
+           card spans the full row because its form is too tall to share. */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
           {signers.map((s) =>
             draft?.signerId === s.id ? (
-              <div key={s.id} className="w-full">
+              <div key={s.id} className="sm:col-span-2 lg:col-span-3">
                 <SignerDraftCard
                   draft={draft}
                   setDraft={setDraft}
@@ -281,11 +284,11 @@ export function SignersEditor({
                 key={s.id}
                 className="flex items-start gap-2 group min-w-0"
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 whitespace-nowrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900 truncate">
                     {s.name}
                   </p>
-                  <p className="text-xs text-slate-500 whitespace-nowrap">
+                  <p className="text-xs text-slate-500 truncate">
                     {lang === 'ht' && s.function_ht
                       ? s.function_ht
                       : s.function_fr}
