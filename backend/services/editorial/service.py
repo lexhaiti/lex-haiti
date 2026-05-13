@@ -24,10 +24,12 @@ from packages.schemas.legal_text import LegalTextCreate, LegalTextRead
 from packages.schemas.signer import LegalSignerCreate
 from services.auth.models import User
 from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
+from packages.schemas.enums import ChangeKind
 from services.corpus.models import (
     Article,
     ArticleVersion,
     EditorialAction,
+    LegalChange,
     LegalHeading,
     LegalSigner,
     LegalText,
@@ -606,6 +608,136 @@ class EditorialService:
         refreshed = self.repo.get_article(article_id)
         assert refreshed is not None
         return article_to_embed(refreshed)
+
+    def add_article_version(
+        self,
+        article_id: int,
+        *,
+        actor: User,
+        payload: dict[str, Any],
+    ) -> ArticleVersion:
+        """Add a new version of an article *because of an amending law*.
+
+        Distinct from ``update_article_content`` (editorial corrections):
+        here the editor declares "this incoming law introduces a new
+        version", so ``source_legal_text_id`` is mandatory and a
+        ``LegalChange`` row is written alongside the new ``ArticleVersion``.
+
+        The new version becomes the article's current version. The
+        previous version stays in history with its own ``effective_to``
+        capped at the new version's ``effective_from`` (when supplied)
+        so the article reader can render a clean timeline.
+
+        Payload shape mirrors ``ArticleVersionAddInput``:
+        - text_fr (required, non-empty)
+        - text_ht, title_fr, title_ht (optional)
+        - effective_from (defaults to amending law's promulgation /
+          publication date when omitted)
+        - source_legal_text_id (required)
+        - source_article_id (optional — the precise amending article)
+        - comment (optional audit-log note)
+        """
+        article = self.repo.get_article(article_id)
+        if article is None:
+            raise NotFound(f"Article not found: {article_id}")
+        current = article.current_version
+        if current is None:
+            raise InvalidInput(
+                f"Article {article_id} has no current version — "
+                "amend not allowed on an empty article"
+            )
+
+        text_fr = (payload.get("text_fr") or "").strip()
+        if not text_fr:
+            raise InvalidInput("text_fr cannot be empty")
+
+        source_legal_text_id = payload.get("source_legal_text_id")
+        if source_legal_text_id is None:
+            raise InvalidInput("source_legal_text_id is required")
+
+        # The amending text must exist and be distinct from the amended
+        # text — a law cannot amend itself.
+        amending = (
+            self.session.query(LegalText)
+            .filter(LegalText.id == source_legal_text_id)
+            .one_or_none()
+        )
+        if amending is None:
+            raise NotFound(
+                f"Amending legal text not found: {source_legal_text_id}"
+            )
+        if amending.id == article.legal_text_id:
+            raise InvalidInput(
+                "Amending text must be different from the amended text"
+            )
+
+        # Effective date — explicit on payload wins; otherwise inherit
+        # from the amending law. Either is fine for the timeline.
+        effective_from = payload.get("effective_from")
+        if effective_from is None:
+            effective_from = (
+                amending.promulgation_date or amending.publication_date
+            )
+
+        # Cap the previous version's effective_to so the timeline is
+        # gap-free. Only stamp when we have a defined effective_from
+        # and the prev version doesn't already carry one.
+        if effective_from and current.effective_to is None:
+            current.effective_to = effective_from
+
+        # Build the new version. Title fields fall back to the previous
+        # version so editors don't have to retype them on every amendment.
+        new_version = ArticleVersion(
+            article_id=article.id,
+            version_number=current.version_number + 1,
+            title_fr=payload.get("title_fr") or current.title_fr,
+            title_ht=payload.get("title_ht") or current.title_ht,
+            text_fr=text_fr,
+            text_ht=payload.get("text_ht") or None,
+            effective_from=effective_from,
+            status=current.status,  # carry forward unless editor flips
+            source_amendment_id=amending.id,  # legacy single FK, kept in sync
+            editorial_status=EditorialStatus.draft,
+        )
+        self.session.add(new_version)
+        self.session.flush()  # need id for current_version_id + LegalChange
+
+        article.current_version_id = new_version.id
+
+        # Bidirectional graph row. ``change_kind=amend`` is the default
+        # for "this law changed an article's content". Other kinds
+        # (abrogate, replace, renumber, …) will need their own service
+        # entrypoints when those flows ship.
+        change = LegalChange(
+            amending_text_id=amending.id,
+            amended_text_id=article.legal_text_id,
+            amended_article_id=article.id,
+            new_version_id=new_version.id,
+            change_kind=ChangeKind.amend,
+            effective_on=effective_from,
+        )
+        self.session.add(change)
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="amend_article",
+            target_type="article_version",
+            target_id=new_version.id,
+            diff={
+                "version_number": {
+                    "before": current.version_number,
+                    "after": new_version.version_number,
+                },
+                "source_legal_text_id": {
+                    "before": None,
+                    "after": amending.id,
+                },
+            },
+            comment=payload.get("comment"),
+        )
+        self.session.flush()
+        return new_version
 
     # -------------------------------------------------------------------
     # Listing — editor sees everything, including drafts

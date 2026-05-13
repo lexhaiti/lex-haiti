@@ -19,7 +19,12 @@ from api.deps import (
     DbSession,
     EditorialUser,
 )
-from packages.schemas.article import ArticleContentUpdate, ArticleEmbed
+from packages.schemas.article import (
+    ArticleContentUpdate,
+    ArticleEmbed,
+    ArticleVersionAddInput,
+    ArticleVersionRead,
+)
 from packages.schemas.common import PaginatedResponse
 from packages.schemas.enums import (
     CodeSubcategory,
@@ -398,6 +403,40 @@ def update_article_content(
     )
     db.commit()
     return result
+
+
+@router.post(
+    "/articles/{article_id}/versions",
+    response_model=ArticleVersionRead,
+    status_code=201,
+    summary="Add a new version of an article caused by an amending legal text",
+)
+def add_article_version(
+    article_id: int,
+    body: ArticleVersionAddInput,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Add a new version of an article, anchored to the amending law.
+
+    Distinct from PATCH /articles/{id}/content (editorial corrections):
+    the editor here is declaring "this amending text introduces a new
+    version of the article". A ``LegalChange`` graph row is written
+    alongside the new ``ArticleVersion`` so the bidirectional history
+    (all laws that amended X; all articles amended by Y) is queryable.
+
+    The new version becomes the article's current_version. The previous
+    version's ``effective_to`` is auto-stamped to the new version's
+    ``effective_from`` so the timeline is gap-free.
+    """
+    payload = body.model_dump(exclude_unset=False)
+    new_version = service.add_article_version(
+        article_id, actor=user, payload=payload
+    )
+    db.commit()
+    db.refresh(new_version)
+    return ArticleVersionRead.model_validate(new_version)
 
 
 # -----------------------------------------------------------------------

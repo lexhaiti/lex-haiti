@@ -3,7 +3,11 @@ from typing import List
 from fastapi import APIRouter, Query
 
 from api.deps import CorpusServiceDep
-from packages.schemas.article import ArticleResolved, ArticleWithHistoryRead
+from packages.schemas.article import (
+    ArticleResolved,
+    ArticleVersionRead,
+    ArticleWithHistoryRead,
+)
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -40,3 +44,15 @@ def resolve_articles(
 def get_article(article_id: int, service: CorpusServiceDep):
     """Get an article with current version + full version history."""
     return service.get_article(article_id, with_history=True)
+
+
+@router.get("/{article_id}/versions", response_model=List[ArticleVersionRead])
+def list_article_versions(article_id: int, service: CorpusServiceDep):
+    """Just the version history for an article — sorted by ``version_number``.
+
+    Cheaper than ``GET /articles/{id}`` when the caller only needs the
+    timeline (e.g. the "Versions" accordion on the article reader, the
+    "Modifications apportées" panel on an amending law's detail page).
+    """
+    article = service.get_article(article_id, with_history=True)
+    return article.versions

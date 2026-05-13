@@ -7,15 +7,18 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Copy,
   ExternalLink,
   FileText,
+  GitCompare,
   History,
   Layers,
   Link2,
   Loader2,
   Languages,
   Pencil,
+  Plus,
   Share2,
   Volume2,
   X,
@@ -39,10 +42,12 @@ import { useToast } from '@/components/ui/toast-simple'
 import {
   citationsFromArticle,
   citationsToArticle,
+  listArticleVersions,
   resolveArticles,
   updateArticleContent,
   type ArticleContentPatch,
   type ArticleResolved,
+  type ArticleVersionRead,
 } from '@/lib/api/endpoints'
 import {
   mapCitations,
@@ -50,15 +55,10 @@ import {
   type CitationRow,
   type SiblingArticle,
 } from './citation-mapping'
-// VersionsPanel + ComparePanel are intentionally unused from this
-// file right now — the action triggers were hidden when MOCK_VERSIONS
-// was deleted. Keep the imports a click away for when the per-
-// article versions endpoint lands. (eslint-disable kept narrow.)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { VersionsPanel } from './_panels/VersionsPanel'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { VersionsPanel, type VersionEntry } from './_panels/VersionsPanel'
 import { ComparePanel } from './_panels/ComparePanel'
 import { CitationColumn } from './_panels/CitationColumn'
+import { AddVersionDialog } from './_panels/AddVersionDialog'
 
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
@@ -285,6 +285,10 @@ interface ArticleViewerProps {
   /** Slug of the parent legal text — used to build per-article permalinks
    *  inside the citations panel. */
   lawSlug?: string
+  /** Numeric id of the parent legal text. Used by the editor "Add
+   *  version" flow to exclude self-amendments from the source-law
+   *  picker (a law can't amend itself). */
+  lawId?: number
 }
 
 export default function ArticleViewer({
@@ -304,6 +308,7 @@ export default function ArticleViewer({
   onArticleSaved,
   siblingArticles,
   lawSlug,
+  lawId,
 }: ArticleViewerProps) {
   const { toast } = useToast()
 
@@ -313,6 +318,9 @@ export default function ArticleViewer({
   >(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  // Add-version modal — editor opens it from the action row to create
+  // a new version anchored to an amending law.
+  const [addVersionOpen, setAddVersionOpen] = useState(false)
 
   // Inline edit state — keyed by article.id so switching to a different
   // article cancels any in-flight edit instead of carrying drafts across.
@@ -330,6 +338,36 @@ export default function ArticleViewer({
   const [saving, setSaving] = useState(false)
   const isCurrentEdit = editing && article && editing.articleId === article.id
   const isBilingualEdit = isCurrentEdit && editing!.mode === 'bilingual'
+
+  // Version state — full history for this article. Editor-only fetch
+  // (public viewers never need it; the current_version is already
+  // inlined in the ArticleEmbed shape they consume). Re-fetched
+  // whenever the selected article changes so switching articles
+  // doesn't show the previous one's timeline.
+  const [versions, setVersions] = useState<ArticleVersionRead[]>([])
+  useEffect(() => {
+    if (!article || !isEditor) {
+      setVersions([])
+      return
+    }
+    const articleId = article.id
+    let cancelled = false
+    void listArticleVersions(articleId)
+      .then((rows) => {
+        if (cancelled) return
+        // Newest first — versions come back ordered by version_number
+        // ascending, but the timeline reads top-to-bottom newest-to-
+        // oldest, matching the convention on Légifrance / EUR-Lex.
+        setVersions([...rows].reverse())
+      })
+      .catch(() => {
+        if (cancelled) return
+        setVersions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [article?.id, isEditor])
 
   // Citation state — outgoing (this article cites X) and incoming (X cites
   // this article). Re-fetched whenever the selected article changes.
@@ -420,6 +458,40 @@ export default function ArticleViewer({
     () => mapCitations(incoming, 'inbound', articleById, lawSlug, resolvedById),
     [incoming, articleById, lawSlug, resolvedById],
   )
+
+  // Map the backend ArticleVersionRead shape into the VersionEntry the
+  // VersionsPanel + ComparePanel consume. The panel's "status" field
+  // is timeline-style ("in_force" for the latest live version,
+  // "historical" for past ones), which is slightly different from the
+  // per-article ArticleStatus enum — we treat the *latest* in_force
+  // version as the current one and stamp older versions as historical
+  // regardless of their own per-version status.
+  const versionEntries = useMemo<VersionEntry[]>(() => {
+    if (!versions.length) return []
+    const sortedAsc = [...versions].sort(
+      (a, b) => a.version_number - b.version_number,
+    )
+    const currentIdx = (() => {
+      // Latest in_force wins; fall back to the highest version number.
+      for (let i = sortedAsc.length - 1; i >= 0; i--) {
+        if (sortedAsc[i].status === 'in_force') return i
+      }
+      return sortedAsc.length - 1
+    })()
+    return sortedAsc.map<VersionEntry>((v, i) => ({
+      version: v.version_number,
+      status:
+        i === currentIdx
+          ? 'in_force'
+          : v.status === 'abrogated'
+            ? 'abrogated'
+            : 'historical',
+      effective_from: v.effective_from ?? '',
+      effective_to: v.effective_to ?? null,
+      amended_by: null,
+      href: null,
+    })).reverse() // newest first, matches timeline reading order
+  }, [versions])
 
   if (!article) {
     return (
@@ -916,22 +988,65 @@ export default function ArticleViewer({
         </article>
       </div>
 
-      {/* Action row — accordion triggers. Versions/Compare are hidden
-          until per-article versions land in the API; today they were
-          fed from MOCK_VERSIONS which always showed three fake
-          revisions on every article. "Textes liés" stays — it's
-          driven by real inbound/outbound citations from the citations
-          API — and hides itself when the total is zero. */}
-      {outboundEntries.length + inboundEntries.length > 0 && (
+      {/* Action row — accordion triggers.
+          - "Textes liés" is public-facing, driven by real inbound +
+            outbound citations from /api/v1/citations. Hidden when the
+            total count is zero.
+          - "Versions" + "Comparer" are editor-only. Powered by the
+            real /articles/{id}/versions endpoint; the triggers only
+            render when there's something useful to show (a multi-
+            version history). */}
+      {(outboundEntries.length + inboundEntries.length > 0 || isEditor) && (
         <div className="pt-5">
           <div className="flex items-center gap-2 flex-wrap">
-            <AccordionTrigger
-              icon={Layers}
-              label={currentLang === 'fr' ? 'Textes liés' : 'Tèks ki gen rapò'}
-              count={outboundEntries.length + inboundEntries.length}
-              open={openPanel === 'links'}
-              onClick={() => togglePanel('links')}
-            />
+            {outboundEntries.length + inboundEntries.length > 0 && (
+              <AccordionTrigger
+                icon={Layers}
+                label={currentLang === 'fr' ? 'Textes liés' : 'Tèks ki gen rapò'}
+                count={outboundEntries.length + inboundEntries.length}
+                open={openPanel === 'links'}
+                onClick={() => togglePanel('links')}
+              />
+            )}
+            {isEditor && versionEntries.length > 0 && (
+              <>
+                <AccordionTrigger
+                  icon={Clock}
+                  label={currentLang === 'fr' ? 'Versions' : 'Vèsyon'}
+                  count={versionEntries.length}
+                  open={openPanel === 'versions'}
+                  onClick={() => togglePanel('versions')}
+                />
+                {versionEntries.length >= 2 && (
+                  <AccordionTrigger
+                    icon={GitCompare}
+                    label={currentLang === 'fr' ? 'Comparer' : 'Konpare'}
+                    open={openPanel === 'compare'}
+                    onClick={() => togglePanel('compare')}
+                  />
+                )}
+              </>
+            )}
+            {/* Editor-only "Add version" affordance. Always visible in
+                editor mode so the *first* amendment can be created
+                even when the article only has its initial version. */}
+            {isEditor && lawId != null && (
+              <button
+                type="button"
+                onClick={() => setAddVersionOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
+                title={
+                  currentLang === 'fr'
+                    ? 'Créer une nouvelle version anchored à une loi modifiante'
+                    : 'Kreye yon nouvo vèsyon ankre nan yon lwa modifikatè'
+                }
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">
+                  {currentLang === 'fr' ? 'Ajouter une version' : 'Ajoute yon vèsyon'}
+                </span>
+              </button>
+            )}
           </div>
 
           <div ref={panelRef}>
@@ -970,6 +1085,34 @@ export default function ArticleViewer({
                       />
                     </div>
                   </div>
+                </motion.div>
+              )}
+              {openPanel === 'versions' && (
+                <motion.div
+                  key="versions"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <VersionsPanel
+                    versions={versionEntries}
+                    currentLang={currentLang}
+                  />
+                </motion.div>
+              )}
+              {openPanel === 'compare' && versionEntries.length >= 2 && (
+                <motion.div
+                  key="compare"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <ComparePanel
+                    versions={versionEntries}
+                    currentLang={currentLang}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1024,6 +1167,30 @@ export default function ArticleViewer({
           </Button>
         </div>
       </div>
+
+      {/* Editor-only add-version modal. Mounted at the root so the
+          Radix portal positions it relative to the viewport, not the
+          article column. Refetches the version list on success via
+          ``onCreated`` so the timeline reflects the new entry. */}
+      {isEditor && lawId != null && (
+        <AddVersionDialog
+          open={addVersionOpen}
+          onOpenChange={setAddVersionOpen}
+          articleId={article.id}
+          articleNumber={article.number}
+          currentTextFr={content}
+          currentTextHt={null}
+          currentTitleFr={title ?? null}
+          excludeLegalTextId={lawId}
+          lang={currentLang}
+          onCreated={() => {
+            void listArticleVersions(article.id).then((rows) => {
+              setVersions([...rows].reverse())
+            })
+            onArticleSaved?.()
+          }}
+        />
+      )}
     </motion.div>
   )
 }

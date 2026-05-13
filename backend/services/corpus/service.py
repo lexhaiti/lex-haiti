@@ -435,6 +435,48 @@ class CorpusService:
         articles = self.repo.list_amended_articles(text.id)
         return [ArticleWithHistoryRead.model_validate(a) for a in articles]
 
+    def list_changes_made_by_slug(self, slug: str):
+        """All edits this legal text made to articles in other texts.
+
+        Powers the "Modifications apportées" panel on an amending law's
+        detail page. Each row is denormalised with the amended text +
+        article so the panel can render the link without N+1.
+        """
+        from packages.schemas.article import LegalChangeMadeRead  # noqa: PLC0415
+
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if not text:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        rows = self.repo.list_changes_made_by(text.id)
+        out: list[LegalChangeMadeRead] = []
+        for change, amended_text, amended_article, new_version in rows:
+            out.append(
+                LegalChangeMadeRead(
+                    id=change.id,
+                    change_kind=change.change_kind.value,
+                    effective_on=change.effective_on,
+                    new_version_id=new_version.id if new_version else None,
+                    new_version_number=(
+                        new_version.version_number if new_version else None
+                    ),
+                    amended_text_id=amended_text.id,
+                    amended_text_slug=amended_text.slug,
+                    amended_text_title_fr=amended_text.title_fr,
+                    amended_article_id=(
+                        amended_article.id if amended_article else None
+                    ),
+                    amended_article_number=(
+                        amended_article.number if amended_article else None
+                    ),
+                    amended_article_slug=(
+                        amended_article.slug if amended_article else None
+                    ),
+                    created_at=change.created_at,
+                )
+            )
+        return out
+
     # -------------------------------------------------------------------
     # Article detail
     # -------------------------------------------------------------------

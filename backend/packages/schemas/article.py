@@ -142,6 +142,30 @@ class ArticleResolved(BaseModel):
     text_title_fr: str
 
 
+class LegalChangeMadeRead(BaseModel):
+    """One edit a law made to an article in another text.
+
+    Used by the "Modifications apportées" panel on an amending law's
+    detail page. Each row is a denormalised view of a ``LegalChange``
+    row, joined with the amended legal text + article so the panel can
+    render the link + label without an N+1 fetch:
+    "→ Code Civil, Article 1444 — v3 (28 avril 2024)".
+    """
+
+    id: int
+    change_kind: str
+    effective_on: Optional[date] = None
+    new_version_id: Optional[int] = None
+    new_version_number: Optional[int] = None
+    amended_text_id: int
+    amended_text_slug: str
+    amended_text_title_fr: str
+    amended_article_id: Optional[int] = None
+    amended_article_number: Optional[str] = None
+    amended_article_slug: Optional[str] = None
+    created_at: datetime
+
+
 class ArticleContentUpdate(BaseModel):
     """Partial update of the editable content fields of an article version.
 
@@ -156,6 +180,36 @@ class ArticleContentUpdate(BaseModel):
     title_ht: Optional[str] = None
     text_fr: Optional[str] = None
     text_ht: Optional[str] = None
+    comment: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ArticleVersionAddInput(BaseModel):
+    """Editor-supplied payload to add a new version of an article *because
+    of an amending legal text*.
+
+    Distinct from ``ArticleContentUpdate`` (which is editorial-correction-
+    flavoured — no source law required). Here the editor is saying "this
+    incoming law (decree / loi modifiant) introduces a new version of
+    the article", so ``source_legal_text_id`` is mandatory and a
+    ``LegalChange`` graph row is created alongside the new version.
+
+    ``effective_from`` defaults to the source law's promulgation /
+    publication date when omitted — the service fills it in.
+    """
+
+    text_fr: str = Field(..., min_length=1)
+    text_ht: Optional[str] = None
+    title_fr: Optional[str] = None
+    title_ht: Optional[str] = None
+    effective_from: Optional[date] = None
+    source_legal_text_id: int
+    # When the amending law itself has a specific article that introduces
+    # the change (e.g. "Article 3 of the amending decree modifies Article
+    # 1444 of the Code Civil"), capture the precise pointer too. Optional —
+    # many amending texts are short and the whole law is the change.
+    source_article_id: Optional[int] = None
     comment: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")

@@ -45,6 +45,7 @@ import {
   updateLegalTextMetadata,
 } from '@/lib/api/endpoints'
 import { SignataireBlock } from '@/components/law-details/SignataireBlock'
+import { ChangesMadePanel } from '@/components/law-details/_panels/ChangesMadePanel'
 import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
@@ -1036,6 +1037,7 @@ export default function LawDetail() {
                   onArticleSaved={refetch}
                   siblingArticles={law.articles as any}
                   lawSlug={law.slug}
+                  lawId={law.id}
                 />
               ) : (
                 /* Preamble-only mode: legal_text has no articles[] yet
@@ -1082,6 +1084,14 @@ export default function LawDetail() {
                 onChanged={refetch}
               />
             ) : null}
+
+            {/* Editor-only — articles in other texts that THIS text
+                amended. Hides itself when this law isn't an amending
+                text (i.e. ``legal_changes`` has no rows for it), so
+                non-amending texts don't get a useless empty section. */}
+            {isEditor && (
+              <ChangesMadePanel lawSlug={law.slug} lang={currentLang} />
+            )}
 
             {/* Editor floating bar — visible only when signed in */}
             {isEditor && law && (

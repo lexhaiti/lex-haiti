@@ -6,7 +6,11 @@ from fastapi.responses import Response
 
 from api.config import get_settings
 from api.deps import CorpusServiceDep, SearchServiceDep
-from packages.schemas.article import ArticleListItem, ArticleWithHistoryRead
+from packages.schemas.article import (
+    ArticleListItem,
+    ArticleWithHistoryRead,
+    LegalChangeMadeRead,
+)
 from packages.schemas.common import PaginatedResponse
 from packages.schemas.enums import (
     CodeSubcategory,
@@ -238,6 +242,25 @@ def get_amendments(slug: str, service: CorpusServiceDep):
     frontend renders the timeline; the API doesn't pre-compute diffs.
     """
     return service.list_amendments_by_text_slug(slug)
+
+
+@router.get(
+    "/{slug}/changes-made",
+    response_model=List[LegalChangeMadeRead],
+)
+def get_changes_made(slug: str, service: CorpusServiceDep):
+    """All article changes this text introduced into *other* texts.
+
+    Powers the "Modifications apportées" panel on an amending law's
+    detail page — e.g. on Loi N° 24-001, returns all Code Civil
+    articles it amended, each with the new version number + effective
+    date + a permalink to the amended article.
+
+    Direction is the inverse of /amendments: that route asks "which
+    of MY articles have history?", this one asks "what did I do to
+    OTHER texts?". Both read the same ``legal_changes`` graph.
+    """
+    return service.list_changes_made_by_slug(slug)
 
 
 @router.get(

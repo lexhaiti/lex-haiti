@@ -234,6 +234,70 @@ export async function getArticle(articleId: number) {
   return apiGet<ArticleWithHistoryRead>(`/articles/${articleId}`)
 }
 
+export type ArticleVersionRead = components['schemas']['ArticleVersionRead']
+
+/** Just the version timeline for a single article — sorted by
+ *  ``version_number``. Cheaper than ``getArticle`` when the caller
+ *  only needs the history (Versions accordion, amending-law panel). */
+export async function listArticleVersions(articleId: number) {
+  return apiGet<ArticleVersionRead[]>(`/articles/${articleId}/versions`)
+}
+
+/** Editor input for the "add a new version" flow on an article.
+ *  ``source_legal_text_id`` is mandatory — every new version anchors
+ *  to the law that caused the change so the bidirectional history
+ *  graph (LegalChange) is queryable from either end. */
+export type ArticleVersionAddInput = {
+  text_fr: string
+  text_ht?: string | null
+  title_fr?: string | null
+  title_ht?: string | null
+  /** ISO yyyy-mm-dd. Falls back to the amending law's promulgation /
+   *  publication date server-side when omitted. */
+  effective_from?: string | null
+  source_legal_text_id: number
+  source_article_id?: number | null
+  comment?: string | null
+}
+
+/** Add a new version of an article caused by an amending legal text.
+ *  Creates the ArticleVersion + the LegalChange graph row in one
+ *  transaction. The new version becomes the article's current version. */
+export async function addArticleVersion(
+  articleId: number,
+  body: ArticleVersionAddInput,
+) {
+  return apiPost<ArticleVersionRead>(
+    `/editorial/articles/${articleId}/versions`,
+    body,
+  )
+}
+
+/** One change this legal text made to an article in another text.
+ *  Powers the "Modifications apportées" panel on an amending law's
+ *  detail page. */
+export type LegalChangeMadeRead = {
+  id: number
+  change_kind: string
+  effective_on: string | null
+  new_version_id: number | null
+  new_version_number: number | null
+  amended_text_id: number
+  amended_text_slug: string
+  amended_text_title_fr: string
+  amended_article_id: number | null
+  amended_article_number: string | null
+  amended_article_slug: string | null
+  created_at: string
+}
+
+/** List all article-edits a legal text made to *other* texts. */
+export async function listChangesMadeBy(slug: string) {
+  return apiGet<LegalChangeMadeRead[]>(
+    `/legal-texts/${encodeURIComponent(slug)}/changes-made`,
+  )
+}
+
 /**
  * All articles in a legal text that have more than one version.
  * Returns each article's full version history embedded — used by the
