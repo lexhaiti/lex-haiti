@@ -49,6 +49,55 @@ def test_handles_all_heading_variants():
         assert not a.body.startswith(("—", "-", ".", ":", " "))
 
 
+def test_handles_bis_ter_with_sub_article_suffix():
+    """``190ter.1`` / ``190bis.2`` — sub-articles inside a Latin-
+    ordinal-amended article. The dotted suffix must follow the
+    ``bis|ter|…`` group, not only the bare integer.
+    """
+    body = (
+        "Article 190. Original article.\n\n"
+        "Article 190bis. Premier amendement inséré.\n\n"
+        "Article 190ter. Second amendement.\n\n"
+        "Article 190ter.1 Sous-article du 190ter.\n\n"
+        "Article 190ter.2 Suite du sous-article."
+    )
+    r = split_into_articles(body)
+    nums = [a.number for a in r.articles]
+    assert nums == ["190", "190bis", "190ter", "190ter.1", "190ter.2"]
+
+
+def test_accepts_extended_latin_ordinals():
+    """The full ``bis | ter | quater | quinquies | sexies | septies |
+    octies | nonies | decies`` set is recognised, not just the first
+    three. Used occasionally in modern Codes after multiple rounds
+    of amendments hit the same article.
+    """
+    body = (
+        "Article 12bis. A.\n\n"
+        "Article 12ter. B.\n\n"
+        "Article 12quater. C.\n\n"
+        "Article 12quinquies. D.\n\n"
+        "Article 12sexies. E.\n\n"
+        "Article 12septies. F.\n\n"
+        "Article 12octies. G.\n\n"
+        "Article 12nonies. H.\n\n"
+        "Article 12decies. I."
+    )
+    r = split_into_articles(body)
+    nums = [a.number for a in r.articles]
+    assert nums == [
+        "12bis",
+        "12ter",
+        "12quater",
+        "12quinquies",
+        "12sexies",
+        "12septies",
+        "12octies",
+        "12nonies",
+        "12decies",
+    ]
+
+
 def test_normalizes_first_article_suffix():
     """`1er`, `1ère`, `1e` all become `1`."""
     body = "Article 1er. Premier.\n\nArticle 1ère. Aussi.\n\nArticle 1e. Encore."

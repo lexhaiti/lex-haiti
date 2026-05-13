@@ -103,6 +103,9 @@ _OFFICIAL_FORMULA_MARKER_RE = re.compile(
 #   "Art. 25.—"
 #   "Article 1.1"  (Constitution-style amendments)
 #   "Article 1bis", "Article 1 bis"
+#   "Article 190ter.1", "Article 190bis.2"  (sub-article after a bis/ter)
+#   "Article 190quinquies"  (rarer Latin ordinals: quater, quinquies,
+#                            sexies, septies, octies, nonies, decies)
 #
 # We require the heading to start at the beginning of a line (or after
 # whitespace + newline) so paragraph-internal "article 12 de la loi …"
@@ -115,7 +118,11 @@ _ARTICLE_HEADING_RE = re.compile(
     [\s ]+                        # at least one space
     (                              # -- number, captured --
         [Pp]remier(?:[\.\-]\d+)?   # "Article premier", "Article premier-1"
-      | \d+(?:[\.\-]\d+)?(?:\s*(?:bis|ter|quater))?(?:er|ère|e)?
+      | \d+                        # core integer
+        (?:[\.\-]\d+)?             # optional first dot/dash suffix
+        (?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?
+        (?:[\.\-]\d+)?             # optional dot/dash suffix AFTER bis/ter (190ter.1)
+        (?:er|ère|e)?              # optional ordinal suffix (1er, 1ère, 1e)
     )
     # Trailing separator(s) — any combo of `. - — – :` and surrounding
     # whitespace. Greedy so "Article 1er. —" consumes both `.` and `—`
