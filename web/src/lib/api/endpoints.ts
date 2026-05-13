@@ -1065,6 +1065,19 @@ export async function createLegalSigner(slug: string, body: LegalSignerInput) {
   )
 }
 
+/** Bulk-append a list of signers — used for the Constituante paste
+ *  flow on the 1987 Constitution (60+ rows). The backend commits the
+ *  whole batch atomically. */
+export async function bulkCreateLegalSigners(
+  slug: string,
+  signers: LegalSignerInput[],
+) {
+  return apiPost<LegalSignerRead[]>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/signers/bulk`,
+    { signers },
+  )
+}
+
 export async function updateLegalSigner(
   signerId: number,
   patch: LegalSignerPatch,

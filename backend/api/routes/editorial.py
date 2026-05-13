@@ -31,6 +31,7 @@ from packages.schemas.enums import (
 from packages.schemas.heading import LegalHeadingRead
 from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
 from packages.schemas.signer import (
+    LegalSignerBulkInput,
     LegalSignerCreate,
     LegalSignerRead,
     LegalSignerUpdate,
@@ -542,6 +543,43 @@ def create_signer(
     db.commit()
     db.refresh(signer)
     return LegalSignerRead.model_validate(signer)
+
+
+@router.post(
+    "/legal-texts/{slug}/signers/bulk",
+    response_model=List[LegalSignerRead],
+    status_code=201,
+    summary="Bulk-add signers from a pasted JSON list (Constituante use case)",
+)
+def bulk_create_signers(
+    slug: str,
+    body: LegalSignerBulkInput,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001
+):
+    """Bulk-append signers to a legal text. The 1987 Constitution has
+    ~60 Constituante members; entering them one row at a time through
+    the manual editor is impractical, so the editor pastes a JSON list
+    and they are all appended in order.
+
+    Each entry is treated like ``POST /signers`` — ``create_signer``
+    auto-assigns a position past the current tail, so order is preserved
+    in submission order. The whole batch commits atomically (one
+    rollback on validation failure, never half-loaded).
+    """
+    repo = CorpusRepository(db)
+    text = repo.get_text_by_slug(slug, editorial_status=None)
+    if text is None:
+        raise HTTPException(404, "Legal text not found")
+    created = []
+    for item in body.signers:
+        payload = item.model_dump(exclude_unset=True)
+        signer = repo.create_signer(text.id, payload)
+        created.append(signer)
+    db.commit()
+    for s in created:
+        db.refresh(s)
+    return [LegalSignerRead.model_validate(s) for s in created]
 
 
 @router.patch(

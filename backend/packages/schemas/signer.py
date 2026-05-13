@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from packages.schemas.enums import SignatoryChamber, SigningCapacity
 
@@ -48,3 +48,20 @@ class LegalSignerRead(LegalSignerBase):
     legal_text_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LegalSignerBulkInput(BaseModel):
+    """Editor-supplied JSON payload for the bulk-add endpoint.
+
+    Use case: pasting a Constituante membership list (60+ signataires
+    on the 1987 Constitution) is impractical row-by-row. The editor
+    pastes a JSON array; each item is appended in order with
+    auto-assigned positions starting from the current tail.
+
+    Each entry accepts the same fields as ``LegalSignerCreate`` —
+    only ``name`` and ``function_fr`` are required; everything else
+    falls back to the defaults from ``LegalSignerBase`` (capacity =
+    other, chamber = null, signed_at = null).
+    """
+
+    signers: List[LegalSignerCreate] = Field(..., min_length=1)

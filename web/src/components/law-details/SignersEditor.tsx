@@ -1,9 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
+import {
+  Check,
+  ClipboardPaste,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 
 import {
+  bulkCreateLegalSigners,
   createLegalSigner,
   deleteLegalSigner,
   updateLegalSigner,
@@ -169,6 +178,83 @@ export function SignersEditor({
     }
   }
 
+  // Bulk-import panel state. Kept separate from the single-row draft
+  // so the editor can paste JSON without losing an in-progress draft
+  // (and vice versa — opening the form doesn't wipe pasted JSON).
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkError, setBulkError] = useState<string | null>(null)
+
+  async function submitBulk() {
+    setBulkError(null)
+    const raw = bulkText.trim()
+    if (!raw) {
+      setBulkError(lang === 'fr' ? 'Collez un JSON.' : 'Mete yon JSON.')
+      return
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch (e: any) {
+      setBulkError(
+        (lang === 'fr' ? 'JSON invalide : ' : 'JSON envalid : ') +
+          (e?.message ?? 'parse error'),
+      )
+      return
+    }
+    // Accept either a bare array `[{...}, ...]` or an object
+    // `{signers: [...]}` — editors paste both shapes depending on
+    // whether they wrote the list by hand or got it from a tool.
+    const list: any[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as any)?.signers)
+        ? (parsed as any).signers
+        : []
+    if (list.length === 0) {
+      setBulkError(
+        lang === 'fr'
+          ? 'Le JSON doit être un tableau non vide.'
+          : 'JSON la dwe yon lis ki pa vid.',
+      )
+      return
+    }
+    // Lenient field mapping — accept "role" or "function" or
+    // "fonction" as aliases for ``function_fr``. The 1987 Constituante
+    // list circulating online uses "role"; the parser uses
+    // ``function_fr``. Pick whichever exists.
+    const payload: LegalSignerInput[] = []
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i] ?? {}
+      const name = String(item.name ?? item.nom ?? '').trim()
+      const function_fr = String(
+        item.function_fr ?? item.role ?? item.function ?? item.fonction ?? '',
+      ).trim()
+      if (!name || !function_fr) {
+        setBulkError(
+          (lang === 'fr'
+            ? `Entrée ${i + 1} : « name » et « function_fr » (ou « role ») sont obligatoires.`
+            : `Antre ${i + 1}: « name » ak « function_fr » (oswa « role ») obligatwa.`),
+        )
+        return
+      }
+      const function_ht = item.function_ht
+        ? String(item.function_ht).trim() || null
+        : null
+      payload.push({ name, function_fr, function_ht })
+    }
+    setBusy(true)
+    try {
+      await bulkCreateLegalSigners(slug, payload)
+      setBulkOpen(false)
+      setBulkText('')
+      onChanged()
+    } catch (e: any) {
+      setBulkError(e?.body?.detail ?? String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {signers.length > 0 ? (
@@ -247,7 +333,7 @@ export function SignersEditor({
         />
       )}
 
-      {draft === null && (
+      {draft === null && !bulkOpen && (
         /* flex-wrap so the formula button (passed via extraActions)
            sits next to the signer add button on a wide row, and wraps
            to its own line on narrow viewports. */
@@ -261,7 +347,112 @@ export function SignersEditor({
             <Plus className="w-3.5 h-3.5" />
             {lang === 'fr' ? 'Ajouter un signataire' : 'Ajoute yon siyatè'}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setBulkOpen(true)
+              setBulkError(null)
+            }}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+            title={
+              lang === 'fr'
+                ? 'Coller une liste JSON pour ajouter plusieurs signataires d’un coup'
+                : 'Kole yon lis JSON pou ajoute plizyè siyatè ansanm'
+            }
+          >
+            <ClipboardPaste className="w-3.5 h-3.5" />
+            {lang === 'fr' ? 'Importer JSON' : 'Enpòte JSON'}
+          </button>
           {extraActions}
+        </div>
+      )}
+
+      {bulkOpen && (
+        <div className="rounded-lg border border-slate-300 bg-slate-50/60 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-700">
+              {lang === 'fr'
+                ? 'Coller une liste JSON de signataires'
+                : 'Kole yon lis JSON siyatè'}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setBulkOpen(false)
+                setBulkError(null)
+              }}
+              disabled={busy}
+              className="text-slate-400 hover:text-slate-700 disabled:opacity-30"
+              aria-label={lang === 'fr' ? 'Fermer' : 'Fèmen'}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+            {lang === 'fr' ? (
+              <>
+                Format attendu : un tableau JSON. Chaque objet doit
+                contenir <code className="font-mono text-slate-700">name</code>{' '}
+                et <code className="font-mono text-slate-700">function_fr</code>{' '}
+                (alias acceptés :{' '}
+                <code className="font-mono text-slate-700">role</code>,{' '}
+                <code className="font-mono text-slate-700">function</code>). Les
+                signataires sont ajoutés à la suite des existants.
+              </>
+            ) : (
+              <>
+                Fòma : yon lis JSON. Chak antre dwe gen yon{' '}
+                <code className="font-mono text-slate-700">name</code> ak yon{' '}
+                <code className="font-mono text-slate-700">function_fr</code>{' '}
+                (alyas:{' '}
+                <code className="font-mono text-slate-700">role</code>,{' '}
+                <code className="font-mono text-slate-700">function</code>).
+              </>
+            )}
+          </p>
+          <textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            disabled={busy}
+            spellCheck={false}
+            rows={10}
+            placeholder={`[
+  { "name": "Me. Jean DUPONT", "role": "Président" },
+  { "name": "Marie PIERRE", "role": "Sénatrice" }
+]`}
+            className="w-full font-mono text-xs rounded-md border border-slate-300 bg-white p-2 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
+          />
+          {bulkError && (
+            <p className="mt-2 text-xs text-red-600">{bulkError}</p>
+          )}
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setBulkOpen(false)
+                setBulkError(null)
+              }}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:opacity-50"
+            >
+              <X className="w-3.5 h-3.5" />
+              {lang === 'fr' ? 'Annuler' : 'Anile'}
+            </button>
+            <button
+              type="button"
+              onClick={submitBulk}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-md bg-primary text-white px-3 py-1.5 text-xs font-semibold hover:bg-primary/90 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
+              )}
+              {lang === 'fr' ? 'Importer' : 'Enpòte'}
+            </button>
+          </div>
         </div>
       )}
 
