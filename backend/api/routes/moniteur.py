@@ -341,15 +341,48 @@ def import_issue_from_json(
     ``processing_status='parsed'`` so editors can review and promote
     via the standard review page.
 
+    When an entry carries an inline ``content`` block (a full
+    structured ``JsonImportLegalText``), it is auto-promoted to a
+    draft ``LegalText`` in the same transaction — no editorial
+    review needed before promotion. The issue lifecycle still rolls
+    forward via ``recompute_issue_status`` so a fully-populated
+    payload lands on ``published`` (draft texts) without manual
+    intervention.
+
     Intended for devs / batch importers — the UI counterpart on
     ``/editorial/import?type=json`` posts the same body.
     """
     repo = MoniteurRepository(db)
+    # Strip the inline ``content`` block before handing entries to
+    # the repository — MoniteurEntry has no column for it; the
+    # promotion loop below uses the payload's typed shape instead.
+    entry_dicts = [
+        e.model_dump(exclude={"content"}) for e in payload.entries
+    ]
     issue = repo.import_from_json(
         issue_data=payload.issue.model_dump(),
-        entries=[e.model_dump() for e in payload.entries],
+        entries=entry_dicts,
         uploaded_by=user.id,
     )
+
+    # Auto-promote entries that carry a full ``content`` block. Match
+    # payload entries to DB rows by position — both lists are in the
+    # same order because the repo appends with ``position=i``.
+    full = repo.get_issue_with_entries(issue.id)
+    if full is not None:
+        by_position = {e.position: e for e in full.entries}
+        for i, payload_entry in enumerate(payload.entries):
+            if payload_entry.content is None:
+                continue
+            db_entry = by_position.get(i)
+            if db_entry is None or db_entry.promoted_legal_text_id is not None:
+                continue
+            repo.auto_promote_from_content(
+                db_entry,
+                payload_entry.content.model_dump(),
+                actor=user,
+            )
+
     db.commit()
     db.refresh(issue)
     return _to_read(issue)

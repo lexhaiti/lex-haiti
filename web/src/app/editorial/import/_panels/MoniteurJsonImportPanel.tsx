@@ -42,12 +42,46 @@ const EXAMPLE_PAYLOAD = `{
   "entries": [
     {
       "detected_category": "loi",
-      "detected_title": "Loi sur \\u2026",
+      "detected_title": "Loi pending review",
       "detected_number": "CL-007-09",
       "detected_date": "2014-06-04",
-      "page_from": 3,
-      "page_to": 25,
       "raw_text": "Article 1.- \\u2026"
+    },
+    {
+      "detected_category": "loi",
+      "detected_title": "Loi auto-promue",
+      "detected_number": "CL-008-09",
+      "detected_date": "2014-06-04",
+      "content": {
+        "slug": "loi-portant-exemple",
+        "category": "loi",
+        "title_fr": "Loi portant exemple",
+        "promulgation_date": "2014-06-04",
+        "publication_date": "2014-06-04",
+        "headings": [
+          {
+            "key": "titre-i",
+            "level": "titre",
+            "number": "I",
+            "title_fr": "Dispositions g\\u00e9n\\u00e9rales",
+            "position": 0
+          }
+        ],
+        "articles": [
+          {
+            "number": "1",
+            "slug": "art-1",
+            "heading_key": "titre-i",
+            "position": 0,
+            "version": {
+              "text_fr": "Le pr\\u00e9sent texte a pour objet \\u2026"
+            }
+          }
+        ],
+        "signers": [
+          { "name": "Michel Joseph MARTELLY", "function_fr": "Pr\\u00e9sident de la R\\u00e9publique" }
+        ]
+      }
     }
   ]
 }`
@@ -138,7 +172,11 @@ export default function MoniteurJsonImportPanel() {
                 + les entrées telles que vous les fournissez. Idempotent
                 sur <code className="font-mono text-xs">(année, numéro)</code> —
                 relancer avec le même fichier met à jour le numéro existant
-                au lieu d'en créer un doublon.
+                au lieu d'en créer un doublon. Quand une entrée porte un
+                bloc <code className="font-mono text-xs">content</code> (titre,
+                articles, headings…), elle est promue automatiquement vers
+                un <code className="font-mono text-xs">LegalText</code>{' '}
+                brouillon — sinon, elle reste en attente de révision.
               </>
             ) : (
               <>
@@ -146,7 +184,11 @@ export default function MoniteurJsonImportPanel() {
                 jan ou bay yo. Idempotan sou{' '}
                 <code className="font-mono text-xs">(ane, nimewo)</code> —
                 relanse ak menm fichye a met ajou nimewo ki egziste a olye
-                pou li kreye yon doub.
+                pou li kreye yon doub. Lè yon antre gen yon blòk{' '}
+                <code className="font-mono text-xs">content</code> (tit,
+                atik, headings…), li pwomi otomatikman nan yon{' '}
+                <code className="font-mono text-xs">LegalText</code>{' '}
+                bouyon — si non, li rete tann revizyon.
               </>
             )}
           </p>

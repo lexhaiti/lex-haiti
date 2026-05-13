@@ -466,6 +466,9 @@ class MoniteurRepository:
 
         # Append new entries with the editor-supplied structure. No
         # parser invocation — caller is responsible for the content.
+        # ``content`` (the inline JsonImportLegalText) is not stored on
+        # the entry row; the route/CLI layer drives auto-promotion
+        # against the matching payload entry after this method returns.
         for i, item in enumerate(entries):
             row = MoniteurEntry(
                 issue_id=issue.id,
@@ -474,8 +477,8 @@ class MoniteurRepository:
                 detected_title=item.get("detected_title"),
                 detected_number=item.get("detected_number"),
                 detected_date=item.get("detected_date"),
-                page_from=item.get("page_from") or 1,
-                page_to=item.get("page_to") or 1,
+                page_from=item.get("page_from"),
+                page_to=item.get("page_to"),
                 raw_text=item.get("raw_text") or "",
                 content_ast=item.get("content_ast"),
             )
@@ -489,6 +492,48 @@ class MoniteurRepository:
         issue.processing_status = MoniteurIssueStatus.parsed
         self.session.flush()
         return issue
+
+    def auto_promote_from_content(
+        self,
+        entry: MoniteurEntry,
+        content: dict,
+        *,
+        actor,
+    ) -> LegalText:
+        """Promote a JSON-imported entry whose ``content`` block carries
+        a full structured legal text. Bypasses the editorial-review
+        flow — the caller is asserting the structure is correct.
+
+        Uses ``EditorialService.create_legal_text`` so headings, articles,
+        signers, and theme auto-tagging follow the same path as the
+        regular editorial create endpoint. After the text is created,
+        links it to the parent Moniteur issue (the FK that
+        ``promote_entry`` also maintains) and marks the entry as
+        accepted + promoted so the issue lifecycle rolls forward to
+        ``published`` once every entry is in a terminal state.
+        """
+        from packages.schemas.legal_text import LegalTextCreate
+        from services.editorial.service import EditorialService
+
+        service = EditorialService(self.session)
+        payload = LegalTextCreate.model_validate(content)
+        created = service.create_legal_text(payload, actor=actor)
+
+        legal_text = self.session.get(LegalText, created.id)
+        if legal_text is not None:
+            legal_text.moniteur_issue_id = entry.issue_id
+
+        entry.promoted_legal_text_id = created.id
+        entry.review_status = MoniteurCandidateStatus.accepted
+        entry.reviewed_at = datetime.now(timezone.utc)
+        self.session.flush()
+
+        issue = self.get_issue(entry.issue_id)
+        if issue is not None:
+            self.recompute_issue_status(issue)
+        return legal_text if legal_text is not None else self.session.get(
+            LegalText, created.id
+        )
 
     def set_sommaire_entries(
         self,

@@ -16,13 +16,18 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from packages.schemas.article import ArticleCreate
 from packages.schemas.enums import (
+    CodeSubcategory,
     LegalCategory,
+    LegalStatus,
     MoniteurCandidateStatus,
     MoniteurDocumentType,
     MoniteurIssueStatus,
     ParserProfile,
 )
+from packages.schemas.heading import LegalHeadingCreate
+from packages.schemas.signer import LegalSignerCreate
 
 
 class MoniteurIssueBase(BaseModel):
@@ -289,6 +294,60 @@ class TranscriptPreviewInput(BaseModel):
     raw_text: Optional[str] = None
 
 
+class JsonImportLegalText(BaseModel):
+    """Fully-structured legal text supplied inline inside a JSON-import
+    entry. Mirrors ``LegalTextCreate``'s editable surface so the
+    caller can hand-deliver a complete draft text (slug, formal
+    blocks, headings, articles, signers) without going through the
+    OCR/parser pipeline.
+
+    Used by ``JsonImportEntry.content`` — when present, the importer
+    auto-promotes the entry to a draft ``LegalText`` immediately
+    instead of leaving it pending for editorial review.
+
+    Only ``slug`` and ``title_fr`` are required; everything else
+    matches the defaults on ``LegalTextCreate`` so callers can omit
+    fields they don't have. ``editorial_status`` is forced to draft
+    server-side regardless of what the caller sends — promotion via
+    JSON-import always lands as a draft.
+    """
+
+    slug: str
+    category: LegalCategory
+    code_subcategory: Optional[CodeSubcategory] = None
+    jurisdiction: str = "HT"
+
+    title_fr: str
+    title_ht: Optional[str] = None
+    description_fr: Optional[str] = None
+    description_ht: Optional[str] = None
+    preamble_fr: Optional[str] = None
+    preamble_ht: Optional[str] = None
+    visas_fr: Optional[str] = None
+    visas_ht: Optional[str] = None
+    considerants_fr: Optional[str] = None
+    considerants_ht: Optional[str] = None
+    enacting_formula_fr: Optional[str] = None
+    enacting_formula_ht: Optional[str] = None
+    enacting_formula_align: str = "left"
+
+    promulgation_date: Optional[date] = None
+    publication_date: Optional[date] = None
+    moniteur_ref: Optional[str] = None
+
+    official_number: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    official_formula: Optional[str] = None
+
+    status: LegalStatus = LegalStatus.in_force
+
+    headings: Optional[List[LegalHeadingCreate]] = None
+    articles: Optional[List[ArticleCreate]] = None
+    signers: Optional[List[LegalSignerCreate]] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class JsonImportEntry(BaseModel):
     """One entry inside a JSON-imported Moniteur issue.
 
@@ -297,16 +356,27 @@ class JsonImportEntry(BaseModel):
     boundary detection is run. ``raw_text`` is the canonical body
     (used for re-parse later if needed); ``content_ast`` is the
     typed parser output, when the caller has it.
+
+    Pages are optional — JSON-imported entries bypass the parser,
+    so the page-range hint is only meaningful when the caller wants
+    to record where the text appears in the printed issue.
+
+    When ``content`` is provided, the importer auto-promotes the
+    entry to a draft ``LegalText`` immediately — bypassing the
+    "pending → reviewed → promote" editorial flow. Use it when the
+    caller already has the full structured law and wants a one-shot
+    import-and-promote.
     """
 
     detected_category: MoniteurDocumentType
     detected_title: Optional[str] = None
     detected_number: Optional[str] = None
     detected_date: Optional[date] = None
-    page_from: int = 1
-    page_to: int = 1
+    page_from: Optional[int] = None
+    page_to: Optional[int] = None
     raw_text: str = ""
     content_ast: Optional[Dict[str, Any]] = None
+    content: Optional[JsonImportLegalText] = None
 
     model_config = ConfigDict(extra="forbid")
 
