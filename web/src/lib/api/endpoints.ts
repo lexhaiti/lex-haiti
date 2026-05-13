@@ -430,6 +430,7 @@ export type MoniteurEntryRead = {
     | 'convention'
     | 'ordonnance'
     | 'communique'
+    | 'correspondance'
     | 'promulgation'
     | 'errata'
     | 'autre'

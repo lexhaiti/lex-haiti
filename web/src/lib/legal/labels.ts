@@ -23,6 +23,7 @@ export type CategoryKey =
   | 'convention'
   | 'ordonnance'
   | 'communique'
+  | 'correspondance'
   | 'promulgation'
   | 'errata'
   | 'autre'
@@ -58,6 +59,7 @@ export const CATEGORY_LABELS = {
   convention: { fr: 'Convention', ht: 'Konvansyon' },
   ordonnance: { fr: 'Ordonnance', ht: 'Òdonans' },
   communique: { fr: 'Communiqué', ht: 'Kominike' },
+  correspondance: { fr: 'Correspondance', ht: 'Korespondans' },
   promulgation: { fr: 'Promulgation', ht: 'Pwomilgasyon' },
   errata: { fr: 'Errata', ht: 'Erata' },
   autre: { fr: 'Autre', ht: 'Lòt' },
@@ -78,6 +80,7 @@ export const CATEGORY_LABELS_PLURAL = {
   convention: { fr: 'Conventions', ht: 'Konvansyon' },
   ordonnance: { fr: 'Ordonnances', ht: 'Òdonans' },
   communique: { fr: 'Communiqués', ht: 'Kominike' },
+  correspondance: { fr: 'Correspondances', ht: 'Korespondans' },
   promulgation: { fr: 'Promulgations', ht: 'Pwomilgasyon' },
   errata: { fr: 'Errata', ht: 'Erata' },
   autre: { fr: 'Autres', ht: 'Lòt' },
@@ -115,6 +118,7 @@ export const CATEGORY_BADGE_CLASS: Partial<Record<CategoryKey, string>> = {
   convention: 'bg-rose-100 text-rose-800',
   ordonnance: 'bg-cyan-100 text-cyan-800',
   communique: 'bg-orange-100 text-orange-800',
+  correspondance: 'bg-yellow-100 text-yellow-800',
   promulgation: 'bg-teal-100 text-teal-800',
   errata: 'bg-pink-100 text-pink-800',
   autre: 'bg-slate-100 text-slate-600',

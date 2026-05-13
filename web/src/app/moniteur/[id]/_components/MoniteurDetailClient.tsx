@@ -122,6 +122,13 @@ const CATEGORY_META: Record<
     bar: 'bg-orange-500',
     icon: 'text-orange-600',
   },
+  correspondance: {
+    label: 'Correspondance',
+    plural: 'Correspondances',
+    badge: 'bg-yellow-50 text-yellow-800 border-yellow-200',
+    bar: 'bg-yellow-500',
+    icon: 'text-yellow-600',
+  },
   promulgation: {
     label: 'Promulgation',
     plural: 'Promulgations',
