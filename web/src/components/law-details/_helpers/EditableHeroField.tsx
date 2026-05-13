@@ -41,9 +41,13 @@ type Props = {
   inputClassName?: string
   /** Optional override for the icon button colour. */
   iconColorClassName?: string
-  /** Optional kind. ``year`` validates 4 digits and treats the input
-   *  as numeric; otherwise free text. */
-  kind?: 'text' | 'year'
+  /** Optional kind.
+   *  - ``year``: 4 digits, numeric input. Validates and clears at save.
+   *  - ``date``: native ``<input type="date">``. Value is a YYYY-MM-DD
+   *    ISO string (the format the backend's date columns expect).
+   *  - ``text`` (default): free text.
+   */
+  kind?: 'text' | 'year' | 'date'
   /** Optional placeholder shown when value is empty + editor is in
    *  display mode. */
   emptyPlaceholder?: string
@@ -95,6 +99,13 @@ export function EditableHeroField({
       setError('Année à 4 chiffres')
       return
     }
+    if (kind === 'date' && trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      // Native date input typically guarantees this format, but on
+      // unsupported browsers the input falls back to a text field and
+      // editors can paste arbitrary strings. Reject anything not ISO.
+      setError('Format attendu : AAAA-MM-JJ')
+      return
+    }
     if (trimmed === value.trim()) {
       cancel()
       return
@@ -120,8 +131,8 @@ export function EditableHeroField({
       <span className="inline-flex items-center gap-2 max-w-full">
         <input
           ref={inputRef}
-          type={kind === 'year' ? 'text' : 'text'}
-          inputMode={kind === 'year' ? 'numeric' : 'text'}
+          type={kind === 'date' ? 'date' : 'text'}
+          inputMode={kind === 'year' ? 'numeric' : undefined}
           pattern={kind === 'year' ? '\\d{4}' : undefined}
           maxLength={kind === 'year' ? 4 : undefined}
           value={draft}

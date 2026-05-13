@@ -494,8 +494,10 @@ export const ht = {
       'Chan an fransè ak an kreyòl. Slug ak estati editoryal pa modifye isit la.',
     titleFr: 'Tit (FR) *',
     titleHt: 'Tit (KW)',
-    descFr: 'Deskripsyon (FR)',
-    descHt: 'Deskripsyon (KW)',
+    descFr: 'Sentans kout pou kat yo (FR)',
+    descHt: 'Sentans kout pou kat yo (KW)',
+    descHint:
+      'Yon ti fraz ki parèt anba tit la sou paj /lois (vi grid ak vi lis). Pi byen 1–2 liy — esplike sa tèks la fè, pa kontèks enpòtasyon an.',
     category: 'Kategori',
     codeSubcategory: 'Sou-kategori',
     legalStatus: 'Estati jiridik',

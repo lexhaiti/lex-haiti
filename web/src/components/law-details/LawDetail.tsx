@@ -496,36 +496,41 @@ export default function LawDetail() {
                     </p>
                     <p className="text-white font-bold">
                       {(() => {
-                        // Year display falls back to the linked Moniteur
+                        // Display falls back to the linked Moniteur
                         // issue's publication date when the text's own
                         // ``publication_date`` is null — typical for
                         // historical imports (e.g. the 1987 Constitution,
                         // which carries no per-text date but is attached
                         // to its Moniteur issue from 28 April 1987).
-                        const ownYear = law.publication_date?.slice(0, 4)
-                        const fallbackYear =
-                          law.moniteur_issue_publication_date?.slice(0, 4)
-                        const shownYear = ownYear || fallbackYear || ''
+                        //
+                        // The edit affordance binds to the *full* date so
+                        // the editor picks a real day (not a YYYY-01-01
+                        // sentinel — the old year-only field saved exactly
+                        // that, which is why historical texts showed
+                        // "1 janvier YYYY" on cards). The slot still
+                        // *displays* the year because the meta label is
+                        // "année" — the long-form date appears next to the
+                        // Moniteur link further down the hero.
+                        const ownDate = law.publication_date ?? ''
+                        const shownYear =
+                          law.publication_date?.slice(0, 4) ||
+                          law.moniteur_issue_publication_date?.slice(0, 4) ||
+                          ''
                         return (
                           <EditableHeroField
-                            value={ownYear ?? ''}
+                            value={ownDate}
                             isEditor={isEditor}
-                            kind="year"
+                            kind="date"
                             emptyPlaceholder="—"
                             editAriaLabel={
                               currentLang === 'fr'
-                                ? "Modifier l'année"
-                                : 'Modifye ane a'
+                                ? 'Modifier la date'
+                                : 'Modifye dat la'
                             }
-                            inputClassName="w-20 text-center font-bold"
+                            inputClassName="w-44 font-bold"
                             onSave={async (next) => {
-                              // 4-digit year → store as YYYY-01-01 on the
-                              // publication_date column. Editing this field is
-                              // a year-only intent; finer-grained dates live
-                              // in the MetadataEditor sheet.
-                              const value = next ? `${next}-01-01` : null
                               await updateLegalTextMetadata(law.slug, {
-                                publication_date: value,
+                                publication_date: next || null,
                               } as any)
                               refetch()
                             }}

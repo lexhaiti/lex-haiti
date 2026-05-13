@@ -505,8 +505,10 @@ export const fr = {
       'Champs édités en français et en kreyòl. Le slug et le statut éditorial ne sont pas modifiables ici.',
     titleFr: 'Titre (FR) *',
     titleHt: 'Titre (KW)',
-    descFr: 'Description (FR)',
-    descHt: 'Description (KW)',
+    descFr: 'Résumé sur les fiches (FR)',
+    descHt: 'Résumé sur les fiches (KW)',
+    descHint:
+      'Phrase courte affichée sous le titre sur la page /lois (vue grille et liste). Idéalement 1–2 lignes — décrit l’objet du texte, pas son contexte d’import.',
     category: 'Catégorie',
     codeSubcategory: 'Sous-catégorie',
     legalStatus: 'Statut juridique',

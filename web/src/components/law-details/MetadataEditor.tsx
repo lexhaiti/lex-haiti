@@ -233,7 +233,10 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
             />
           </Field>
 
-          <Field label={t('metadataEditor.descFr')}>
+          <Field
+            label={t('metadataEditor.descFr')}
+            hint={t('metadataEditor.descHint')}
+          >
             <Textarea
               rows={3}
               value={form.description_fr}
