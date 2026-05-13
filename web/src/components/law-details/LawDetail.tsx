@@ -12,6 +12,7 @@ import {
   Clock,
   Download,
   FileText,
+  Info,
   Loader2,
   Newspaper,
   PanelLeft,
@@ -25,6 +26,12 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,31 +121,39 @@ export default function LawDetail() {
     )
   }, [selectedArticle, law?.articles])
 
-  // Top-level article count for the hero "Contenu" stat.
+  // Article counts for the hero "Contenu" stat.
   //
-  // The raw ``law.articles.length`` over-counts because the parser
-  // historically promoted every numbered alinéa ("32-1", "32-2"…) to
-  // its own row in the articles table. The 1987 Constitution has 298
-  // top-level articles (article 1 to article 298) plus a handful of
-  // genuine sub-articles (Article 284-1, 289-1, etc.) — but the DB
-  // currently carries hundreds of false sub-articles that are really
-  // alinéas inside their parent. Showing 499 instead of 298 is wrong.
-  //
-  // Display fix: count only numbers that match ``premier`` or a pure
-  // integer (no dash suffix), and dedupe so the historical OCR
-  // duplicates ("60" appearing twice as "60" + "60-2") don't inflate
-  // the figure. The DB cleanup is a separate task — this is a
-  // presentation patch.
-  const topLevelArticleCount = useMemo(() => {
-    if (!law?.articles) return 0
-    const seen = new Set<string>()
+  // The 1987 Constitution numbers top-level articles 1 → 298, but the
+  // actual ``law.articles.length`` is higher because amendments insert
+  // articles with dash-suffixes ("35-1", "35-2"…) instead of
+  // renumbering everything that follows. So the *count* and the
+  // *highest visible number* legitimately disagree. We now show the
+  // real total — what the editor and reader actually navigate — and
+  // surface a tooltip explaining the gap so the number doesn't look
+  // like a bug ("why 499 when the last article is 298?").
+  const articleCounts = useMemo(() => {
+    if (!law?.articles || law.articles.length === 0) {
+      return { total: 0, topLevel: 0, highestNumber: 0 }
+    }
+    const seenTopLevel = new Set<string>()
+    let highest = 0
     for (const a of law.articles) {
       const num = String(a.number ?? '').trim().toLowerCase()
-      if (!/^(premier|\d+)$/.test(num)) continue
-      if (seen.has(num)) continue
-      seen.add(num)
+      // Top-level = bare integer or "premier" (no dash suffix).
+      // "35-1" is an inserted article, not top-level.
+      if (/^(premier|\d+)$/.test(num)) seenTopLevel.add(num)
+      // Highest integer prefix — handles "35-1" → 35 just like "35".
+      const m = num.match(/^(\d+)/)
+      if (m) {
+        const n = parseInt(m[1], 10)
+        if (n > highest) highest = n
+      }
     }
-    return seen.size
+    return {
+      total: law.articles.length,
+      topLevel: seenTopLevel.size,
+      highestNumber: highest,
+    }
   }, [law?.articles])
 
   // Walk the heading tree from the selected article up to the LegalText root.
@@ -552,9 +567,74 @@ export default function LawDetail() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
                       {t('lawDetail.meta.content')}
                     </p>
-                    <p className="text-white font-bold">
-                      {topLevelArticleCount}{' '}
-                      {t('lawDetail.meta.articles')}
+                    <p className="text-white font-bold inline-flex items-center gap-1.5">
+                      <span>
+                        {articleCounts.total}{' '}
+                        {t('lawDetail.meta.articles')}
+                      </span>
+                      {/* Info tooltip — only surfaced when the total
+                          count and the highest visible article number
+                          legitimately disagree (e.g. constitution:
+                          last article is 298 but total is 499 because
+                          of dash-suffixed insertions "35-1", "35-2"…).
+                          Stays hidden on simple laws where total ==
+                          highest number, so the bit of icon noise only
+                          appears where it's actually needed. */}
+                      {articleCounts.highestNumber > 0 &&
+                        articleCounts.total !==
+                          articleCounts.highestNumber && (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={
+                                    currentLang === 'fr'
+                                      ? 'Pourquoi ce nombre ?'
+                                      : 'Poukisa nimewo sa ?'
+                                  }
+                                  className="text-slate-400 hover:text-white transition-colors"
+                                >
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-xs text-left"
+                              >
+                                {currentLang === 'fr' ? (
+                                  <p className="text-xs leading-relaxed">
+                                    Le dernier article est numéroté{' '}
+                                    <span className="font-bold">
+                                      {articleCounts.highestNumber}
+                                    </span>
+                                    , mais le total atteint{' '}
+                                    <span className="font-bold">
+                                      {articleCounts.total}
+                                    </span>{' '}
+                                    : les amendements insèrent des
+                                    articles « bis » (35-1, 35-2…) sans
+                                    renuméroter ce qui suit.
+                                  </p>
+                                ) : (
+                                  <p className="text-xs leading-relaxed">
+                                    Dènye atik la nimewote{' '}
+                                    <span className="font-bold">
+                                      {articleCounts.highestNumber}
+                                    </span>
+                                    , men total la rive{' '}
+                                    <span className="font-bold">
+                                      {articleCounts.total}
+                                    </span>{' '}
+                                    : amannman yo mete atik « bis »
+                                    (35-1, 35-2…) san renimewote sa ki
+                                    vini apre.
+                                  </p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                     </p>
                   </div>
                 </div>
