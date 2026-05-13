@@ -125,19 +125,23 @@ export function EditableFormalBlock({
     if (!editing) setDraft(value ?? '')
   }, [value, editing])
 
-  // Compact variant — no accordion, content always shown.
+  // Compact variant — no accordion, content always shown. Reads as
+  // a left-aligned paragraph (formal adoption lines often span two
+  // or three lines: "Sur proposition de …\nLe Sénat a adopté la loi
+  // suivante :"). ``whitespace-pre-line`` preserves newlines the
+  // editor typed in the textarea.
   const renderCompact = () => (
-    <div className="py-4 text-center group">
+    <div className="py-4 group">
       {editing ? (
-        <div className="max-w-2xl mx-auto space-y-2">
+        <div className="space-y-2">
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            rows={2}
-            className="w-full rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 text-sm text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary italic text-center"
+            rows={Math.max(3, (draft.match(/\n/g)?.length ?? 0) + 2)}
+            className="w-full rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 text-sm text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary italic"
           />
           {error && <p className="text-xs text-red-600">{error}</p>}
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={cancel} disabled={saving} className={cancelBtnCls}>
               <X className="w-3 h-3" /> {isFr ? 'Annuler' : 'Anile'}
             </button>
@@ -148,8 +152,8 @@ export function EditableFormalBlock({
           </div>
         </div>
       ) : value ? (
-        <div className="flex items-center justify-center gap-2">
-          <p className="text-sm font-semibold italic text-slate-500 tracking-wide">
+        <div className="flex items-start gap-2">
+          <p className="flex-1 text-sm font-semibold italic text-slate-500 tracking-wide whitespace-pre-line leading-relaxed">
             {value}
           </p>
           {isEditor && (
@@ -160,7 +164,7 @@ export function EditableFormalBlock({
                 setDraft(value ?? '')
                 setError(null)
               }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-primary"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-primary flex-shrink-0 mt-0.5"
               aria-label={isFr ? 'Modifier' : 'Modifye'}
             >
               <PenLine className="w-3.5 h-3.5" />
@@ -179,7 +183,7 @@ export function EditableFormalBlock({
             setDraft('')
             setError(null)
           }}
-          className="mx-auto inline-flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-4 py-1.5 text-xs italic text-amber-800 hover:bg-amber-50 hover:border-amber-400 transition-colors"
+          className="inline-flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-4 py-1.5 text-xs italic text-amber-800 hover:bg-amber-50 hover:border-amber-400 transition-colors"
         >
           <PenLine className="w-3 h-3" />
           {isFr
