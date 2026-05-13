@@ -67,6 +67,7 @@ const SOMMAIRE_DOC_TYPE_VALUES: ReadonlyArray<
   'convention',
   'ordonnance',
   'communique',
+  'correspondance',
   'promulgation',
   'errata',
   'autre',
@@ -548,6 +549,7 @@ export default function MoniteurImportPanel() {
                   row={row}
                   index={i}
                   t={t}
+                  lang={lang}
                   disabled={phase !== 'review' && phase !== 'idle'}
                   onChange={(patch) => updateSommaireRow(row.uid, patch)}
                   onRemove={() => removeSommaireRow(row.uid)}
@@ -676,6 +678,7 @@ function SommaireRowEditor({
   row,
   index,
   t,
+  lang,
   disabled,
   onChange,
   onRemove,
@@ -683,6 +686,7 @@ function SommaireRowEditor({
   row: SommaireRow
   index: number
   t: T
+  lang: 'fr' | 'ht'
   disabled: boolean
   onChange: (patch: Partial<SommaireRow>) => void
   onRemove: () => void
@@ -733,16 +737,31 @@ function SommaireRowEditor({
             </SelectContent>
           </Select>
         </div>
-        {/* Title — 4 columns */}
+        {/* Title — 4 columns. When the editor picks "autre", the
+            title doubles as the display name for the entry (since the
+            category itself doesn't carry any human label) — the
+            placeholder + caption switch to make that explicit so the
+            editor knows where to type the custom name. */}
         <label className="sm:col-span-4 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {t('editorial.import.moniteur.sommaireTitle')}
+            {row.detected_category === 'autre'
+              ? lang === 'ht'
+                ? 'Non pou afiche'
+                : 'Nom à afficher'
+              : t('editorial.import.moniteur.sommaireTitle')}
           </span>
           <input
             type="text"
             value={row.detected_title ?? ''}
             disabled={disabled}
             onChange={(e) => onChange({ detected_title: e.target.value })}
+            placeholder={
+              row.detected_category === 'autre'
+                ? lang === 'ht'
+                  ? 'Ex. : Avi piblik, Deklarasyon…'
+                  : 'Ex. : Avis public, Déclaration…'
+                : undefined
+            }
             className={inputCls}
           />
         </label>

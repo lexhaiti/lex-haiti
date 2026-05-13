@@ -148,6 +148,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal-texts/{slug}/blocks/{block_kind}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Block Versions
+         * @description Version history for a formal block on a legal text.
+         *
+         *     Powers the "Versions" accordion under each EditableFormalBlock
+         *     (preamble, visas, considérants, enacting formula). Returns rows
+         *     newest-first; v1 is the original content captured at backfill
+         *     time (with ``effective_from`` set to the text's promulgation /
+         *     publication date when available).
+         */
+        get: operations["list_block_versions_api_v1_legal_texts__slug__blocks__block_kind__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal-texts/{slug}/changes-made": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changes Made
+         * @description All article changes this text introduced into *other* texts.
+         *
+         *     Powers the "Modifications apportées" panel on an amending law's
+         *     detail page — e.g. on Loi N° 24-001, returns all Code Civil
+         *     articles it amended, each with the new version number + effective
+         *     date + a permalink to the amended article.
+         *
+         *     Direction is the inverse of /amendments: that route asks "which
+         *     of MY articles have history?", this one asks "what did I do to
+         *     OTHER texts?". Both read the same ``legal_changes`` graph.
+         */
+        get: operations["get_changes_made_api_v1_legal_texts__slug__changes_made_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal-texts/{slug}/articles": {
         parameters: {
             query?: never;
@@ -228,6 +283,30 @@ export interface paths {
          * @description Get an article with current version + full version history.
          */
         get: operations["get_article_api_v1_articles__article_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles/{article_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Article Versions
+         * @description Just the version history for an article — sorted by ``version_number``.
+         *
+         *     Cheaper than ``GET /articles/{id}`` when the caller only needs the
+         *     timeline (e.g. the "Versions" accordion on the article reader, the
+         *     "Modifications apportées" panel on an amending law's detail page).
+         */
+        get: operations["list_article_versions_api_v1_articles__article_id__versions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -424,6 +503,95 @@ export interface paths {
          *     CLAUDE.md "permalinks are forever").
          */
         patch: operations["update_article_content_api_v1_editorial_articles__article_id__content_patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/articles/{article_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a new version of an article caused by an amending legal text
+         * @description Add a new version of an article, anchored to the amending law.
+         *
+         *     Distinct from PATCH /articles/{id}/content (editorial corrections):
+         *     the editor here is declaring "this amending text introduces a new
+         *     version of the article". A ``LegalChange`` graph row is written
+         *     alongside the new ``ArticleVersion`` so the bidirectional history
+         *     (all laws that amended X; all articles amended by Y) is queryable.
+         *
+         *     The new version becomes the article's current_version. The previous
+         *     version's ``effective_to`` is auto-stamped to the new version's
+         *     ``effective_from`` so the timeline is gap-free.
+         */
+        post: operations["add_article_version_api_v1_editorial_articles__article_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/blocks/{block_kind}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a new version of a formal block, anchored to an amending law
+         * @description Add a new version of one of the four formal blocks of a legal
+         *     text (preamble, visas, considérants, enacting formula).
+         *
+         *     Symmetric with ``POST /editorial/articles/{id}/versions`` but for
+         *     block-typed content. Writes the new ``LegalTextBlockVersion`` row,
+         *     denormalises onto the corresponding ``legal_texts`` column (so the
+         *     public read path stays unchanged), and writes a ``LegalChange``
+         *     row pointing at the amending law via ``new_block_version_id`` so
+         *     the "Modifications apportées" panel picks it up.
+         */
+        post: operations["add_block_version_api_v1_editorial_legal_texts__slug__blocks__block_kind__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Insert a new article into a legal text (amendment insertion)
+         * @description Insert a brand-new article (e.g. "9-1" or "9 bis") between two
+         *     existing articles, anchored to the amending law that introduced it.
+         *
+         *     Position is computed server-side from ``after_article_id``: the
+         *     new article inherits that article's TOC node (``heading_id``) and
+         *     slots at ``after.position + 1``, with all later siblings in the
+         *     same heading bumped by one. Pass only ``heading_id`` to insert at
+         *     position 0 of that heading.
+         *
+         *     Writes a ``LegalChange`` row with ``change_kind=add`` so the
+         *     amending law's "Modifications apportées" panel lists the
+         *     insertion alongside its other edits.
+         */
+        post: operations["insert_article_api_v1_editorial_legal_texts__slug__articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/editorial/headings/{heading_id}/title": {
@@ -1401,6 +1569,48 @@ export interface components {
             version_number?: number | null;
         };
         /**
+         * ArticleInsertInput
+         * @description Editor-supplied payload to insert a brand-new article into a
+         *     legal text — typically the case where an amendment introduces an
+         *     article like "9-1" or "9 bis" between two existing articles.
+         *
+         *     Position is computed server-side from ``after_article_id``: the new
+         *     article inherits that article's ``heading_id`` (same TOC node) and
+         *     slots at ``position + 1``, with all later siblings in the same
+         *     heading bumped by one. To insert at the very top of a heading,
+         *     omit ``after_article_id`` and supply ``heading_id`` instead — the
+         *     article goes at position 0 of that heading.
+         *
+         *     ``source_legal_text_id`` is mandatory (this is amendment plumbing,
+         *     not editorial seeding) and writes a ``LegalChange`` row with
+         *     ``change_kind=add`` so the amending law's "Modifications apportées"
+         *     panel picks the new article up.
+         */
+        ArticleInsertInput: {
+            /** Number */
+            number: string;
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Text Fr */
+            text_fr: string;
+            /** Text Ht */
+            text_ht?: string | null;
+            /** After Article Id */
+            after_article_id?: number | null;
+            /** Heading Id */
+            heading_id?: number | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Source Legal Text Id */
+            source_legal_text_id: number;
+            /** Source Article Id */
+            source_article_id?: number | null;
+            /** Comment */
+            comment?: string | null;
+        };
+        /**
          * ArticleListItem
          * @description Lightweight shape — list endpoints use this.
          */
@@ -1455,6 +1665,38 @@ export interface components {
          * @enum {string}
          */
         ArticleStatus: "in_force" | "abrogated" | "suspended" | "transferred" | "obsolete";
+        /**
+         * ArticleVersionAddInput
+         * @description Editor-supplied payload to add a new version of an article *because
+         *     of an amending legal text*.
+         *
+         *     Distinct from ``ArticleContentUpdate`` (which is editorial-correction-
+         *     flavoured — no source law required). Here the editor is saying "this
+         *     incoming law (decree / loi modifiant) introduces a new version of
+         *     the article", so ``source_legal_text_id`` is mandatory and a
+         *     ``LegalChange`` graph row is created alongside the new version.
+         *
+         *     ``effective_from`` defaults to the source law's promulgation /
+         *     publication date when omitted — the service fills it in.
+         */
+        ArticleVersionAddInput: {
+            /** Text Fr */
+            text_fr: string;
+            /** Text Ht */
+            text_ht?: string | null;
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Source Legal Text Id */
+            source_legal_text_id: number;
+            /** Source Article Id */
+            source_article_id?: number | null;
+            /** Comment */
+            comment?: string | null;
+        };
         /** ArticleVersionCreate */
         ArticleVersionCreate: {
             /** Title Fr */
@@ -1563,6 +1805,75 @@ export interface components {
              * @default []
              */
             versions: components["schemas"]["ArticleVersionRead"][];
+        };
+        /**
+         * BlockKind
+         * @description Kind of TocNode block.
+         *
+         *     ``structural`` nodes carry a ``HeadingLevel`` (part/book/title/...).
+         *     All other kinds describe formal blocks that today live as flat
+         *     columns on LegalText (preamble, visas, considérants, etc.) and will
+         *     be migrated into TocNode rows in Phase 2.
+         * @enum {string}
+         */
+        BlockKind: "sovereignty_formula" | "preamble" | "visa" | "considerant" | "enacting_formula" | "structural" | "annex" | "closing_formula" | "signature_block" | "promulgation_block" | "prose_body";
+        /**
+         * BlockVersionAddInput
+         * @description Editor input for adding a new version of a formal block,
+         *     anchored to an amending legal text.
+         *
+         *     Same contract as ``ArticleVersionAddInput`` minus the article-
+         *     specific fields: ``source_legal_text_id`` is mandatory because
+         *     every new version must point at the law that caused the change.
+         *     Either ``text_fr`` or ``text_ht`` must be non-empty — formal
+         *     blocks are bilingual and at least one language must carry the
+         *     new content.
+         */
+        BlockVersionAddInput: {
+            /** Text Fr */
+            text_fr?: string | null;
+            /** Text Ht */
+            text_ht?: string | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Source Legal Text Id */
+            source_legal_text_id: number;
+            /** Comment */
+            comment?: string | null;
+        };
+        /**
+         * BlockVersionRead
+         * @description One row of a formal block's version timeline.
+         */
+        BlockVersionRead: {
+            /** Id */
+            id: number;
+            /** Legal Text Id */
+            legal_text_id: number;
+            block_kind: components["schemas"]["BlockKind"];
+            /** Version Number */
+            version_number: number;
+            /** Text Fr */
+            text_fr?: string | null;
+            /** Text Ht */
+            text_ht?: string | null;
+            /** Effective From */
+            effective_from?: string | null;
+            /** Effective To */
+            effective_to?: string | null;
+            /** Source Amendment Id */
+            source_amendment_id?: number | null;
+            editorial_status: components["schemas"]["EditorialStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** Body_extract_metadata_api_v1_moniteur_extract_metadata_post */
         Body_extract_metadata_api_v1_moniteur_extract_metadata_post: {
@@ -1901,6 +2212,58 @@ export interface components {
          * @enum {string}
          */
         LegalCategory: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "avis" | "other_regulatory";
+        /**
+         * LegalChangeMadeRead
+         * @description One edit a law made to an article *or* a formal block in
+         *     another text.
+         *
+         *     Used by the "Modifications apportées" panel on an amending law's
+         *     detail page. Each row is a denormalised view of a ``LegalChange``
+         *     row, joined with the amended legal text + the touched target so
+         *     the panel can render the link + label without an N+1 fetch:
+         *     "→ Code Civil, Article 1444 — v3 (28 avril 2024)" or
+         *     "→ Constitution, Préambule — v2 (15 mai 2026)".
+         *
+         *     Exactly one of the two target groups is populated per row:
+         *     - ``amended_article_*`` for an article edit
+         *     - ``amended_block_kind`` + ``new_block_version_*`` for a formal-
+         *       block edit
+         */
+        LegalChangeMadeRead: {
+            /** Id */
+            id: number;
+            /** Change Kind */
+            change_kind: string;
+            /** Effective On */
+            effective_on?: string | null;
+            /** New Version Id */
+            new_version_id?: number | null;
+            /** New Version Number */
+            new_version_number?: number | null;
+            /** Amended Text Id */
+            amended_text_id: number;
+            /** Amended Text Slug */
+            amended_text_slug: string;
+            /** Amended Text Title Fr */
+            amended_text_title_fr: string;
+            /** Amended Article Id */
+            amended_article_id?: number | null;
+            /** Amended Article Number */
+            amended_article_number?: string | null;
+            /** Amended Article Slug */
+            amended_article_slug?: string | null;
+            /** Amended Block Kind */
+            amended_block_kind?: string | null;
+            /** New Block Version Id */
+            new_block_version_id?: number | null;
+            /** New Block Version Number */
+            new_block_version_number?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** LegalHeadingCreate */
         LegalHeadingCreate: {
             /** Key */
@@ -2357,7 +2720,7 @@ export interface components {
          *     errata, etc.) but should not pollute the corpus-level category enum.
          * @enum {string}
          */
-        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "promulgation" | "errata" | "autre";
+        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "correspondance" | "promulgation" | "errata" | "autre";
         /**
          * MoniteurEntryParserProfileUpdate
          * @description Editor override for which parser profile runs on this entry.
@@ -3526,6 +3889,69 @@ export interface operations {
             };
         };
     };
+    list_block_versions_api_v1_legal_texts__slug__blocks__block_kind__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                block_kind: components["schemas"]["BlockKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockVersionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_changes_made_api_v1_legal_texts__slug__changes_made_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalChangeMadeRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_articles_in_text_api_v1_legal_texts__slug__articles_get: {
         parameters: {
             query?: {
@@ -3648,6 +4074,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArticleWithHistoryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_article_versions_api_v1_articles__article_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleVersionRead"][];
                 };
             };
             /** @description Validation Error */
@@ -3989,6 +4446,112 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleEmbed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_article_version_api_v1_editorial_articles__article_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleVersionAddInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleVersionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_block_version_api_v1_editorial_legal_texts__slug__blocks__block_kind__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                block_kind: components["schemas"]["BlockKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockVersionAddInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockVersionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insert_article_api_v1_editorial_legal_texts__slug__articles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleInsertInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

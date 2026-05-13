@@ -136,6 +136,7 @@ class MoniteurDocumentType(str, Enum):
     ordonnance = "ordonnance"
     # Moniteur-only document types
     communique = "communique"
+    correspondance = "correspondance"
     promulgation = "promulgation"
     errata = "errata"
     autre = "autre"
