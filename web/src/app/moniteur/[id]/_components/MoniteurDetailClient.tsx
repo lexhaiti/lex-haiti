@@ -586,83 +586,107 @@ export default function MoniteurDetailClient() {
               </motion.div>
             </div>
 
-            {/* Sidebar — stats grid */}
+            {/* Sidebar — stats grid + primary download CTA. The
+                Télécharger button used to live in a separate action row
+                below the hero; pulling it into the sidebar puts the
+                primary call-to-action right next to the document count
+                the visitor just scanned, and frees the bottom row for
+                editor-only actions on wide layouts. */}
             <motion.div
               initial={{ opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.22 }}
-              className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:min-w-[200px]"
+              className="flex flex-col gap-3 lg:min-w-[240px]"
             >
-              <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
-                  Documents
-                </div>
-                <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                  {topLevel.length}
-                </div>
-              </div>
-              {issue.page_count && (
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
                 <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
-                    Pages
+                    Documents
                   </div>
                   <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                    {issue.page_count}
+                    {topLevel.length}
                   </div>
                 </div>
-              )}
+                {issue.page_count && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                      Pages
+                    </div>
+                    <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
+                      {issue.page_count}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Primary download CTA — branded LexHaïti PDF assembled
+                  server-side from the structured corpus. Full-width
+                  amber pill so it visually anchors the sidebar; the
+                  download icon is layered in a contrasting square so
+                  the button reads as "card + action" rather than a
+                  flat label, matching the stats cards above. */}
+              <a
+                href={`/api/v1/moniteur/issues/${issue.id}/export`}
+                download
+                className="group/dl flex items-center gap-3 rounded-xl bg-amber-400 text-slate-900 pl-3 pr-5 py-3 shadow-lg shadow-amber-500/15 ring-1 ring-amber-300 hover:bg-amber-300 active:scale-[0.99] transition-all"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900/10 group-hover/dl:bg-slate-900/15 transition-colors">
+                  <Download className="w-4 h-4" />
+                </span>
+                <span className="flex flex-col leading-tight">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-900/70">
+                    Télécharger
+                  </span>
+                  <span className="text-sm font-bold">
+                    PDF LexHaïti
+                  </span>
+                </span>
+              </a>
             </motion.div>
           </div>
 
-          {/* Download row — branded LexHaïti version is always available
-              (server-rendered from the structured corpus); the original
-              scan stays as an "advanced" link only when a remote URL
-              is present. */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-10 flex flex-wrap items-center gap-3"
-          >
-            <a
-              href={`/api/v1/moniteur/issues/${issue.id}/export`}
-              download
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-primary text-sm font-bold border border-white shadow-lg shadow-blue-900/20 hover:bg-amber-50 transition-all"
+          {/* Bottom action row — secondary actions only. The primary
+              download moved into the sidebar above. */}
+          {((issue.file_url && issue.file_url.startsWith('http')) ||
+            isEditor) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-10 flex flex-wrap items-center gap-3"
             >
-              <Download className="w-4 h-4" />
-              Télécharger (PDF LexHaïti)
-            </a>
-            {issue.file_url && issue.file_url.startsWith('http') && (
-              <a
-                href={issue.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                Scan original
-              </a>
-            )}
-            {/* Editor-only toggle. Flips the body below for the
-                review work surface (accept/reject entries, edit text,
-                attach to parent) without leaving the issue's
-                canonical URL. This is the *only* per-issue editor
-                surface — the previous /editorial/moniteur/[id]/review
-                route was removed in favour of this inline toggle. */}
-            {isEditor && (
-              <button
-                type="button"
-                onClick={() =>
-                  setView(view === 'editor' ? 'public' : 'editor')
-                }
-                aria-pressed={view === 'editor'}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold border border-amber-300 hover:bg-amber-300 transition-all"
-              >
-                <Pencil className="w-4 h-4" />
-                {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
-              </button>
-            )}
-          </motion.div>
+              {issue.file_url && issue.file_url.startsWith('http') && (
+                <a
+                  href={issue.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  Scan original
+                </a>
+              )}
+              {/* Editor-only toggle. Flips the body below for the
+                  review work surface (accept/reject entries, edit text,
+                  attach to parent) without leaving the issue's
+                  canonical URL. This is the *only* per-issue editor
+                  surface — the previous /editorial/moniteur/[id]/review
+                  route was removed in favour of this inline toggle. */}
+              {isEditor && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setView(view === 'editor' ? 'public' : 'editor')
+                  }
+                  aria-pressed={view === 'editor'}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold border border-amber-300 hover:bg-amber-300 transition-all"
+                >
+                  <Pencil className="w-4 h-4" />
+                  {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
+                </button>
+              )}
+            </motion.div>
+          )}
         </div>
       </div>
 
