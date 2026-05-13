@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   FileText,
   Loader2,
   Newspaper,
+  Pencil,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -27,6 +28,8 @@ import { formatLongDate as formatLongDateBilingual } from '@/lib/format/date'
 import { smartIssueNumber } from '@/lib/format/moniteur'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { useEditorMode } from '@/lib/hooks/useEditorMode'
+import { MoniteurIssueEditorPanel } from '@/app/editorial/moniteur/[id]/review/page'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -416,6 +419,8 @@ function PromulgationRow({ candidate }: { candidate: MoniteurEntryRead }) {
 
 export default function MoniteurDetailClient() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const { isEditor } = useEditorMode()
   // Route param is named "id" for backwards compatibility but accepts
   // either a numeric ID (``/moniteur/11`` — legacy permalink) or a
   // date slug (``/moniteur/28-avril-1987`` — preferred public form).
@@ -427,6 +432,15 @@ export default function MoniteurDetailClient() {
   const [issue, setIssue] = useState<MoniteurIssueWithEntries | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // View mode for editors: 'public' is the reader layout below, 'editor'
+  // mounts the shared MoniteurIssueEditorPanel under the same hero.
+  // Defaults to 'editor' when ?view=editor is in the URL — used by the
+  // deprecated /editorial/moniteur/{id}/review redirect so the editor
+  // lands directly on the work surface for old bookmarked links.
+  const wantsEditorView = searchParams?.get('view') === 'editor'
+  const [view, setView] = useState<'public' | 'editor'>(
+    wantsEditorView ? 'editor' : 'public',
+  )
 
   useEffect(() => {
     const rawParam = String(params.id ?? '')
@@ -629,13 +643,39 @@ export default function MoniteurDetailClient() {
                 Scan original
               </a>
             )}
+            {/* Editor-only toggle. Flips the body below for the
+                review work surface (accept/reject entries, edit text,
+                attach to parent) without leaving the issue's
+                canonical URL. The deprecated
+                /editorial/moniteur/[id]/review route still works for
+                old links but redirects here with ?view=editor. */}
+            {isEditor && (
+              <button
+                type="button"
+                onClick={() =>
+                  setView(view === 'editor' ? 'public' : 'editor')
+                }
+                aria-pressed={view === 'editor'}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold border border-amber-300 hover:bg-amber-300 transition-all"
+              >
+                <Pencil className="w-4 h-4" />
+                {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
+              </button>
+            )}
           </motion.div>
         </div>
       </div>
 
       {/* ------------------------------------------------------------------- */}
-      {/* Body                                                               */}
+      {/* Body — public reader layout, or the editor work surface when      */}
+      {/* the editor has toggled into "Vue éditeur". Same canonical URL    */}
+      {/* either way; ``MoniteurIssueEditorPanel`` is the same component   */}
+      {/* the /editorial/moniteur/[id]/review route renders, with the       */}
+      {/* dedicated hero suppressed so it doesn't double up.                */}
       {/* ------------------------------------------------------------------- */}
+      {isEditor && view === 'editor' ? (
+        <MoniteurIssueEditorPanel issueId={issue.id} showHero={false} />
+      ) : (
       <div className="container py-10 lg:py-16">
         {/* Category breakdown chips */}
         {sortedCategoryEntries.length > 0 && (
@@ -706,6 +746,7 @@ export default function MoniteurDetailClient() {
           </Link>
         </div>
       </div>
+      )}
     </div>
   )
 }

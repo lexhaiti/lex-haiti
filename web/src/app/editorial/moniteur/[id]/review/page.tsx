@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -71,9 +72,26 @@ const PROMOTABLE_CATEGORIES = new Set([
 
 type T = (key: string, opts?: { fallback?: string }) => string
 
-export default function MoniteurReviewPage() {
-  const params = useParams()
-  const id = Number(params?.id)
+type PanelProps = {
+  issueId: number
+  /** Whether to render the dedicated editorial hero (gradient + breadcrumb
+   *  + page title). Off when the panel is embedded under another hero —
+   *  the public /moniteur/{slug} page already provides its own chrome. */
+  showHero?: boolean
+}
+
+/**
+ * Editor work surface for one Moniteur issue. Originally a stand-alone
+ * route (/editorial/moniteur/[id]/review); now reused as an inline
+ * panel on /moniteur/{slug} when the editor toggles into "Vue
+ * éditeur". The hero is conditional so the panel doesn't double up
+ * the dark gradient when embedded.
+ */
+export function MoniteurIssueEditorPanel({
+  issueId,
+  showHero = true,
+}: PanelProps) {
+  const id = issueId
   const { t, language } = useT()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
 
@@ -368,56 +386,66 @@ export default function MoniteurReviewPage() {
     }
   }
 
+  // Outer wrapper differs by mode: standalone route gets the full-bleed
+  // page chrome (min-h-screen + dark hero); embedded mode renders as a
+  // fragment so it slots cleanly under the host page's own hero.
+  const Wrapper = showHero ? 'div' : Fragment
+  const wrapperProps = showHero
+    ? { className: 'min-h-screen bg-white' }
+    : {}
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
-          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
-        </div>
+    <Wrapper {...wrapperProps}>
+      {showHero && (
+        <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
+          <div className="absolute inset-0 z-0">
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
+          </div>
 
-        <div className="relative z-10 container py-12 lg:py-20 pt-28 lg:pt-36">
-          <Breadcrumb
-            className="mb-6"
-            items={[
-              { label: t('editorial.moniteur.review.crumbs.home'), href: '/' },
-              { label: t('editorial.moniteur.review.crumbs.editor'), href: '/profile' },
-              { label: t('editorial.moniteur.review.crumbs.moniteur'), href: '/editorial/moniteur' },
-              {
-                // Smart N° prefix: skip the prefix when the issue.number
-                // already starts with non-digit text like "Spécial N° 5".
-                label: issue
-                  ? `${/^[0-9]/.test(issue.number) ? `N° ${issue.number}` : issue.number} / ${issue.year}`
-                  : t('editorial.moniteur.review.crumbs.review'),
-              },
-            ]}
-          />
+          <div className="relative z-10 container py-12 lg:py-20 pt-28 lg:pt-36">
+            <Breadcrumb
+              className="mb-6"
+              items={[
+                { label: t('editorial.moniteur.review.crumbs.home'), href: '/' },
+                { label: t('editorial.moniteur.review.crumbs.editor'), href: '/profile' },
+                { label: t('editorial.moniteur.review.crumbs.moniteur'), href: '/editorial/moniteur' },
+                {
+                  // Smart N° prefix: skip the prefix when the issue.number
+                  // already starts with non-digit text like "Spécial N° 5".
+                  label: issue
+                    ? `${/^[0-9]/.test(issue.number) ? `N° ${issue.number}` : issue.number} / ${issue.year}`
+                    : t('editorial.moniteur.review.crumbs.review'),
+                },
+              ]}
+            />
 
-          <div className="max-w-4xl">
-            <motion.h1
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
-            >
-              {t('editorial.moniteur.review.title')}
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg leading-relaxed"
-            >
-              {!issue
-                ? t('editorial.moniteur.review.loading')
-                : !issue.file_url
-                  ? t('editorial.moniteur.review.subtitleNoFile')
-                  : issue.entries.length === 0
-                    ? t('editorial.moniteur.review.subtitleNoCandidates')
-                    : t('editorial.moniteur.review.subtitlePending')}
-            </motion.p>
+            <div className="max-w-4xl">
+              <motion.h1
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
+              >
+                {t('editorial.moniteur.review.title')}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="text-slate-300 text-lg leading-relaxed"
+              >
+                {!issue
+                  ? t('editorial.moniteur.review.loading')
+                  : !issue.file_url
+                    ? t('editorial.moniteur.review.subtitleNoFile')
+                    : issue.entries.length === 0
+                      ? t('editorial.moniteur.review.subtitleNoCandidates')
+                      : t('editorial.moniteur.review.subtitlePending')}
+              </motion.p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="container py-12 lg:py-16">
         {issue && (
@@ -1012,8 +1040,21 @@ export default function MoniteurReviewPage() {
           loading={deleting}
         />
       )}
-    </div>
+    </Wrapper>
   )
+}
+
+/**
+ * Default export: the Next.js route file at
+ * /editorial/moniteur/[id]/review still resolves here, kept as a thin
+ * wrapper around the embeddable panel so the old URL keeps working.
+ * The same panel is mounted inline on /moniteur/{slug} when the
+ * editor switches into "Vue éditeur".
+ */
+export default function MoniteurReviewPage() {
+  const params = useParams()
+  const id = Number(params?.id)
+  return <MoniteurIssueEditorPanel issueId={id} />
 }
 
 function TranscriptPreviewPanel({

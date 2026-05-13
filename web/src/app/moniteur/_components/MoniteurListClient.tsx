@@ -10,12 +10,10 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  LayoutGrid,
   Loader2,
   Newspaper,
   Plus,
   Search,
-  Table as TableIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -32,7 +30,6 @@ import {
 } from '@/components/shared/EditorialFilter'
 import { MoniteurIssueCard } from '@/components/shared/MoniteurIssueCard'
 import { LoadingState } from '@/components/shared/LoadingState'
-import { MoniteurAdminTable } from '@/app/moniteur/_components/MoniteurAdminTable'
 
 const STATUS_LABEL: Record<
   MoniteurIssueRead['processing_status'],
@@ -79,11 +76,6 @@ export default function MoniteurListClient() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [editorialFilter, setEditorialFilter] = useState<EditorialStatusFilter>('published')
-  // Editor-only display toggle — switches the card grid for a dense
-  // admin table inline under the hero. Replaces a previous Link that
-  // navigated to a separate editorial route (which lost the hero +
-  // search context on click).
-  const [view, setView] = useState<'cards' | 'admin'>('cards')
 
   useEffect(() => {
     let cancelled = false
@@ -172,16 +164,10 @@ export default function MoniteurListClient() {
 
         {isEditor && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {/* Hide the public editorial filter (Tous / Publiés /
-                Brouillons) while the admin table is on screen — the
-                table shows every status with its own pill column, so
-                the filter would be redundant and confusing. */}
-            {view === 'cards' && (
-              <EditorialFilter
-                value={editorialFilter}
-                onChange={setEditorialFilter}
-              />
-            )}
+            <EditorialFilter
+              value={editorialFilter}
+              onChange={setEditorialFilter}
+            />
             {/* Editor-only quick action — opens the Moniteur side of
                 the import flow directly with the type pre-selected.
                 Visible only when ``isEditor`` is true, so the public
@@ -195,44 +181,20 @@ export default function MoniteurListClient() {
                 fallback: 'Importer un numéro',
               })}
             </Link>
-            {/* In-page display toggle — flips the card grid for the
-                shared admin table below the hero. Previously a Link
-                to /editorial/moniteur that navigated away and lost
-                the hero/search/filter state on every click. */}
-            <button
-              type="button"
-              onClick={() => setView(view === 'cards' ? 'admin' : 'cards')}
-              aria-pressed={view === 'admin'}
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 text-amber-300 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-amber-400 hover:text-slate-900 transition-colors"
-            >
-              {view === 'admin' ? (
-                <>
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  {t('moniteurList.cardViewButton', {
-                    fallback: 'Vue cartes',
-                  })}
-                </>
-              ) : (
-                <>
-                  <TableIcon className="w-3.5 h-3.5" />
-                  {t('moniteurList.editorViewButton', {
-                    fallback: 'Vue éditeur',
-                  })}
-                </>
-              )}
-            </button>
+            {/* "Vue éditeur" moved to the per-issue page
+                (/moniteur/{slug}) — clicking an issue card opens its
+                detail there, where the editor toggle swaps the public
+                layout for the review work surface inline. The
+                top-level button used to live here but it added a
+                navigation hop and forced the editor to lose the list
+                hero/search/filter on every click. */}
           </div>
         )}
       </StandardPageHeader>
 
       <div className="container py-12 lg:py-20">
 
-        {isEditor && view === 'admin' ? (
-          /* Editor admin view — shared table component owns its own
-             loading + polling + per-row actions; the hero search and
-             filter above are intentionally idle in this mode. */
-          <MoniteurAdminTable showImportButton={false} />
-        ) : loading ? (
+        {loading ? (
           <LoadingState />
         ) : visibleIssues.length > 0 ? (
           <motion.div
@@ -259,9 +221,10 @@ export default function MoniteurListClient() {
               const status = STATUS_LABEL[issue.processing_status]
               const Icon = status?.Icon
               const isDraft = issue.processing_status !== 'published'
-              const href = isEditor
-                ? `/editorial/moniteur/${issue.id}/review`
-                : `/moniteur/${moniteurIssueSlug(issue)}`
+              // Same URL for everyone — the destination renders an
+              // editor toggle inline when the viewer is signed in.
+              // Cards no longer fork the route by role.
+              const href = `/moniteur/${moniteurIssueSlug(issue)}`
 
               return (
                 <motion.div
