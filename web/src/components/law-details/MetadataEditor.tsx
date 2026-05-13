@@ -71,6 +71,12 @@ export type LegalTextMetadata = {
   official_number: string | null
   issuing_authority: string | null
   official_formula: string | null
+  // Short formula that sits just *above* the article block on the
+  // reader page — e.g. "Sur proposition de … le Sénat a adopté la
+  // loi suivante :". Distinct from ``official_formula`` (the long
+  // page-1 + post-dispositif sovereignty/promulgation block).
+  enacting_formula_fr: string | null
+  enacting_formula_ht: string | null
 }
 
 interface Props {
@@ -109,6 +115,8 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
     official_number: text.official_number ?? '',
     issuing_authority: text.issuing_authority ?? '',
     official_formula: text.official_formula ?? '',
+    enacting_formula_fr: text.enacting_formula_fr ?? '',
+    enacting_formula_ht: text.enacting_formula_ht ?? '',
     comment: '',
   }))
 
@@ -129,6 +137,8 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
         official_number: text.official_number ?? '',
         issuing_authority: text.issuing_authority ?? '',
         official_formula: text.official_formula ?? '',
+        enacting_formula_fr: text.enacting_formula_fr ?? '',
+        enacting_formula_ht: text.enacting_formula_ht ?? '',
         comment: '',
       })
     }
@@ -164,6 +174,8 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
       official_number: text.official_number ?? '',
       issuing_authority: text.issuing_authority ?? '',
       official_formula: text.official_formula ?? '',
+      enacting_formula_fr: text.enacting_formula_fr ?? '',
+      enacting_formula_ht: text.enacting_formula_ht ?? '',
     }
     const body: LegalTextMetadataPatch = {}
     ;(Object.keys(original) as (keyof typeof original)[]).forEach((key) => {
@@ -376,6 +388,35 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
               onChange={(e) => patch('official_formula', e.target.value)}
               placeholder={'Votée au Sénat …\n\nDonné au Palais National …'}
               className="font-mono text-xs"
+            />
+          </Field>
+
+          {/* Enacting formula — the short adoption line that sits
+              just above the article block on the reader page
+              ("Sur proposition de … le Sénat a adopté la loi
+              suivante :"). Distinct from ``official_formula`` which
+              is the long page-1 + post-dispositif sovereignty /
+              promulgation block. Bilingual; either or both can be
+              filled. */}
+          <Field
+            label={t('metadataEditor.enactingFormulaFr')}
+            hint={t('metadataEditor.enactingFormulaHint')}
+          >
+            <Textarea
+              rows={2}
+              value={form.enacting_formula_fr}
+              onChange={(e) => patch('enacting_formula_fr', e.target.value)}
+              placeholder="Sur proposition de … le Sénat a adopté la loi suivante :"
+              className="italic text-sm"
+            />
+          </Field>
+
+          <Field label={t('metadataEditor.enactingFormulaHt')}>
+            <Textarea
+              rows={2}
+              value={form.enacting_formula_ht}
+              onChange={(e) => patch('enacting_formula_ht', e.target.value)}
+              className="italic text-sm"
             />
           </Field>
 

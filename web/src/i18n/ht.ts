@@ -516,6 +516,10 @@ export const ht = {
     officialFormula: 'Fòmil ofisyèl (vòt + pwomilgasyon)',
     officialFormulaHint:
       'Bloke fen tèks la jan li enprime : mansyon vòt nan Sena / Chanm Depite, deviz « LIBERTÉ ÉGALITÉ FRATERNITÉ », fòmil « Donné au Palais National… ». Mete vèbatim — pa reformile.',
+    enactingFormulaFr: "Fòmil adopsyon (FR)",
+    enactingFormulaHt: "Fòmil adopsyon (KW)",
+    enactingFormulaHint:
+      "Ti fraz ki ouvè dispozitif la — egz. « Sou pwopozisyon… Sena a adopte lwa sa : ». Parèt jis anwo premye atik la sou paj piblik la.",
     comment: 'Kòmantè (opsyonèl, jounalize)',
     cancel: 'Anile',
     save: 'Anrejistre',

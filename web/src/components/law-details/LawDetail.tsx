@@ -1221,6 +1221,8 @@ export default function LawDetail() {
                   official_number: law.official_number ?? null,
                   issuing_authority: law.issuing_authority ?? null,
                   official_formula: law.official_formula ?? null,
+                  enacting_formula_fr: law.enacting_formula_fr ?? null,
+                  enacting_formula_ht: law.enacting_formula_ht ?? null,
                 }}
                 onChanged={refetch}
               />

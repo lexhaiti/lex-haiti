@@ -527,6 +527,10 @@ export const fr = {
     officialFormula: 'Formule officielle (votes + promulgation)',
     officialFormulaHint:
       'Bloc final du texte tel qu’imprimé : mentions de vote au Sénat / à la Chambre, devise « LIBERTÉ ÉGALITÉ FRATERNITÉ », formule « Donné au Palais National… ». Saisi verbatim — ne pas reformuler.',
+    enactingFormulaFr: "Formule d'adoption (FR)",
+    enactingFormulaHt: "Formule d'adoption (KW)",
+    enactingFormulaHint:
+      "Courte phrase qui ouvre le dispositif — ex. « Sur proposition de… le Sénat a adopté la loi suivante : ». Affichée juste au-dessus du premier article sur la page publique.",
     comment: 'Commentaire (optionnel, journalisé)',
     cancel: 'Annuler',
     save: 'Enregistrer',

@@ -147,7 +147,7 @@ export function EditableFormalBlock({
             </button>
           </div>
         </div>
-      ) : (
+      ) : value ? (
         <div className="flex items-center justify-center gap-2">
           <p className="text-sm font-semibold italic text-slate-500 tracking-wide">
             {value}
@@ -167,7 +167,26 @@ export function EditableFormalBlock({
             </button>
           )}
         </div>
-      )}
+      ) : isEditor ? (
+        // Empty + editor: invite the editor to fill it. Without this,
+        // a missing compact block (e.g. enacting_formula_fr null) was
+        // an invisible row with only a hover-only pencil — the editor
+        // didn't see anything to click on.
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(true)
+            setDraft('')
+            setError(null)
+          }}
+          className="mx-auto inline-flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-4 py-1.5 text-xs italic text-amber-800 hover:bg-amber-50 hover:border-amber-400 transition-colors"
+        >
+          <PenLine className="w-3 h-3" />
+          {isFr
+            ? `Ajouter — ${title.toLowerCase()}`
+            : `Ajoute — ${title.toLowerCase()}`}
+        </button>
+      ) : null}
     </div>
   )
 
