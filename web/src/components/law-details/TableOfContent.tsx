@@ -82,6 +82,33 @@ interface TableOfContentsProps {
   activeHeadingIds?: number[]
 }
 
+/** Human-readable label for a heading level, prefixed onto the bare
+ *  identifier ("I", "1", "A") so the TOC shows "Titre I" / "Chapitre 1"
+ *  / "Section A" instead of relying on indentation alone. Matches how
+ *  Haitian/French lawyers reference structural divisions in citations
+ *  ("Titre III, Chapitre II"), so the UI reads the same way the source
+ *  does. Unknown / missing levels fall back to the bare number. */
+const LEVEL_LABELS: Record<string, { fr: string; ht: string }> = {
+  part: { fr: 'Partie', ht: 'Pati' },
+  book: { fr: 'Livre', ht: 'Liv' },
+  title: { fr: 'Titre', ht: 'Tit' },
+  chapter: { fr: 'Chapitre', ht: 'Chapit' },
+  section: { fr: 'Section', ht: 'Seksyon' },
+  subsection: { fr: 'Sous-section', ht: 'Sou-seksyon' },
+}
+
+function formatHeadingNumber(
+  level: string | null | undefined,
+  number: string | null | undefined,
+  lang: 'fr' | 'ht',
+): string {
+  const num = (number ?? '').trim()
+  if (!num) return ''
+  const lbl = level ? LEVEL_LABELS[level] : undefined
+  if (!lbl) return num
+  return `${lbl[lang]} ${num}`
+}
+
 /** Build a tree from flat headings + attach articles to their heading nodes */
 function buildTocTree(headings: Heading[], articles: Article[]): TocNode[] {
   // Map heading id -> TocNode
@@ -431,7 +458,11 @@ export default function TableOfContents({
                       : 'text-gray-900 group-hover:text-red-600'
                   }`}
                 >
-                  {heading.number}
+                  {formatHeadingNumber(
+                    heading.level,
+                    heading.number,
+                    currentLang,
+                  )}
                 </span>
               )}
               {heading.number && (headingLabel || isEditor) && (
