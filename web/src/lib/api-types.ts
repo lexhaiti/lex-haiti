@@ -331,13 +331,16 @@ export interface paths {
         put?: never;
         /**
          * Parse a legal document (PDF/DOCX/TXT) into headings + articles
-         * @description Upload a legal document and parse it into a structured preview.
+         * @description Upload one or two legal-document files and parse them into a structured
+         *     preview.
          *
-         *     The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION),
-         *     splits articles, and assigns each article to its nearest heading.
-         *     The editor reviews the result and then commits via POST /legal-texts.
+         *     The parser detects headings (LIVRE, TITRE, CHAPITRE, SECTION), splits
+         *     articles, and assigns each article to its nearest heading. When an HT
+         *     companion file is provided, ``bilingual_align`` matches articles across
+         *     the two parses by their numbers and returns a unified preview.
          *
-         *     No data is persisted — this is a stateless analysis endpoint.
+         *     No data is persisted — this is a stateless analysis endpoint. The
+         *     editor reviews the result and then commits via POST /legal-texts.
          */
         post: operations["parse_document_api_v1_editorial_parse_document_post"];
         delete?: never;
@@ -357,7 +360,21 @@ export interface paths {
         get: operations["get_legal_text_api_v1_editorial_legal_texts__slug__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a draft legal text (and cascade its dependents)
+         * @description Hard-delete a draft legal text + everything that depends on it
+         *     (headings, articles, signers, theme tags). Refuses to act on
+         *     published texts — promotion to ``published`` is a signal that
+         *     permalinks may be in use externally, and silently breaking those
+         *     is the worst thing this platform can do (per CLAUDE.md
+         *     "Permalinks are forever").
+         *
+         *     The Moniteur source entry that promoted this text keeps its
+         *     ``promoted_legal_text_id`` set to NULL (FK is ON DELETE SET NULL),
+         *     so the editor can re-promote from the original sommaire entry
+         *     after the failed draft is gone.
+         */
+        delete: operations["delete_legal_text_api_v1_editorial_legal_texts__slug__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -407,6 +424,143 @@ export interface paths {
          *     CLAUDE.md "permalinks are forever").
          */
         patch: operations["update_article_content_api_v1_editorial_articles__article_id__content_patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/headings/{heading_id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a structural heading title (TOC inline edit)
+         * @description Inline edit for a TOC heading title (TITRE / CHAPITRE / SECTION).
+         *
+         *     Editors trigger this from the table-of-contents tree on the law
+         *     detail page when the parser-detected title is off (truncated by
+         *     OCR, wrong language, or simply not what the official text uses).
+         *     Body and TOC structure (parent, position, level) are NOT editable
+         *     here — that's a separate flow that goes through the structural
+         *     review page.
+         */
+        patch: operations["update_heading_title_api_v1_editorial_headings__heading_id__title_patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/signers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List signers attached to a legal text
+         * @description Editor-facing list (no public mirror). The public detail endpoint
+         *     already includes signers inline on the LegalText payload — this
+         *     route only exists so the manual editor UI can refetch the list
+         *     after add/edit/delete without re-pulling the whole law payload.
+         */
+        get: operations["list_signers_api_v1_editorial_legal_texts__slug__signers_get"];
+        put?: never;
+        /**
+         * Add a signer to a legal text (editor-driven, not parser-driven)
+         * @description Add one signer to a legal text. Used when the parser missed
+         *     structured signatories (typical for the 1987 Constitution and
+         *     other non-standard closing-formula layouts) and the editor wants
+         *     to enter them by hand.
+         *
+         *     Position defaults to "append to the end" when not specified — most
+         *     editor workflows want chronological insertion order, not arbitrary
+         *     re-shuffling of existing signers.
+         */
+        post: operations["create_signer_api_v1_editorial_legal_texts__slug__signers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/signers/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk-add signers from a pasted JSON list (Constituante use case)
+         * @description Bulk-append signers to a legal text. The 1987 Constitution has
+         *     ~60 Constituante members; entering them one row at a time through
+         *     the manual editor is impractical, so the editor pastes a JSON list
+         *     and they are all appended in order.
+         *
+         *     Each entry is treated like ``POST /signers`` — ``create_signer``
+         *     auto-assigns a position past the current tail, so order is preserved
+         *     in submission order. The whole batch commits atomically (one
+         *     rollback on validation failure, never half-loaded).
+         */
+        post: operations["bulk_create_signers_api_v1_editorial_legal_texts__slug__signers_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/signers/{signer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a signer from a legal text */
+        delete: operations["delete_signer_api_v1_editorial_signers__signer_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a signer's name / function / capacity / chamber
+         * @description Partial update. Only the fields the editor actually changed
+         *     flow through (``exclude_unset=True``).
+         */
+        patch: operations["update_signer_api_v1_editorial_signers__signer_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/legal-texts/{slug}/parse-translation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse a Kreyòl translation DOCX and align against existing FR articles
+         * @description Stateless preview — parse the uploaded HT file, then align by
+         *     article number against the legal_text's current FR articles.
+         *
+         *     Returns a TranslationParseResponse with one entry per FR article,
+         *     annotated with the matched HT text where applicable. Persistence
+         *     happens in a separate step (POST /legal-texts/{slug}/apply-
+         *     translation) once the editor confirms the alignment.
+         */
+        post: operations["parse_translation_api_v1_editorial_legal_texts__slug__parse_translation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/editorial/legal-texts/{slug}/publish": {
@@ -510,6 +664,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editorial/translations/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Translation Stats
+         * @description Translation-pipeline counters for the editorial dashboard.
+         *
+         *     Single round-trip — a handful of count(*) queries against
+         *     article_versions, legal_texts, and moniteur_entries. Cheap enough
+         *     to render on the editorial home; should stay cheap until the
+         *     corpus crosses ~100K articles (then add a materialised view).
+         */
+        get: operations["translation_stats_api_v1_editorial_translations_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/editorial/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List legal texts ordered by translation gap (most missing first)
+         * @description Worklist for the translation editor — every legal_text with its
+         *     current HT coverage. Sorted by gap (least translated first) by
+         *     default so the editor sees the most urgent texts.
+         */
+        get: operations["translation_worklist_api_v1_editorial_translations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/issues": {
         parameters: {
             query?: never;
@@ -563,6 +764,30 @@ export interface paths {
         patch: operations["update_issue_api_v1_moniteur_issues__issue_id__patch"];
         trace?: never;
     };
+    "/api/v1/moniteur/issues/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Issue By Slug
+         * @description Resolve a date-based slug (``28-avril-1987``) to the full issue
+         *     payload. Used by the public ``/moniteur/{slug}`` route — the
+         *     numeric-ID route at ``/issues/{issue_id}`` keeps working as a
+         *     permalink, but the public link generation now prefers the
+         *     human-readable slug.
+         */
+        get: operations["get_issue_by_slug_api_v1_moniteur_issues_by_slug__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/issues/{issue_id}/export": {
         parameters: {
             query?: never;
@@ -598,8 +823,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extract Metadata From Pdf
-         * @description Preview the issue metadata for an uploaded Moniteur PDF.
+         * Extract Metadata
+         * @description Preview the issue metadata for an uploaded Moniteur file (PDF or DOCX).
          *
          *     Saves the upload to a temp path, runs the cover-page extractor (OCR
          *     + regex over the first 1-2 pages), returns proposed `number / year /
@@ -607,7 +832,7 @@ export interface paths {
          *     not create a DB row** — the editor reviews the proposal in the UI,
          *     edits, then submits the actual create-issue + upload + parse flow.
          */
-        post: operations["extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post"];
+        post: operations["extract_metadata_api_v1_moniteur_extract_metadata_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -624,10 +849,35 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Upload Pdf
-         * @description Attach (or replace) the source PDF for an issue.
+         * Upload File
+         * @description Attach (or replace) the source file (PDF or DOCX) for an issue.
          */
-        post: operations["upload_pdf_api_v1_moniteur_issues__issue_id__upload_post"];
+        post: operations["upload_file_api_v1_moniteur_issues__issue_id__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moniteur/issues/{issue_id}/upload-transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Transcript
+         * @description Attach a pre-transcribed version of the Moniteur file.
+         *
+         *     When present, the parse pipeline reads text from this file instead of
+         *     running OCR on the original scan — useful when the editor already has
+         *     a clean PDF/DOCX transcription. Pass a new file to replace; the
+         *     previous transcript is overwritten on disk.
+         */
+        post: operations["upload_transcript_api_v1_moniteur_issues__issue_id__upload_transcript_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -710,6 +960,63 @@ export interface paths {
         patch: operations["review_entry_api_v1_moniteur_candidates__candidate_id__patch"];
         trace?: never;
     };
+    "/api/v1/moniteur/candidates/{candidate_id}/translation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Attach (or clear) translation-source metadata on a Moniteur entry
+         * @description Set the translation pointer on a Moniteur entry.
+         *
+         *     When the HT version of this content appears in a companion issue
+         *     (e.g. 36 → 36-a), the editor records that here rather than
+         *     re-ingesting the HT issue's sommaire as duplicate candidates.
+         *
+         *     Every field on the payload is overwritten. Pass null to clear.
+         */
+        patch: operations["update_entry_translation_api_v1_moniteur_candidates__candidate_id__translation_patch"];
+        trace?: never;
+    };
+    "/api/v1/moniteur/candidates/{candidate_id}/parser-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Override which parser profile runs on a Moniteur entry
+         * @description Set (or clear) the parser-profile override on a Moniteur entry.
+         *
+         *     When the auto-classification picks the wrong profile (e.g. an
+         *     arrêté that's structurally closer to a circulaire), the editor can
+         *     pin a specific profile here. ``None`` clears the override and falls
+         *     back to ``profile_for_category(detected_category)`` on the next
+         *     parse.
+         *
+         *     When ``rerun`` is true (default), the typed parser runs
+         *     synchronously and ``content_ast`` is refreshed in the same request.
+         *     Otherwise the override is saved but the AST stays stale until the
+         *     next /parse run on the parent issue.
+         */
+        patch: operations["update_entry_parser_profile_api_v1_moniteur_candidates__candidate_id__parser_profile_patch"];
+        trace?: never;
+    };
     "/api/v1/moniteur/candidates/{candidate_id}/preview-split": {
         parameters: {
             query?: never;
@@ -756,6 +1063,94 @@ export interface paths {
          *     it appears on /lois.
          */
         post: operations["promote_entry_api_v1_moniteur_candidates__candidate_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/promulgations/{promulgation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Promulgation
+         * @description Get a single promulgation by ID.
+         */
+        get: operations["get_promulgation_api_v1_promulgations__promulgation_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Promulgation
+         * @description Remove a promulgation and its signers (cascade).
+         */
+        delete: operations["delete_promulgation_api_v1_promulgations__promulgation_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Promulgation
+         * @description Update promulgation fields. Passing `signers` replaces them all.
+         */
+        patch: operations["update_promulgation_api_v1_promulgations__promulgation_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/promulgations/by-issue/{issue_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List By Issue
+         * @description All promulgations in a given Moniteur issue.
+         */
+        get: operations["list_by_issue_api_v1_promulgations_by_issue__issue_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/promulgations/by-legal-text/{legal_text_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get By Legal Text
+         * @description The promulgation linked to a specific legal text, if any.
+         */
+        get: operations["get_by_legal_text_api_v1_promulgations_by_legal_text__legal_text_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/promulgations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Promulgation
+         * @description Create a new promulgation attached to a Moniteur issue.
+         */
+        post: operations["create_promulgation_api_v1_promulgations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1169,8 +1564,8 @@ export interface components {
              */
             versions: components["schemas"]["ArticleVersionRead"][];
         };
-        /** Body_extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post */
-        Body_extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post: {
+        /** Body_extract_metadata_api_v1_moniteur_extract_metadata_post */
+        Body_extract_metadata_api_v1_moniteur_extract_metadata_post: {
             /** File */
             file: string;
         };
@@ -1178,12 +1573,30 @@ export interface components {
         Body_parse_document_api_v1_editorial_parse_document_post: {
             /**
              * File
-             * @description Legal document to parse (PDF, DOCX, or TXT)
+             * @description Legal document to parse — French version
+             */
+            file: string;
+            /**
+             * File Ht
+             * @description Optional Kreyòl version. When provided, articles from both files are aligned by their numbers and returned with content_fr + content_ht populated where matches exist.
+             */
+            file_ht?: string | null;
+        };
+        /** Body_parse_translation_api_v1_editorial_legal_texts__slug__parse_translation_post */
+        Body_parse_translation_api_v1_editorial_legal_texts__slug__parse_translation_post: {
+            /**
+             * File
+             * @description Kreyòl translation file (PDF/DOCX/TXT) to align against the existing FR articles of this legal text
              */
             file: string;
         };
-        /** Body_upload_pdf_api_v1_moniteur_issues__issue_id__upload_post */
-        Body_upload_pdf_api_v1_moniteur_issues__issue_id__upload_post: {
+        /** Body_upload_file_api_v1_moniteur_issues__issue_id__upload_post */
+        Body_upload_file_api_v1_moniteur_issues__issue_id__upload_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_transcript_api_v1_moniteur_issues__issue_id__upload_transcript_post */
+        Body_upload_transcript_api_v1_moniteur_issues__issue_id__upload_transcript_post: {
             /** File */
             file: string;
         };
@@ -1232,6 +1645,20 @@ export interface components {
         CommentRequest: {
             /** Comment */
             comment: string;
+        };
+        /**
+         * CompanionDocument
+         * @description One side-document attached to a translation entry (e.g. a
+         *     promulgation letter or arrêté d'application that appears alongside
+         *     the translated text in the companion Moniteur issue).
+         */
+        CompanionDocument: {
+            /** Kind */
+            kind: string;
+            /** Pages */
+            pages?: string | null;
+            /** Note */
+            note?: string | null;
         };
         /**
          * CorpusStats
@@ -1339,6 +1766,8 @@ export interface components {
             articles: components["schemas"]["ParsedArticleResponse"][];
             /** Preamble */
             preamble: string;
+            /** Preamble Ht */
+            preamble_ht?: string | null;
             /** Parser Confidence */
             parser_confidence: number;
             /** Warnings */
@@ -1349,6 +1778,21 @@ export interface components {
             issuing_authority?: string | null;
             /** Official Formula */
             official_formula?: string | null;
+            /**
+             * Fr Article Count
+             * @default 0
+             */
+            fr_article_count: number;
+            /**
+             * Ht Article Count
+             * @default 0
+             */
+            ht_article_count: number;
+            /**
+             * Matched Count
+             * @default 0
+             */
+            matched_count: number;
         };
         /**
          * EditorialStatus
@@ -1422,14 +1866,41 @@ export interface components {
         };
         /**
          * HeadingLevel
+         * @description Structural depth of a TOC node, in increasing fineness.
+         *
+         *     ``part`` (Partie) was added in 0016 — the 1987 Constitution and
+         *     several historical codes use it above ``book``. Older texts that
+         *     only have Livre / Titre / Chapitre keep working unchanged.
          * @enum {string}
          */
-        HeadingLevel: "book" | "title" | "chapter" | "section" | "subsection";
+        HeadingLevel: "part" | "book" | "title" | "chapter" | "section" | "subsection";
+        /**
+         * HeadingTitleUpdate
+         * @description Editor input for inline-editing a heading title in the TOC.
+         *
+         *     Either field can be set independently — editors typically fix the
+         *     French first; the Kreyòl title is filled later during translation
+         *     review. ``None`` means "leave untouched"; empty string clears.
+         */
+        HeadingTitleUpdate: {
+            /** Title Fr */
+            title_fr?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
+        };
         /**
          * LegalCategory
+         * @description Top-level taxonomy of a corpus document. Used both by the public
+         *     site (filter chips, breadcrumb) and the editorial pipeline (parser
+         *     profile selection, domain-rule enforcement).
+         *
+         *     ``ordonnance``, ``communique``, ``avis``, ``other_regulatory`` were
+         *     added in 0016 to align with MoniteurDocumentType and to cover acts
+         *     that the original enum couldn't represent (1916 ordonnances, post-
+         *     2010 CSPJ communiqués, ministerial avis).
          * @enum {string}
          */
-        LegalCategory: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention";
+        LegalCategory: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "avis" | "other_regulatory";
         /** LegalHeadingCreate */
         LegalHeadingCreate: {
             /** Key */
@@ -1477,6 +1948,24 @@ export interface components {
             /** Position */
             position: number;
         };
+        /**
+         * LegalSignerBulkInput
+         * @description Editor-supplied JSON payload for the bulk-add endpoint.
+         *
+         *     Use case: pasting a Constituante membership list (60+ signataires
+         *     on the 1987 Constitution) is impractical row-by-row. The editor
+         *     pastes a JSON array; each item is appended in order with
+         *     auto-assigned positions starting from the current tail.
+         *
+         *     Each entry accepts the same fields as ``LegalSignerCreate`` —
+         *     only ``name`` and ``function_fr`` are required; everything else
+         *     falls back to the defaults from ``LegalSignerBase`` (capacity =
+         *     other, chamber = null, signed_at = null).
+         */
+        LegalSignerBulkInput: {
+            /** Signers */
+            signers: components["schemas"]["LegalSignerCreate"][];
+        };
         /** LegalSignerCreate */
         LegalSignerCreate: {
             /** Name */
@@ -1520,11 +2009,43 @@ export interface components {
             legal_text_id: number;
         };
         /**
+         * LegalSignerUpdate
+         * @description Editor-supplied patch for an existing signer row. Every field is
+         *     optional — only the fields the editor actually changed are sent.
+         */
+        LegalSignerUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Function Fr */
+            function_fr?: string | null;
+            /** Function Ht */
+            function_ht?: string | null;
+            signing_capacity?: components["schemas"]["SigningCapacity"] | null;
+            chamber?: components["schemas"]["SignatoryChamber"] | null;
+            /** Signed At */
+            signed_at?: string | null;
+            /** Position */
+            position?: number | null;
+        };
+        /**
          * LegalStatus
          * @description Legal status of the whole legal text (not the editorial workflow).
+         *
+         *     The first three values cover all domestic legislation (lois,
+         *     décrets, arrêtés, codes, constitutions). The treaty-specific
+         *     values track the lifecycle of international agreements, which is
+         *     distinct from domestic abrogation:
+         *
+         *       - ``signed``: signature deposited but not yet ratified
+         *       - ``ratified``: ratified by the legislator, not yet promulgated
+         *       - ``denounced``: a party (Haiti or another signatory) has
+         *         formally withdrawn from the treaty
+         *
+         *     Treaties that are in_force after ratification + promulgation use
+         *     the same ``in_force`` value as domestic legislation.
          * @enum {string}
          */
-        LegalStatus: "in_force" | "abrogated" | "partially_abrogated";
+        LegalStatus: "in_force" | "abrogated" | "partially_abrogated" | "signed" | "ratified" | "denounced";
         /**
          * LegalTextCreate
          * @description Used by seed scripts and editorial UI.
@@ -1654,6 +2175,22 @@ export interface components {
             issuing_authority?: string | null;
             /** Official Formula */
             official_formula?: string | null;
+            /** Preamble Fr */
+            preamble_fr?: string | null;
+            /** Preamble Ht */
+            preamble_ht?: string | null;
+            /** Visas Fr */
+            visas_fr?: string | null;
+            /** Visas Ht */
+            visas_ht?: string | null;
+            /** Considerants Fr */
+            considerants_fr?: string | null;
+            /** Considerants Ht */
+            considerants_ht?: string | null;
+            /** Enacting Formula Fr */
+            enacting_formula_fr?: string | null;
+            /** Enacting Formula Ht */
+            enacting_formula_ht?: string | null;
             /** Comment */
             comment?: string | null;
         };
@@ -1822,6 +2359,27 @@ export interface components {
          */
         MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "promulgation" | "errata" | "autre";
         /**
+         * MoniteurEntryParserProfileUpdate
+         * @description Editor override for which parser profile runs on this entry.
+         *
+         *     Used by PATCH /editorial/moniteur/entries/{id}/parser-profile.
+         *     Sending ``parser_profile = None`` clears the override and falls back
+         *     to "auto-pick from detected_category" on the next parse.
+         *
+         *     When ``rerun = True``, the typ-specific parser is invoked
+         *     synchronously and ``content_ast`` is refreshed in the same request.
+         *     Otherwise the override is saved but the AST stays stale until the
+         *     next /parse run.
+         */
+        MoniteurEntryParserProfileUpdate: {
+            parser_profile?: components["schemas"]["ParserProfile"] | null;
+            /**
+             * Rerun
+             * @default true
+             */
+            rerun: boolean;
+        };
+        /**
          * MoniteurEntryRead
          * @description One entry (document) inside a Moniteur issue.
          */
@@ -1855,6 +2413,11 @@ export interface components {
             page_from?: number | null;
             /** Page To */
             page_to?: number | null;
+            parser_profile?: components["schemas"]["ParserProfile"] | null;
+            /** Content Ast */
+            content_ast?: {
+                [key: string]: unknown;
+            } | null;
             review_status: components["schemas"]["MoniteurCandidateStatus"];
             /** Promoted Legal Text Id */
             promoted_legal_text_id?: number | null;
@@ -1866,6 +2429,24 @@ export interface components {
             review_notes?: string | null;
             /** Reviewed At */
             reviewed_at?: string | null;
+            /** Translation Issue Id */
+            translation_issue_id?: number | null;
+            /** Translation Issue Number */
+            translation_issue_number?: string | null;
+            /** Translation Issue Year */
+            translation_issue_year?: number | null;
+            /** Translation Detected Number */
+            translation_detected_number?: string | null;
+            /** Translation Title Ht */
+            translation_title_ht?: string | null;
+            /** Translation Page From */
+            translation_page_from?: number | null;
+            /** Translation Page To */
+            translation_page_to?: number | null;
+            /** Translation Summary Ht */
+            translation_summary_ht?: string | null;
+            /** Companion Documents */
+            companion_documents?: components["schemas"]["CompanionDocument"][] | null;
             /**
              * Created At
              * Format: date-time
@@ -1876,6 +2457,28 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * MoniteurEntryTranslationUpdate
+         * @description Editor-supplied translation pointer for an entry. All fields
+         *     optional — pass null to a field to clear it. Used by
+         *     PATCH /editorial/moniteur/entries/{id}/translation.
+         */
+        MoniteurEntryTranslationUpdate: {
+            /** Translation Issue Id */
+            translation_issue_id?: number | null;
+            /** Translation Detected Number */
+            translation_detected_number?: string | null;
+            /** Translation Title Ht */
+            translation_title_ht?: string | null;
+            /** Translation Page From */
+            translation_page_from?: number | null;
+            /** Translation Page To */
+            translation_page_to?: number | null;
+            /** Translation Summary Ht */
+            translation_summary_ht?: string | null;
+            /** Companion Documents */
+            companion_documents?: components["schemas"]["CompanionDocument"][] | null;
         };
         /**
          * MoniteurIssueCreate
@@ -1896,6 +2499,16 @@ export interface components {
              * @description Optional sub-label, e.g. "Numéro spécial", "Bis".
              */
             edition_label?: string | null;
+            /**
+             * Director
+             * @description Director of Le Moniteur for this issue.
+             */
+            director?: string | null;
+            /**
+             * Director Role
+             * @description Director's institutional title (e.g. 'Major Forces Armées d'Haïti', 'Secrétaire d'État à la Communication') — what appears in parens after the director's name on the cover page.
+             */
+            director_role?: string | null;
         };
         /**
          * MoniteurIssueRead
@@ -1916,10 +2529,24 @@ export interface components {
              * @description Optional sub-label, e.g. "Numéro spécial", "Bis".
              */
             edition_label?: string | null;
+            /**
+             * Director
+             * @description Director of Le Moniteur for this issue.
+             */
+            director?: string | null;
+            /**
+             * Director Role
+             * @description Director's institutional title (e.g. 'Major Forces Armées d'Haïti', 'Secrétaire d'État à la Communication') — what appears in parens after the director's name on the cover page.
+             */
+            director_role?: string | null;
             /** Id */
             id: number;
+            /** Slug */
+            slug?: string | null;
             /** File Url */
             file_url?: string | null;
+            /** Transcript Url */
+            transcript_url?: string | null;
             /** Page Count */
             page_count?: number | null;
             processing_status: components["schemas"]["MoniteurIssueStatus"];
@@ -1979,6 +2606,10 @@ export interface components {
             publication_date?: string | null;
             /** Edition Label */
             edition_label?: string | null;
+            /** Director */
+            director?: string | null;
+            /** Director Role */
+            director_role?: string | null;
         };
         /**
          * MoniteurIssueWithEntries
@@ -1999,10 +2630,24 @@ export interface components {
              * @description Optional sub-label, e.g. "Numéro spécial", "Bis".
              */
             edition_label?: string | null;
+            /**
+             * Director
+             * @description Director of Le Moniteur for this issue.
+             */
+            director?: string | null;
+            /**
+             * Director Role
+             * @description Director's institutional title (e.g. 'Major Forces Armées d'Haïti', 'Secrétaire d'État à la Communication') — what appears in parens after the director's name on the cover page.
+             */
+            director_role?: string | null;
             /** Id */
             id: number;
+            /** Slug */
+            slug?: string | null;
             /** File Url */
             file_url?: string | null;
+            /** Transcript Url */
+            transcript_url?: string | null;
             /** Page Count */
             page_count?: number | null;
             processing_status: components["schemas"]["MoniteurIssueStatus"];
@@ -2122,6 +2767,8 @@ export interface components {
             number: string;
             /** Content Fr */
             content_fr: string;
+            /** Content Ht */
+            content_ht?: string | null;
             /**
              * Heading Path
              * @default []
@@ -2131,6 +2778,8 @@ export interface components {
             heading_key?: string | null;
             /** Title */
             title?: string | null;
+            /** Title Ht */
+            title_ht?: string | null;
         };
         /** ParsedHeadingResponse */
         ParsedHeadingResponse: {
@@ -2149,6 +2798,176 @@ export interface components {
              * @default 0
              */
             position: number;
+        };
+        /**
+         * ParserProfile
+         * @description Which parser strategy to run on a normalised document.
+         * @enum {string}
+         */
+        ParserProfile: "generic" | "constitution" | "code" | "loi" | "executive_act" | "circulaire" | "communique" | "traite";
+        /**
+         * PromulgationCreate
+         * @description POST body — creates a promulgation linked to a Moniteur issue.
+         */
+        PromulgationCreate: {
+            /**
+             * Content Fr
+             * @description Full promulgation text (header + formula + location)
+             */
+            content_fr: string;
+            /**
+             * Content Ht
+             * @description Kreyòl translation of the promulgation, if available
+             */
+            content_ht?: string | null;
+            /**
+             * Promulgation Date
+             * @description Date extracted from 'Donné au… le [date]'
+             */
+            promulgation_date?: string | null;
+            /**
+             * Location
+             * @description E.g. 'Palais National, Port-au-Prince'
+             */
+            location?: string | null;
+            /** Page From */
+            page_from?: number | null;
+            /** Page To */
+            page_to?: number | null;
+            /** Moniteur Issue Id */
+            moniteur_issue_id: number;
+            /**
+             * Legal Text Id
+             * @description Nullable — can be linked later when the law is promoted
+             */
+            legal_text_id?: number | null;
+            /** Signers */
+            signers?: components["schemas"]["PromulgationSignerCreate"][];
+        };
+        /**
+         * PromulgationRead
+         * @description Response shape for a promulgation with nested signers.
+         */
+        PromulgationRead: {
+            /**
+             * Content Fr
+             * @description Full promulgation text (header + formula + location)
+             */
+            content_fr: string;
+            /**
+             * Content Ht
+             * @description Kreyòl translation of the promulgation, if available
+             */
+            content_ht?: string | null;
+            /**
+             * Promulgation Date
+             * @description Date extracted from 'Donné au… le [date]'
+             */
+            promulgation_date?: string | null;
+            /**
+             * Location
+             * @description E.g. 'Palais National, Port-au-Prince'
+             */
+            location?: string | null;
+            /** Page From */
+            page_from?: number | null;
+            /** Page To */
+            page_to?: number | null;
+            /** Id */
+            id: number;
+            /** Moniteur Issue Id */
+            moniteur_issue_id: number;
+            /** Legal Text Id */
+            legal_text_id?: number | null;
+            /**
+             * Signers
+             * @default []
+             */
+            signers: components["schemas"]["PromulgationSignerRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PromulgationSignerCreate */
+        PromulgationSignerCreate: {
+            /**
+             * Name
+             * @description Full name, e.g. 'Henri NAMPHY'
+             */
+            name: string;
+            /**
+             * Function Fr
+             * @description French title, e.g. 'Président du CNG'
+             */
+            function_fr?: string | null;
+            /**
+             * Function Ht
+             * @description Kreyòl title, if available
+             */
+            function_ht?: string | null;
+            /**
+             * Position
+             * @description Display order (0 = head of state, then ministers)
+             * @default 0
+             */
+            position: number;
+        };
+        /** PromulgationSignerRead */
+        PromulgationSignerRead: {
+            /**
+             * Name
+             * @description Full name, e.g. 'Henri NAMPHY'
+             */
+            name: string;
+            /**
+             * Function Fr
+             * @description French title, e.g. 'Président du CNG'
+             */
+            function_fr?: string | null;
+            /**
+             * Function Ht
+             * @description Kreyòl title, if available
+             */
+            function_ht?: string | null;
+            /**
+             * Position
+             * @description Display order (0 = head of state, then ministers)
+             * @default 0
+             */
+            position: number;
+            /** Id */
+            id: number;
+            /** Promulgation Id */
+            promulgation_id: number;
+        };
+        /**
+         * PromulgationUpdate
+         * @description PATCH body — all fields optional.
+         */
+        PromulgationUpdate: {
+            /** Content Fr */
+            content_fr?: string | null;
+            /** Content Ht */
+            content_ht?: string | null;
+            /** Promulgation Date */
+            promulgation_date?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Page From */
+            page_from?: number | null;
+            /** Page To */
+            page_to?: number | null;
+            /** Legal Text Id */
+            legal_text_id?: number | null;
+            /** Signers */
+            signers?: components["schemas"]["PromulgationSignerCreate"][] | null;
         };
         /**
          * SearchHit
@@ -2252,6 +3071,8 @@ export interface components {
             detected_title?: string | null;
             /** Detected Number */
             detected_number?: string | null;
+            /** Detected Date */
+            detected_date?: string | null;
             /** Page From */
             page_from: number;
             /** Page To */
@@ -2339,6 +3160,108 @@ export interface components {
         TranscriptPreviewInput: {
             /** Raw Text */
             raw_text?: string | null;
+        };
+        /**
+         * TranslationMatchResponse
+         * @description One FR article paired with its HT match (if any) from the
+         *     parsed translation file. Returned by /parse-translation so the
+         *     UI can render a side-by-side preview before the editor commits.
+         */
+        TranslationMatchResponse: {
+            /** Article Id */
+            article_id: number;
+            /** Article Number */
+            article_number: string;
+            /** Article Slug */
+            article_slug: string;
+            /** Existing Text Fr */
+            existing_text_fr?: string | null;
+            /** Existing Text Ht */
+            existing_text_ht?: string | null;
+            /** Parsed Content Ht */
+            parsed_content_ht?: string | null;
+            /** Parsed Title Ht */
+            parsed_title_ht?: string | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * TranslationParseResponse
+         * @description Bulk-translation preview returned by /parse-translation.
+         */
+        TranslationParseResponse: {
+            /** Legal Text Slug */
+            legal_text_slug: string;
+            /** Matches */
+            matches: components["schemas"]["TranslationMatchResponse"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+            /**
+             * Fr Article Count
+             * @default 0
+             */
+            fr_article_count: number;
+            /**
+             * Parsed Ht Count
+             * @default 0
+             */
+            parsed_ht_count: number;
+            /**
+             * Matched Count
+             * @default 0
+             */
+            matched_count: number;
+            /** Preamble Ht */
+            preamble_ht?: string | null;
+        };
+        /**
+         * TranslationStats
+         * @description High-level translation coverage stats for the editorial dashboard.
+         */
+        TranslationStats: {
+            /** Legal Texts Total */
+            legal_texts_total: number;
+            /** Legal Texts With Ht */
+            legal_texts_with_ht: number;
+            /** Legal Texts Fully Translated */
+            legal_texts_fully_translated: number;
+            /** Legal Texts Fr Only */
+            legal_texts_fr_only: number;
+            /** Articles Total */
+            articles_total: number;
+            /** Articles Translated */
+            articles_translated: number;
+            /** Moniteur Entries Total */
+            moniteur_entries_total: number;
+            /** Moniteur Entries With Translation Pointer */
+            moniteur_entries_with_translation_pointer: number;
+            /** Moniteur Entries Pending Translation */
+            moniteur_entries_pending_translation: number;
+        };
+        /**
+         * TranslationWorklistItem
+         * @description One legal_text on the translation worklist.
+         */
+        TranslationWorklistItem: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title Fr */
+            title_fr: string;
+            /** Category */
+            category: string;
+            /** Editorial Status */
+            editorial_status: string;
+            /** Total Articles */
+            total_articles: number;
+            /** Translated Articles */
+            translated_articles: number;
+            /** Pct */
+            pct: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2985,6 +3908,35 @@ export interface operations {
             };
         };
     };
+    delete_legal_text_api_v1_editorial_legal_texts__slug__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_legal_text_metadata_api_v1_editorial_legal_texts__slug__metadata_patch: {
         parameters: {
             query?: never;
@@ -3042,6 +3994,241 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArticleEmbed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_heading_title_api_v1_editorial_headings__heading_id__title_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                heading_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeadingTitleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHeadingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_signers_api_v1_editorial_legal_texts__slug__signers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalSignerRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_signer_api_v1_editorial_legal_texts__slug__signers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalSignerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalSignerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_create_signers_api_v1_editorial_legal_texts__slug__signers_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalSignerBulkInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalSignerRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_signer_api_v1_editorial_signers__signer_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                signer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_signer_api_v1_editorial_signers__signer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                signer_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalSignerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalSignerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parse_translation_api_v1_editorial_legal_texts__slug__parse_translation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_parse_translation_api_v1_editorial_legal_texts__slug__parse_translation_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationParseResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3211,6 +4398,59 @@ export interface operations {
             };
         };
     };
+    translation_stats_api_v1_editorial_translations_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationStats"];
+                };
+            };
+        };
+    };
+    translation_worklist_api_v1_editorial_translations_get: {
+        parameters: {
+            query?: {
+                /** @description Filter: all | none (no HT) | partial | complete */
+                coverage?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranslationWorklistItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_issues_api_v1_moniteur_issues_get: {
         parameters: {
             query?: {
@@ -3373,6 +4613,37 @@ export interface operations {
             };
         };
     };
+    get_issue_by_slug_api_v1_moniteur_issues_by_slug__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurIssueWithEntries"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     export_issue_pdf_api_v1_moniteur_issues__issue_id__export_get: {
         parameters: {
             query?: never;
@@ -3402,7 +4673,7 @@ export interface operations {
             };
         };
     };
-    extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post: {
+    extract_metadata_api_v1_moniteur_extract_metadata_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -3411,7 +4682,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_extract_metadata_from_pdf_api_v1_moniteur_extract_metadata_post"];
+                "multipart/form-data": components["schemas"]["Body_extract_metadata_api_v1_moniteur_extract_metadata_post"];
             };
         };
         responses: {
@@ -3435,7 +4706,7 @@ export interface operations {
             };
         };
     };
-    upload_pdf_api_v1_moniteur_issues__issue_id__upload_post: {
+    upload_file_api_v1_moniteur_issues__issue_id__upload_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -3446,7 +4717,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_upload_pdf_api_v1_moniteur_issues__issue_id__upload_post"];
+                "multipart/form-data": components["schemas"]["Body_upload_file_api_v1_moniteur_issues__issue_id__upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurIssueRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_transcript_api_v1_moniteur_issues__issue_id__upload_transcript_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_transcript_api_v1_moniteur_issues__issue_id__upload_transcript_post"];
             };
         };
         responses: {
@@ -3571,6 +4877,76 @@ export interface operations {
             };
         };
     };
+    update_entry_translation_api_v1_moniteur_candidates__candidate_id__translation_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoniteurEntryTranslationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_entry_parser_profile_api_v1_moniteur_candidates__candidate_id__parser_profile_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoniteurEntryParserProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_entry_split_api_v1_moniteur_candidates__candidate_id__preview_split_post: {
         parameters: {
             query?: never;
@@ -3624,6 +5000,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoniteurEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_promulgation_api_v1_promulgations__promulgation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promulgation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromulgationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_promulgation_api_v1_promulgations__promulgation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promulgation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_promulgation_api_v1_promulgations__promulgation_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                promulgation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromulgationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromulgationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_by_issue_api_v1_promulgations_by_issue__issue_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromulgationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_by_legal_text_api_v1_promulgations_by_legal_text__legal_text_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legal_text_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromulgationRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_promulgation_api_v1_promulgations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromulgationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromulgationRead"];
                 };
             };
             /** @description Validation Error */

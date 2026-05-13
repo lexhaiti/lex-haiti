@@ -143,6 +143,26 @@ export default function MoniteurReviewPage() {
     }
   }
 
+  // Inline date save — separate from the full Modifier panel so the
+  // editor can fix a missing date on a pending/deferred entry without
+  // entering edit mode. ``dateSaving`` carries the candidate id of an
+  // in-flight save so the input renders a spinner while waiting.
+  const [dateSaving, setDateSaving] = useState<number | null>(null)
+  async function saveInlineDate(c: MoniteurEntryRead, value: string) {
+    setDateSaving(c.id)
+    setError(null)
+    try {
+      await reviewMoniteurEntry(c.id, {
+        detected_date: value || null,
+      })
+      await refresh()
+    } catch (e: any) {
+      setError(e?.body?.detail ?? String(e))
+    } finally {
+      setDateSaving(null)
+    }
+  }
+
   // Inline raw_text edit state — separate from `editingFields` so the
   // editor can correct the OCR transcription without losing in-progress
   // metadata edits, and vice versa. Keyed by candidate id.
@@ -675,7 +695,36 @@ export default function MoniteurReviewPage() {
                         {c.detected_number || '—'}
                       </Detail>
                       <Detail label={t('editorial.moniteur.review.cardDate')}>
-                        {c.detected_date ?? '—'}
+                        {isFinal ? (
+                          /* Accepted / rejected entries — date is frozen
+                             once the entry has been promoted. The
+                             editable copy lives on the LegalText itself
+                             at that point. */
+                          <span>{c.detected_date ?? '—'}</span>
+                        ) : (
+                          /* Pending / deferred — the editor can fix a
+                             missing date right on the card without
+                             opening the Modifier panel. Saves on
+                             ``change`` (date inputs only emit a change
+                             event once the user picks a date), with a
+                             small spinner while the request is in
+                             flight. */
+                          <span className="inline-flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={c.detected_date ?? ''}
+                              disabled={dateSaving === c.id}
+                              onChange={(e) =>
+                                saveInlineDate(c, e.target.value)
+                              }
+                              aria-label={t('editorial.moniteur.review.cardDate')}
+                              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
+                            />
+                            {dateSaving === c.id && (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            )}
+                          </span>
+                        )}
                       </Detail>
                     </div>
 

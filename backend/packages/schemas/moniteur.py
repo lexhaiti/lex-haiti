@@ -251,6 +251,12 @@ class SommaireEntryInput(BaseModel):
     detected_category: MoniteurDocumentType
     detected_title: Optional[str] = None
     detected_number: Optional[str] = None
+    # Optional per-entry date. Older imports sometimes carry a different
+    # date than the issue header (a decree signed on day X but appearing
+    # in the Moniteur of day Y), so the editor can pre-fill it. The
+    # editor UI auto-fills this from the issue's ``publication_date``
+    # for new rows, but a per-entry override sticks.
+    detected_date: Optional[date] = None
     page_from: int
     page_to: int
 

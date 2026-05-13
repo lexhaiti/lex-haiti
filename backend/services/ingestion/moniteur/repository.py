@@ -434,6 +434,7 @@ class MoniteurRepository:
                 detected_category=item.get("detected_category"),
                 detected_title=item.get("detected_title"),
                 detected_number=item.get("detected_number"),
+                detected_date=item.get("detected_date"),
                 page_from=item.get("page_from"),
                 page_to=item.get("page_to"),
                 raw_text="",  # filled by run_parse_for_issue

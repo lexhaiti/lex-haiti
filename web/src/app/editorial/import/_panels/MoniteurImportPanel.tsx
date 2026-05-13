@@ -77,12 +77,13 @@ const SOMMAIRE_DOC_TYPE_VALUES: ReadonlyArray<
 // editor adds / removes entries.
 type SommaireRow = SommaireEntryInput & { uid: string }
 
-function emptyRow(): SommaireRow {
+function emptyRow(defaultDate?: string | null): SommaireRow {
   return {
     uid: Math.random().toString(36).slice(2),
     detected_category: 'loi',
     detected_title: '',
     detected_number: '',
+    detected_date: defaultDate || null,
     page_from: 1,
     page_to: 1,
   }
@@ -137,7 +138,11 @@ export default function MoniteurImportPanel() {
   const [sommaireAutoFilled, setSommaireAutoFilled] = useState(false)
 
   function addSommaireRow() {
-    setSommaireRows((rows) => [...rows, emptyRow()])
+    // Default the per-entry date to the issue's publication date —
+    // most Moniteur entries share the issue date; an editor only needs
+    // to touch this field on the rare entry where the underlying decree
+    // was signed earlier or the date differs from the issue header.
+    setSommaireRows((rows) => [...rows, emptyRow(pubDate)])
   }
   function updateSommaireRow(uid: string, patch: Partial<SommaireRow>) {
     setSommaireRows((rows) =>
@@ -164,12 +169,18 @@ export default function MoniteurImportPanel() {
       if (md.director_role) setDirectorRole(md.director_role)
       if (md.suggested_sommaire?.length) {
         setSommaireAutoFilled(true)
+        // Default each suggested row's date to the issue's
+        // publication_date pulled out of the same metadata pass — the
+        // extractor doesn't surface per-entry dates yet, but the issue
+        // date is the right baseline for nearly every entry.
+        const defaultDate = md.publication_date ?? null
         setSommaireRows(
           md.suggested_sommaire.map((s) => ({
             uid: Math.random().toString(36).slice(2),
             detected_category: s.detected_category,
             detected_title: s.detected_title ?? '',
             detected_number: s.detected_number ?? '',
+            detected_date: defaultDate,
             page_from: s.page_from,
             page_to: s.page_to,
           })),
@@ -263,6 +274,7 @@ export default function MoniteurImportPanel() {
             detected_category: r.detected_category,
             detected_title: r.detected_title?.trim() || null,
             detected_number: r.detected_number?.trim() || null,
+            detected_date: r.detected_date || null,
             page_from: r.page_from,
             page_to: r.page_to,
           })),
@@ -718,8 +730,8 @@ function SommaireRowEditor({
             </SelectContent>
           </Select>
         </div>
-        {/* Title — 5 columns */}
-        <label className="sm:col-span-5 flex flex-col gap-1.5">
+        {/* Title — 4 columns */}
+        <label className="sm:col-span-4 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
             {t('editorial.import.moniteur.sommaireTitle')}
           </span>
@@ -731,8 +743,8 @@ function SommaireRowEditor({
             className={inputCls}
           />
         </label>
-        {/* N° — 2 columns */}
-        <label className="sm:col-span-2 flex flex-col gap-1.5">
+        {/* N° — 1 column */}
+        <label className="sm:col-span-1 flex flex-col gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
             {t('editorial.import.moniteur.sommaireNumber')}
           </span>
@@ -741,6 +753,27 @@ function SommaireRowEditor({
             value={row.detected_number ?? ''}
             disabled={disabled}
             onChange={(e) => onChange({ detected_number: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        {/* Date — 2 columns. Optional; auto-prefilled from the issue
+            publication date when a new row is added so the editor only
+            needs to touch entries whose date differs from the issue
+            header (a decree signed earlier than its Moniteur appearance,
+            for instance). */}
+        <label className="sm:col-span-2 flex flex-col gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+            {t('editorial.import.moniteur.sommaireDate', {
+              fallback: 'Date',
+            })}
+          </span>
+          <input
+            type="date"
+            value={row.detected_date ?? ''}
+            disabled={disabled}
+            onChange={(e) =>
+              onChange({ detected_date: e.target.value || null })
+            }
             className={inputCls}
           />
         </label>

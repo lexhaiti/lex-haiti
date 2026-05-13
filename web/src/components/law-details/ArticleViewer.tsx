@@ -63,7 +63,7 @@ import { CitationColumn } from './_panels/CitationColumn'
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
   id: number
-  level: 'book' | 'title' | 'chapter' | 'section' | 'subsection'
+  level: 'part' | 'book' | 'title' | 'chapter' | 'section' | 'subsection'
   number?: string | null
   title_fr?: string | null
   title_ht?: string | null
@@ -125,6 +125,7 @@ const LEVEL_LABELS: Record<
   BreadcrumbNode['level'],
   { fr: string; ht: string }
 > = {
+  part: { fr: 'Partie', ht: 'Pati' },
   book: { fr: 'Livre', ht: 'Liv' },
   title: { fr: 'Titre', ht: 'Tit' },
   chapter: { fr: 'Chapitre', ht: 'Chapit' },
