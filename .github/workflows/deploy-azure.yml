@@ -1,0 +1,91 @@
+# GitHub Actions — build the backend image, push to Azure Container
+# Registry, and roll the API + worker Container Apps to the new
+# revision. Fired on push to ``main`` (prod) and on workflow_dispatch
+# (manual redeploys).
+#
+# Required GitHub secrets / variables (set in repo settings):
+#   AZURE_CREDENTIALS          — JSON output of `az ad sp create-for-rbac`
+#   AZURE_RESOURCE_GROUP       — e.g. "lex-haiti-prod"
+#   AZURE_REGISTRY_NAME        — e.g. "lexhaitiregistry" (no .azurecr.io)
+#   AZURE_API_APP              — Container App name for the API, e.g. "lex-haiti-api"
+#   AZURE_WORKER_APP           — Container App name for the RQ worker, e.g. "lex-haiti-worker"
+#
+# The az cli + container login both authenticate via the AZURE_CREDENTIALS
+# service principal — same identity, two consumers.
+
+name: deploy-azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-azure.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name "${{ secrets.AZURE_REGISTRY_NAME }}"
+
+      - name: Set image tags
+        id: tags
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          REGISTRY="${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io"
+          echo "image_sha=${REGISTRY}/lex-haiti-backend:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${REGISTRY}/lex-haiti-backend:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.image_sha }}
+            ${{ steps.tags.outputs.image_latest }}
+          cache-from: type=registry,ref=${{ steps.tags.outputs.image_latest }}
+          cache-to: type=inline
+
+      - name: Roll API to new revision
+        run: |
+          az containerapp update \
+            --name "${{ secrets.AZURE_API_APP }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.tags.outputs.image_sha }}"
+
+      - name: Roll worker to new revision
+        run: |
+          az containerapp update \
+            --name "${{ secrets.AZURE_WORKER_APP }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.tags.outputs.image_sha }}"
+
+      - name: Run Alembic migrations
+        # One-off container job using the new image. Keeps migrations
+        # off the request path (no auto-migrate on container start) so
+        # parallel revision replicas don't race each other.
+        run: |
+          az containerapp job start \
+            --name "lex-haiti-migrate" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image-name "${{ steps.tags.outputs.image_sha }}" \
+            2>/dev/null || \
+          echo "⚠ Migration job not yet created — run \`alembic upgrade head\` once from Cloud Shell, then create the job per infra/azure/deploy.sh"

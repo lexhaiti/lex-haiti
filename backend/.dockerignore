@@ -1,0 +1,29 @@
+# Keep the build context tight — speeds builds and prevents secrets
+# from slipping into image layers.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.import_linter_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local dev / tooling
+.env
+.env.local
+.envrc
+.DS_Store
+*.log
+
+# Tests + dev-only scripts don't need to ship to prod
+tests/
+htmlcov/
+.coverage
+
+# IDE
+.idea/
+.vscode/
+
+# Misc
+node_modules/
