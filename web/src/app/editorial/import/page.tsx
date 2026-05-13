@@ -4,15 +4,22 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowRight, FileText, LayoutDashboard, Newspaper } from 'lucide-react'
+import {
+  ArrowRight,
+  Braces,
+  FileText,
+  LayoutDashboard,
+  Newspaper,
+} from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 import LegalTextImportPanel from './_panels/LegalTextImportPanel'
 import MoniteurImportPanel from './_panels/MoniteurImportPanel'
+import MoniteurJsonImportPanel from './_panels/MoniteurJsonImportPanel'
 
-type Tab = 'legal' | 'moniteur'
+type Tab = 'legal' | 'moniteur' | 'json'
 
 // Copy lives at `editorial.import.chooser.*` in i18n/{fr,ht}.ts.
 
@@ -22,8 +29,12 @@ export default function EditorialImportPage() {
   // the Moniteur import panel (the prior implementation pointed at a
   // dead /editorial/moniteur/import path). Default stays "legal".
   const searchParams = useSearchParams()
-  const initialTab: Tab =
-    searchParams?.get('type') === 'moniteur' ? 'moniteur' : 'legal'
+  const initialTab: Tab = (() => {
+    const t = searchParams?.get('type')
+    if (t === 'moniteur') return 'moniteur'
+    if (t === 'json') return 'json'
+    return 'legal'
+  })()
   const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
@@ -72,7 +83,7 @@ export default function EditorialImportPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-primary/65 mb-4">
             {t('editorial.import.chooser.chooseType')}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
             <ChooserButton
               active={tab === 'legal'}
               onClick={() => setTab('legal')}
@@ -87,12 +98,30 @@ export default function EditorialImportPage() {
               label={t('editorial.import.chooser.moniteurTab')}
               desc={t('editorial.import.chooser.moniteurDesc')}
             />
+            <ChooserButton
+              active={tab === 'json'}
+              onClick={() => setTab('json')}
+              icon={Braces}
+              label={t('editorial.import.chooser.jsonTab', {
+                fallback: 'JSON (dev)',
+              })}
+              desc={t('editorial.import.chooser.jsonDesc', {
+                fallback:
+                  'Bypass OCR / parser — payload structuré, idempotent.',
+              })}
+            />
           </div>
         </div>
 
         {/* Selected panel */}
         <div className="w-full">
-          {tab === 'legal' ? <LegalTextImportPanel /> : <MoniteurImportPanel />}
+          {tab === 'legal' ? (
+            <LegalTextImportPanel />
+          ) : tab === 'moniteur' ? (
+            <MoniteurImportPanel />
+          ) : (
+            <MoniteurJsonImportPanel />
+          )}
         </div>
 
         {/* Quick link to the Moniteur dashboard — useful for the editor to

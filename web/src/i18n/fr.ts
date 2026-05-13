@@ -590,6 +590,9 @@ export const fr = {
         moniteurTab: 'Le Moniteur',
         moniteurDesc:
           "Numéro complet du journal officiel — analyse + extraction des lois contenues.",
+        jsonTab: 'JSON (dev)',
+        jsonDesc:
+          "Bypass OCR / parser — payload structuré collé ou téléversé. Idempotent sur (année, numéro).",
         moniteurDashboard: 'Tableau de bord Le Moniteur',
       },
       legalText: {

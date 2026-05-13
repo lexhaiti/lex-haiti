@@ -578,6 +578,9 @@ export const ht = {
         moniteurTab: 'Le Moniteur',
         moniteurDesc:
           "Yon nimewo konplè jounal ofisyèl la — analiz + ekstraksyon lwa yo.",
+        jsonTab: 'JSON (dev)',
+        jsonDesc:
+          "Bypass OCR / pasè — payload estriktire kole oswa enpòte. Idempotan sou (ane, nimewo).",
         moniteurDashboard: 'Tablo Le Moniteur',
       },
       legalText: {

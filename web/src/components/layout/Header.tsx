@@ -12,7 +12,11 @@ import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 import { MENU_DATA } from '@/components/layout/menu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
-import { AddTextButton, UserMenu } from '@/components/layout/UserMenu'
+import {
+  AddTextButton,
+  EditorialDashboardButton,
+  UserMenu,
+} from '@/components/layout/UserMenu'
 
 // --- Utility: Check Active State ---
 // Active when (a) the pathname matches, and (b) every query param the link
@@ -268,6 +272,10 @@ export default function Header() {
           {/* 3. RIGHT ACTIONS (Add-text "+" + User menu + Language + Mobile) */}
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2">
+              {/* Discoverable shortcut to the editorial dashboard —
+                  hidden behind the avatar dropdown was too obscure;
+                  editor-only so public visitors don't see it. */}
+              <EditorialDashboardButton />
               {/* "+" — quick entry to /editorial/import. Editor-only. */}
               <AddTextButton />
               <UserMenu />

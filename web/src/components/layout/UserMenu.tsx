@@ -49,6 +49,42 @@ export function AddTextButton({ className }: { className?: string }) {
 }
 
 /**
+ * Discoverable shortcut to the editorial dashboard (``/editorial``).
+ * Sits in the header next to ``AddTextButton`` so editors can reach
+ * the dashboard without opening the user-menu dropdown. Editor-only.
+ */
+export function EditorialDashboardButton({
+  className,
+}: {
+  className?: string
+}) {
+  const { status } = useSession()
+  const { t } = useT()
+  if (status !== 'authenticated') return null
+  const label = t('userMenu.editorial')
+  return (
+    <Link
+      href="/editorial"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'hidden sm:inline-flex h-10 items-center gap-2 rounded-full px-4',
+        'bg-white text-primary border border-primary/20 shadow-sm',
+        'hover:bg-primary/5 hover:border-primary/40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        'transition-all',
+        className,
+      )}
+    >
+      <LayoutDashboard className="w-4 h-4" />
+      <span className="text-xs font-bold uppercase tracking-wider">
+        {label}
+      </span>
+    </Link>
+  )
+}
+
+/**
  * Header widget — visible only when an editor is signed in.
  * Click-only avatar button (no hover, no chevron, no role icon).
  * Dropdown surfaces editorial entry points: profile, import, sign-out.
