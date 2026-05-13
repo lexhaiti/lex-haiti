@@ -12,7 +12,7 @@ export const ht = {
     top: {
       home: 'AKÈY',
       constitution: 'KONSTITISYON',
-      codesAndLaws: 'KÒD & LWA',
+      codesAndLaws: 'LEJISLASYON',
       moniteur: 'LE MONITEUR',
       themes: 'TÈM',
       about: 'KONSÈNAN',
@@ -20,7 +20,7 @@ export const ht = {
 
     descriptions: {
       constitution: 'Dokiman konstitisyon Ayiti',
-      codesAndLaws: 'Tout lejislasyon Repiblik la',
+      codesAndLaws: 'Kòd, lwa, dekrè, awete — tout corpus la.',
       themes: 'Dwa selon domèn',
     },
 

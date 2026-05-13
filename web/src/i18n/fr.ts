@@ -12,7 +12,7 @@ export const fr = {
     top: {
       home: 'ACCUEIL',
       constitution: 'CONSTITUTION',
-      codesAndLaws: 'CODES & LOIS',
+      codesAndLaws: 'LÉGISLATION',
       moniteur: 'LE MONITEUR',
       themes: 'THÉMATIQUES',
       about: 'À PROPOS',
@@ -20,7 +20,7 @@ export const fr = {
 
     descriptions: {
       constitution: "Documents constitutionnels d'Haïti",
-      codesAndLaws: 'Législation complète de la République',
+      codesAndLaws: 'Codes, lois, décrets, arrêtés — tout le corpus.',
       themes: 'Droit par domaines spécialisés',
     },
 
