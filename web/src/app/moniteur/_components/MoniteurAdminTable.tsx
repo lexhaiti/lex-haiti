@@ -18,6 +18,7 @@ import { useT } from '@/i18n/useT'
 import {
   deleteMoniteurIssue,
   listMoniteurIssues,
+  moniteurIssueSlug,
   parseMoniteurIssue,
   type MoniteurIssueRead,
 } from '@/lib/api/endpoints'
@@ -278,7 +279,11 @@ export function MoniteurAdminTable({ showImportButton = true }: Props) {
                           </button>
                         )}
                         <Link
-                          href={`/editorial/moniteur/${it.id}/review`}
+                          // Opens the issue page directly in editor mode
+                          // via the ``?view=editor`` query — same target
+                          // as the public reader, just with the editor
+                          // toggle pre-flipped.
+                          href={`/moniteur/${moniteurIssueSlug(it)}?view=editor`}
                           className="text-sm font-semibold text-primary hover:underline"
                         >
                           {t('editorial.moniteur.list.review')} →

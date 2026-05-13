@@ -29,7 +29,7 @@ import { smartIssueNumber } from '@/lib/format/moniteur'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
-import { MoniteurIssueEditorPanel } from '@/app/editorial/moniteur/[id]/review/page'
+import { MoniteurIssueEditorPanel } from './MoniteurIssueEditorPanel'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -434,9 +434,9 @@ export default function MoniteurDetailClient() {
   const [error, setError] = useState<string | null>(null)
   // View mode for editors: 'public' is the reader layout below, 'editor'
   // mounts the shared MoniteurIssueEditorPanel under the same hero.
-  // Defaults to 'editor' when ?view=editor is in the URL — used by the
-  // deprecated /editorial/moniteur/{id}/review redirect so the editor
-  // lands directly on the work surface for old bookmarked links.
+  // Defaults to 'editor' when ``?view=editor`` is in the URL — used by
+  // the all-issues dashboard at /editorial/moniteur and by the import
+  // wizard so editors land directly on the work surface.
   const wantsEditorView = searchParams?.get('view') === 'editor'
   const [view, setView] = useState<'public' | 'editor'>(
     wantsEditorView ? 'editor' : 'public',
@@ -646,9 +646,9 @@ export default function MoniteurDetailClient() {
             {/* Editor-only toggle. Flips the body below for the
                 review work surface (accept/reject entries, edit text,
                 attach to parent) without leaving the issue's
-                canonical URL. The deprecated
-                /editorial/moniteur/[id]/review route still works for
-                old links but redirects here with ?view=editor. */}
+                canonical URL. This is the *only* per-issue editor
+                surface — the previous /editorial/moniteur/[id]/review
+                route was removed in favour of this inline toggle. */}
             {isEditor && (
               <button
                 type="button"
@@ -669,9 +669,8 @@ export default function MoniteurDetailClient() {
       {/* ------------------------------------------------------------------- */}
       {/* Body — public reader layout, or the editor work surface when      */}
       {/* the editor has toggled into "Vue éditeur". Same canonical URL    */}
-      {/* either way; ``MoniteurIssueEditorPanel`` is the same component   */}
-      {/* the /editorial/moniteur/[id]/review route renders, with the       */}
-      {/* dedicated hero suppressed so it doesn't double up.                */}
+      {/* either way; ``MoniteurIssueEditorPanel`` renders with its         */}
+      {/* dedicated hero suppressed so this page's chrome stays single.    */}
       {/* ------------------------------------------------------------------- */}
       {isEditor && view === 'editor' ? (
         <MoniteurIssueEditorPanel issueId={issue.id} showHero={false} />

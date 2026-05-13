@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -35,8 +35,8 @@ import {
   type TranscriptPreview,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
-import { EntryTranslationPanel } from './_components/EntryTranslationPanel'
-import { ParserProfileChip } from './_components/ParserProfileChip'
+import { EntryTranslationPanel } from './editor/EntryTranslationPanel'
+import { ParserProfileChip } from './editor/ParserProfileChip'
 
 // Copy lives at `editorial.moniteur.review.*` in i18n/{fr,ht}.ts.
 
@@ -81,11 +81,12 @@ type PanelProps = {
 }
 
 /**
- * Editor work surface for one Moniteur issue. Originally a stand-alone
- * route (/editorial/moniteur/[id]/review); now reused as an inline
- * panel on /moniteur/{slug} when the editor toggles into "Vue
- * éditeur". The hero is conditional so the panel doesn't double up
- * the dark gradient when embedded.
+ * Editor work surface for one Moniteur issue. Mounted inline on
+ * /moniteur/{slug} when the editor toggles into "Vue éditeur" — there
+ * is no separate editorial route anymore. The hero stays conditional
+ * (``showHero``) for the rare standalone callers (the all-issues
+ * dashboard at /editorial/moniteur opens issues here via the public
+ * URL with ``?view=editor``).
  */
 export function MoniteurIssueEditorPanel({
   issueId,
@@ -109,7 +110,7 @@ export function MoniteurIssueEditorPanel({
     setError(null)
     try {
       await deleteMoniteurIssue(issue.id)
-      router.push('/editorial/moniteur')
+      router.push('/moniteur')
     } catch (e: any) {
       setError(e?.body?.detail ?? e?.message ?? String(e))
       setDeleting(false)
@@ -408,8 +409,7 @@ export function MoniteurIssueEditorPanel({
               className="mb-6"
               items={[
                 { label: t('editorial.moniteur.review.crumbs.home'), href: '/' },
-                { label: t('editorial.moniteur.review.crumbs.editor'), href: '/profile' },
-                { label: t('editorial.moniteur.review.crumbs.moniteur'), href: '/editorial/moniteur' },
+                { label: t('editorial.moniteur.review.crumbs.moniteur'), href: '/moniteur' },
                 {
                   // Smart N° prefix: skip the prefix when the issue.number
                   // already starts with non-digit text like "Spécial N° 5".
@@ -1042,19 +1042,6 @@ export function MoniteurIssueEditorPanel({
       )}
     </Wrapper>
   )
-}
-
-/**
- * Default export: the Next.js route file at
- * /editorial/moniteur/[id]/review still resolves here, kept as a thin
- * wrapper around the embeddable panel so the old URL keeps working.
- * The same panel is mounted inline on /moniteur/{slug} when the
- * editor switches into "Vue éditeur".
- */
-export default function MoniteurReviewPage() {
-  const params = useParams()
-  const id = Number(params?.id)
-  return <MoniteurIssueEditorPanel issueId={id} />
 }
 
 function TranscriptPreviewPanel({

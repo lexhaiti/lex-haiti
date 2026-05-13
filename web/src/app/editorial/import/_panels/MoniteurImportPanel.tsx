@@ -301,7 +301,10 @@ export default function MoniteurImportPanel() {
   }
 
   function goReview() {
-    if (issueId) router.push(`/editorial/moniteur/${issueId}/review`)
+    // The issue page accepts either a numeric id (legacy permalink) or
+    // a date slug. ``?view=editor`` opens it straight in the editor
+    // panel — same target as the all-issues dashboard.
+    if (issueId) router.push(`/moniteur/${issueId}?view=editor`)
   }
 
   return (

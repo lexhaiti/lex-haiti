@@ -49,7 +49,7 @@
  *   - app/editorial/import/_panels/MoniteurImportPanel.tsx
  *       → `editorial.import.moniteur.*`
  *   - app/editorial/moniteur/page.tsx → `editorial.moniteur.list.*`
- *   - app/editorial/moniteur/[id]/review/page.tsx
+ *   - app/moniteur/[id]/_components/MoniteurIssueEditorPanel.tsx
  *       → `editorial.moniteur.review.*`
  *   - app/recherche/avancee/page.tsx → `searchAdvanced.*`
  *
