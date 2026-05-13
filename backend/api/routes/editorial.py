@@ -22,6 +22,7 @@ from api.deps import (
 from packages.schemas.article import (
     ArticleContentUpdate,
     ArticleEmbed,
+    ArticleInsertInput,
     ArticleVersionAddInput,
     ArticleVersionRead,
 )
@@ -43,6 +44,7 @@ from packages.schemas.signer import (
 )
 from packages.schemas.theme import LegalThemeTagWrite
 from services.corpus.repository import CorpusRepository
+from services.corpus.service import article_to_embed
 from services.editorial.service import EditorialService
 
 logger = logging.getLogger(__name__)
@@ -437,6 +439,39 @@ def add_article_version(
     db.commit()
     db.refresh(new_version)
     return ArticleVersionRead.model_validate(new_version)
+
+
+@router.post(
+    "/legal-texts/{slug}/articles",
+    response_model=ArticleEmbed,
+    status_code=201,
+    summary="Insert a new article into a legal text (amendment insertion)",
+)
+def insert_article(
+    slug: str,
+    body: ArticleInsertInput,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Insert a brand-new article (e.g. "9-1" or "9 bis") between two
+    existing articles, anchored to the amending law that introduced it.
+
+    Position is computed server-side from ``after_article_id``: the
+    new article inherits that article's TOC node (``heading_id``) and
+    slots at ``after.position + 1``, with all later siblings in the
+    same heading bumped by one. Pass only ``heading_id`` to insert at
+    position 0 of that heading.
+
+    Writes a ``LegalChange`` row with ``change_kind=add`` so the
+    amending law's "Modifications apportées" panel lists the
+    insertion alongside its other edits.
+    """
+    payload = body.model_dump(exclude_unset=False)
+    article = service.insert_article(slug, actor=user, payload=payload)
+    db.commit()
+    db.refresh(article)
+    return article_to_embed(article)
 
 
 # -----------------------------------------------------------------------

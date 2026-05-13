@@ -273,6 +273,36 @@ export async function addArticleVersion(
   )
 }
 
+/** Editor input for inserting a brand-new article into a legal text
+ *  (amendment insertion case — Article 9-1, 9 bis, …). */
+export type ArticleInsertInput = {
+  number: string
+  title_fr?: string | null
+  title_ht?: string | null
+  text_fr: string
+  text_ht?: string | null
+  after_article_id?: number | null
+  heading_id?: number | null
+  effective_from?: string | null
+  source_legal_text_id: number
+  source_article_id?: number | null
+  comment?: string | null
+}
+
+/** Insert a new article (typically "9-1" or "9 bis") into a legal
+ *  text, anchored to the amending law. Server-side computes the
+ *  position from ``after_article_id`` and writes a LegalChange row
+ *  with ``change_kind=add``. */
+export async function insertArticle(
+  slug: string,
+  body: ArticleInsertInput,
+) {
+  return apiPost<ArticleEmbed>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/articles`,
+    body,
+  )
+}
+
 /** One change this legal text made to an article in another text.
  *  Powers the "Modifications apportées" panel on an amending law's
  *  detail page. */

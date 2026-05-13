@@ -59,6 +59,7 @@ import { VersionsPanel, type VersionEntry } from './_panels/VersionsPanel'
 import { ComparePanel } from './_panels/ComparePanel'
 import { CitationColumn } from './_panels/CitationColumn'
 import { AddVersionDialog } from './_panels/AddVersionDialog'
+import { AddArticleDialog } from './_panels/AddArticleDialog'
 
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
@@ -328,6 +329,10 @@ export default function ArticleViewer({
   // Add-version modal — editor opens it from the action row to create
   // a new version anchored to an amending law.
   const [addVersionOpen, setAddVersionOpen] = useState(false)
+  // Add-article modal — editor opens it to insert a new article
+  // (typically "N-1" or "N bis") immediately after the current one,
+  // anchored to the amending law that introduced it.
+  const [addArticleOpen, setAddArticleOpen] = useState(false)
 
   // Inline edit state — keyed by article.id so switching to a different
   // article cancels any in-flight edit instead of carrying drafts across.
@@ -1071,6 +1076,31 @@ export default function ArticleViewer({
                 </span>
               </button>
             )}
+            {/* Editor-only "Insert article after this one" — covers the
+                amendment-insertion case (Article 9-1, 9 bis…). The new
+                article slots immediately after the current one and
+                inherits its TOC heading. Distinct from "Ajouter une
+                version" — that supersedes the current article's
+                content; this introduces a new article entirely. */}
+            {isEditor && lawId != null && (
+              <button
+                type="button"
+                onClick={() => setAddArticleOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
+                title={
+                  currentLang === 'fr'
+                    ? 'Insérer un nouvel article (ex. Article 9-1, 9 bis…) juste après celui-ci'
+                    : 'Mete yon nouvo atik (egz. Atik 9-1, 9 bis…) jis apre sa a'
+                }
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">
+                  {currentLang === 'fr'
+                    ? 'Ajouter un article'
+                    : 'Ajoute yon atik'}
+                </span>
+              </button>
+            )}
           </div>
 
           <div ref={panelRef}>
@@ -1214,6 +1244,26 @@ export default function ArticleViewer({
             })
             onArticleSaved?.()
           }}
+        />
+      )}
+      {/* Editor-only insert-article modal — companion to AddVersion.
+          Slots a new article (Article 9-1, 9 bis…) right after the
+          current one. ``onCreated`` triggers a parent refetch so the
+          TOC and article-nav pick up the new row immediately. */}
+      {isEditor && lawId != null && lawSlug && (
+        <AddArticleDialog
+          open={addArticleOpen}
+          onOpenChange={setAddArticleOpen}
+          lawSlug={lawSlug}
+          lawId={lawId}
+          afterArticleId={article.id}
+          afterArticleLabel={
+            currentLang === 'ht'
+              ? `Atik ${article.number}`
+              : `Article ${article.number}`
+          }
+          lang={currentLang}
+          onCreated={() => onArticleSaved?.()}
         />
       )}
     </motion.div>

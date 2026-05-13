@@ -807,7 +807,7 @@ export const fr = {
         previewVisas: 'Visas',
         previewConsiderants: 'Considérants',
         previewEnacting: "Formule d'adoption",
-        previewPreamble: 'Préambule',
+        previewPreamble: 'PRÉAMBULE',
         previewArticles: 'Articles',
         previewEmpty: 'Aucun bloc structuré détecté.',
         previewLoading: 'Calcul…',

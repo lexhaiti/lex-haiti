@@ -38,6 +38,17 @@ from services.corpus.repository import CorpusRepository
 from services.corpus.service import CorpusService, article_to_embed
 from services.corpus.themes import suggest_themes
 
+
+def _article_number_slug(num: str) -> str:
+    """Article-number → slug-safe ASCII. Mirrors the helper used by
+    the ingestion pipeline at promotion time; kept inline rather than
+    imported across bounded contexts. "9-1" → "9-1", "9 bis" →
+    "9-bis", "Premier" → "premier"."""
+    s = num.strip().lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = s.strip("-")
+    return s or "n"
+
 # Fields the metadata editor is allowed to write. Excludes `slug` (permalink
 # stability), `editorial_status` (use publish/unpublish), and
 # `jurisdiction` (always HT for now). Formal-block fields (preamble /
@@ -738,6 +749,196 @@ class EditorialService:
         )
         self.session.flush()
         return new_version
+
+    def insert_article(
+        self,
+        slug: str,
+        *,
+        actor: User,
+        payload: dict[str, Any],
+    ) -> Article:
+        """Insert a brand-new article into a legal text — amendment
+        insertion case (Article 9-1, 9 bis, …).
+
+        Position semantics:
+        - With ``after_article_id``: new article inherits that
+          article's ``heading_id``, slots at ``after.position + 1``,
+          and all later siblings in the same heading are bumped +1.
+        - Without it, with ``heading_id``: inserted at position 0 of
+          that heading, all existing rows in that heading bumped +1.
+        - With neither: error.
+
+        Sibling-shift is a single bulk UPDATE — most headings carry
+        <50 articles, so the cost is negligible. Could be replaced
+        with fractional positions later if it ever matters.
+
+        ``source_legal_text_id`` is required: writes a ``LegalChange``
+        with ``change_kind=add`` so the amending law's "Modifications
+        apportées" panel surfaces the insertion. A new article with
+        no provenance shouldn't be created through this entrypoint
+        (use the bulk-import flow for that).
+        """
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        number = (payload.get("number") or "").strip()
+        if not number:
+            raise InvalidInput("number is required")
+        text_fr = (payload.get("text_fr") or "").strip()
+        if not text_fr:
+            raise InvalidInput("text_fr cannot be empty")
+
+        source_id = payload.get("source_legal_text_id")
+        if source_id is None:
+            raise InvalidInput("source_legal_text_id is required")
+        amending = (
+            self.session.query(LegalText)
+            .filter(LegalText.id == source_id)
+            .one_or_none()
+        )
+        if amending is None:
+            raise NotFound(f"Amending legal text not found: {source_id}")
+
+        # Reject duplicate numbers within the same text — the parser's
+        # promotion path uses a `--N` suffix on collisions, but here we
+        # want a hard rejection so the editor sees the conflict.
+        existing = (
+            self.session.query(Article)
+            .filter(Article.legal_text_id == text.id, Article.number == number)
+            .one_or_none()
+        )
+        if existing is not None:
+            raise AlreadyExists(
+                f'Article "{number}" already exists in this text'
+            )
+
+        # Resolve anchor → heading_id + insert position.
+        after_id = payload.get("after_article_id")
+        heading_id: Optional[int]
+        insert_position: int
+        if after_id is not None:
+            anchor = self.repo.get_article(after_id)
+            if anchor is None or anchor.legal_text_id != text.id:
+                raise InvalidInput(
+                    "after_article_id must point at an article in this text"
+                )
+            heading_id = anchor.heading_id
+            insert_position = anchor.position + 1
+        else:
+            heading_id = payload.get("heading_id")
+            insert_position = 0
+
+        # Optionally validate heading_id belongs to this text.
+        if heading_id is not None:
+            owns = (
+                self.session.query(LegalHeading)
+                .filter(
+                    LegalHeading.id == heading_id,
+                    LegalHeading.legal_text_id == text.id,
+                )
+                .one_or_none()
+            )
+            if owns is None:
+                raise InvalidInput(
+                    "heading_id must point at a heading in this text"
+                )
+
+        # Slug — derive from the number, dedupe within the text by
+        # appending --2 / --3 / … on collisions.
+        base_slug = f"art-{_article_number_slug(number)}"
+        slug_candidate = base_slug
+        n = 2
+        while (
+            self.session.query(Article.id)
+            .filter(
+                Article.legal_text_id == text.id, Article.slug == slug_candidate
+            )
+            .first()
+            is not None
+        ):
+            slug_candidate = f"{base_slug}--{n}"
+            n += 1
+
+        # Shift sibling positions by +1 inside the same heading.
+        # Single bulk UPDATE — cheap.
+        sibling_q = self.session.query(Article).filter(
+            Article.legal_text_id == text.id,
+            Article.position >= insert_position,
+        )
+        if heading_id is None:
+            sibling_q = sibling_q.filter(Article.heading_id.is_(None))
+        else:
+            sibling_q = sibling_q.filter(Article.heading_id == heading_id)
+        for sib in sibling_q.all():
+            sib.position = sib.position + 1
+        self.session.flush()
+
+        # Effective_from — inherit from the amending law if omitted,
+        # mirroring add_article_version's behaviour.
+        effective_from = payload.get("effective_from")
+        if effective_from is None:
+            effective_from = (
+                amending.promulgation_date or amending.publication_date
+            )
+
+        article = Article(
+            legal_text_id=text.id,
+            heading_id=heading_id,
+            number=number,
+            slug=slug_candidate,
+            position=insert_position,
+            domain_tags=[],
+        )
+        self.session.add(article)
+        self.session.flush()  # need article.id for the version FK
+
+        version = ArticleVersion(
+            article_id=article.id,
+            version_number=1,
+            title_fr=payload.get("title_fr") or None,
+            title_ht=payload.get("title_ht") or None,
+            text_fr=text_fr,
+            text_ht=payload.get("text_ht") or None,
+            effective_from=effective_from,
+            source_amendment_id=amending.id,
+            editorial_status=EditorialStatus.draft,
+        )
+        self.session.add(version)
+        self.session.flush()
+        article.current_version_id = version.id
+
+        # Bidirectional graph row — ``change_kind=add`` so the
+        # amending law's modifications panel labels this as an
+        # insertion, not an amendment of an existing version.
+        change = LegalChange(
+            amending_text_id=amending.id,
+            amended_text_id=text.id,
+            amended_article_id=article.id,
+            new_version_id=version.id,
+            change_kind=ChangeKind.add,
+            effective_on=effective_from,
+        )
+        self.session.add(change)
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="insert_article",
+            target_type="article",
+            target_id=article.id,
+            diff={
+                "number": {"before": None, "after": number},
+                "source_legal_text_id": {"before": None, "after": amending.id},
+            },
+            comment=payload.get("comment"),
+        )
+        self.session.flush()
+
+        # Reload with eager-loaded current_version for the response DTO.
+        refreshed = self.repo.get_article(article.id)
+        assert refreshed is not None
+        return refreshed
 
     # -------------------------------------------------------------------
     # Listing — editor sees everything, including drafts

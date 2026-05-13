@@ -185,6 +185,42 @@ class ArticleContentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ArticleInsertInput(BaseModel):
+    """Editor-supplied payload to insert a brand-new article into a
+    legal text — typically the case where an amendment introduces an
+    article like "9-1" or "9 bis" between two existing articles.
+
+    Position is computed server-side from ``after_article_id``: the new
+    article inherits that article's ``heading_id`` (same TOC node) and
+    slots at ``position + 1``, with all later siblings in the same
+    heading bumped by one. To insert at the very top of a heading,
+    omit ``after_article_id`` and supply ``heading_id`` instead — the
+    article goes at position 0 of that heading.
+
+    ``source_legal_text_id`` is mandatory (this is amendment plumbing,
+    not editorial seeding) and writes a ``LegalChange`` row with
+    ``change_kind=add`` so the amending law's "Modifications apportées"
+    panel picks the new article up.
+    """
+
+    number: str = Field(..., min_length=1, max_length=64)
+    title_fr: Optional[str] = None
+    title_ht: Optional[str] = None
+    text_fr: str = Field(..., min_length=1)
+    text_ht: Optional[str] = None
+
+    # Anchor — one of these is required.
+    after_article_id: Optional[int] = None
+    heading_id: Optional[int] = None
+
+    effective_from: Optional[date] = None
+    source_legal_text_id: int
+    source_article_id: Optional[int] = None
+    comment: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ArticleVersionAddInput(BaseModel):
     """Editor-supplied payload to add a new version of an article *because
     of an amending legal text*.
