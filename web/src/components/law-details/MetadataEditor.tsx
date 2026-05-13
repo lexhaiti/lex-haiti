@@ -84,9 +84,20 @@ interface Props {
   onOpenChange: (open: boolean) => void
   text: LegalTextMetadata
   onSaved?: () => void
+  /** Fires when the saved patch changed the slug. Parent is
+   *  responsible for navigating to the new URL (the LawDetail page
+   *  uses ``router.replace`` so the back button doesn't return to
+   *  the old slug). The argument is the new slug. */
+  onSlugChanged?: (newSlug: string) => void
 }
 
-export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
+export function MetadataEditor({
+  open,
+  onOpenChange,
+  text,
+  onSaved,
+  onSlugChanged,
+}: Props) {
   const { t } = useT()
   const { toast } = useToast()
   const [pending, startTransition] = useTransition()
@@ -102,6 +113,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
   // Local form state, seeded from the current text. Reset whenever the
   // sheet reopens so editors don't carry stale drafts across sessions.
   const [form, setForm] = useState(() => ({
+    slug: text.slug,
     title_fr: text.title_fr,
     title_ht: text.title_ht ?? '',
     description_fr: text.description_fr ?? '',
@@ -124,6 +136,7 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
   function handleOpenChange(next: boolean) {
     if (next) {
       setForm({
+        slug: text.slug,
         title_fr: text.title_fr,
         title_ht: text.title_ht ?? '',
         description_fr: text.description_fr ?? '',
@@ -157,10 +170,23 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
       toast(t('metadataEditor.titleFrEmpty'))
       return
     }
+    // Slug format check — mirrors the backend ``_SLUG_RE`` so the
+    // editor gets immediate feedback instead of a round-trip error
+    // dressed up as a generic "failed" toast.
+    const trimmedSlug = form.slug.trim()
+    if (!trimmedSlug) {
+      toast(t('metadataEditor.slugEmpty'))
+      return
+    }
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,198}[a-z0-9])?$/.test(trimmedSlug)) {
+      toast(t('metadataEditor.slugInvalid'))
+      return
+    }
     // Build a minimal patch — only fields that actually changed. The backend
     // also no-ops unchanged values, but this keeps the audit log diff clean
     // and the request payload small.
     const original = {
+      slug: text.slug,
       title_fr: text.title_fr,
       title_ht: text.title_ht ?? '',
       description_fr: text.description_fr ?? '',
@@ -182,9 +208,14 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
       const a = (form as Record<string, string>)[key].trim()
       const b = String(original[key] ?? '').trim()
       if (a === b) return
-      // Empty string for nullable fields → null. title_fr is non-nullable.
+      // Empty string for nullable fields → null. title_fr + slug are
+      // non-nullable on the backend, so they get passed through
+      // verbatim (empty-slug validation happens above in the form
+      // guards).
       if (key === 'title_fr') {
         body.title_fr = a
+      } else if (key === 'slug') {
+        body.slug = a
       } else if (key === 'category') {
         body.category = a as LegalTextMetadataPatch['category']
       } else if (key === 'status') {
@@ -207,10 +238,16 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
 
     startTransition(async () => {
       try {
-        await updateLegalTextMetadata(text.slug, body)
+        const updated = await updateLegalTextMetadata(text.slug, body)
         toast(t('metadataEditor.saved'))
         onOpenChange(false)
-        onSaved?.()
+        // If the slug changed, notify the parent so it can redirect
+        // the URL — the old slug now 404s on subsequent reads.
+        if (body.slug && updated.slug && updated.slug !== text.slug) {
+          onSlugChanged?.(updated.slug)
+        } else {
+          onSaved?.()
+        }
       } catch (err) {
         const code = err instanceof ApiError ? ` (${err.status})` : ''
         toast(`${t('metadataEditor.failed')}${code}`)
@@ -243,6 +280,27 @@ export function MetadataEditor({ open, onOpenChange, text, onSaved }: Props) {
               value={form.title_ht}
               onChange={(e) => patch('title_ht', e.target.value)}
             />
+          </Field>
+
+          {/* Slug override — the parser produces a slug from the
+              title, which can run to 80+ characters for long
+              arrêté titles. The editor can shorten it here. The
+              backend validates the format and rejects collisions. */}
+          <Field
+            label={t('metadataEditor.slug')}
+            hint={t('metadataEditor.slugHint')}
+          >
+            <Input
+              value={form.slug}
+              onChange={(e) => patch('slug', e.target.value)}
+              className="font-mono text-sm"
+              spellCheck={false}
+            />
+            {form.slug !== text.slug && (
+              <p className="mt-1 text-[11px] text-amber-700">
+                {t('metadataEditor.slugChangedWarning')}
+              </p>
+            )}
           </Field>
 
           <Field

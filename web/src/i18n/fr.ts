@@ -506,6 +506,14 @@ export const fr = {
       'Champs édités en français et en kreyòl. Le slug et le statut éditorial ne sont pas modifiables ici.',
     titleFr: 'Titre (FR) *',
     titleHt: 'Titre (KW)',
+    slug: 'Permalien (slug) *',
+    slugHint:
+      'Identifiant dans l’URL : /loi/<slug>. Lettres minuscules, chiffres et tirets (max 200 car.). Modifie le permalien du texte — partagez la nouvelle URL.',
+    slugChangedWarning:
+      '⚠ Ce changement modifie l’URL publique du texte. Les anciens liens cesseront de fonctionner.',
+    slugEmpty: 'Le slug ne peut pas être vide.',
+    slugInvalid:
+      'Slug invalide — minuscules ASCII, chiffres et tirets uniquement.',
     descFr: 'Résumé sur les fiches (FR)',
     descHt: 'Résumé sur les fiches (KW)',
     descHint:

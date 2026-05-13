@@ -495,6 +495,13 @@ export const ht = {
       'Chan an fransè ak an kreyòl. Slug ak estati editoryal pa modifye isit la.',
     titleFr: 'Tit (FR) *',
     titleHt: 'Tit (KW)',
+    slug: 'Pèmalyen (slug) *',
+    slugHint:
+      'Idantifyan nan URL la : /loi/<slug>. Lèt miniskil, chif, ak tirè (maks 200 karaktè).',
+    slugChangedWarning:
+      '⚠ Chanjman sa modifye URL piblik tèks la. Ansyen lyen yo ap sispann mache.',
+    slugEmpty: 'Slug la pa ka vid.',
+    slugInvalid: 'Slug envalid — sèlman miniskil ASCII, chif, ak tirè.',
     descFr: 'Sentans kout pou kat yo (FR)',
     descHt: 'Sentans kout pou kat yo (KW)',
     descHint:

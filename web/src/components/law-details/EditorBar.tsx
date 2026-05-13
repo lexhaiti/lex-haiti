@@ -243,6 +243,12 @@ export function EditorBar({
             onOpenChange={setMetadataOpen}
             text={metadata}
             onSaved={onChanged}
+            onSlugChanged={(newSlug) => {
+              // Redirect to the new permalink so subsequent reads
+              // don't 404 on the old slug. ``replace`` (not push)
+              // so the back button doesn't return to the dead URL.
+              router.replace(`/loi/${newSlug}`)
+            }}
           />
         )}
 

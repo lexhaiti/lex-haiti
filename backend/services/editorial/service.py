@@ -58,6 +58,7 @@ def _article_number_slug(num: str) -> str:
 # in Phase 1 so the in-place EditableFormalBlock editor can write to
 # them. Each is bilingual; pass null to clear.
 _METADATA_FIELDS: tuple[str, ...] = (
+    "slug",
     "title_fr",
     "title_ht",
     "description_fr",
@@ -83,6 +84,13 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "enacting_formula_fr",
     "enacting_formula_ht",
 )
+
+# Constraint on editor-supplied slugs. Lowercase ASCII letters,
+# digits, and hyphens; one or more, max 200. The parser-generated
+# slugs can exceed 80 chars for verbose titles ("arrete-annulant-l-
+# arrete-du-3-juin-…"), which is the whole reason the editor needs
+# to be able to override them.
+_SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,198}[a-z0-9])?$")
 
 
 def _audit(
@@ -443,6 +451,35 @@ class EditorialService:
                 raise InvalidInput("title_fr cannot be empty")
             updates["title_fr"] = value
 
+        # Slug edits — used to overrule the auto-generated slug when
+        # the parser produces verbose / awkward URLs from long titles.
+        # Validate the format strictly; reject collisions with other
+        # texts. CLAUDE.md says permalinks are forever, so changes on
+        # *published* texts deserve a louder warning — the audit log
+        # diff captures the before/after.
+        if "slug" in updates:
+            new_slug = (updates["slug"] or "").strip().lower()
+            if not _SLUG_RE.match(new_slug):
+                raise InvalidInput(
+                    "slug must be lowercase ASCII letters / digits / hyphens "
+                    "(1–200 chars, no leading/trailing hyphen)"
+                )
+            if new_slug != text.slug:
+                # Collision check: another text already owns this slug.
+                conflict = (
+                    self.session.query(LegalText.id)
+                    .filter(
+                        LegalText.slug == new_slug,
+                        LegalText.id != text.id,
+                    )
+                    .first()
+                )
+                if conflict is not None:
+                    raise AlreadyExists(
+                        f'slug "{new_slug}" is already in use by another text'
+                    )
+            updates["slug"] = new_slug
+
         diff: dict[str, dict[str, Any]] = {}
         for field, new_value in updates.items():
             old = getattr(text, field)
@@ -471,7 +508,10 @@ class EditorialService:
             comment=comment,
         )
         self.session.flush()
-        return self.get_text(slug, include="toc")
+        # Re-fetch by whichever slug is current (slug may have changed
+        # in the patch). The previous ``slug`` arg is stale in that
+        # case; ``text.slug`` is the live value after the setattr.
+        return self.get_text(text.slug, include="toc")
 
     # -------------------------------------------------------------------
     # Theme tags (editorial overrides)

@@ -1135,6 +1135,11 @@ export async function requestChanges(slug: string, comment: string) {
  * keys are left untouched. Pass `null` to clear nullable fields.
  */
 export type LegalTextMetadataPatch = {
+  /** Override the auto-generated permalink slug. Lowercase ASCII +
+   *  digits + hyphens, 1–200 chars, no leading/trailing hyphen.
+   *  Caller is responsible for redirecting to the new URL on
+   *  success (the patched ``LegalTextRead.slug`` reflects it). */
+  slug?: string
   title_fr?: string
   title_ht?: string | null
   description_fr?: string | null

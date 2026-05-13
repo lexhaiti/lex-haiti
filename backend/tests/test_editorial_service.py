@@ -454,9 +454,14 @@ class TestMetadataUpdate:
         service.repo = MagicMock()
         service.repo.get_text_by_slug.return_value = text
 
+        # ``slug`` was added to the editable allowlist when the editor
+        # asked for parser-slug overrides; pick a field that's still
+        # never accepted (created_at is server-managed).
         with pytest.raises(InvalidInput, match="unknown metadata fields"):
             service.update_legal_text_metadata(
-                "test", actor=_make_user(), updates={"slug": "hacked"}
+                "test",
+                actor=_make_user(),
+                updates={"created_at": "2025-01-01"},
             )
 
 

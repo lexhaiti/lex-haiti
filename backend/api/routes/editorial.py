@@ -248,6 +248,11 @@ class LegalTextMetadataUpdate(BaseModel):
 
     model_config = {"extra": "forbid"}
 
+    # Slug — editor override for the auto-generated permalink slug.
+    # The service validates format + uniqueness. CLAUDE.md says
+    # "permalinks are forever"; once published, the slug change is
+    # silent and the audit log captures the before/after.
+    slug: Optional[str] = None
     title_fr: Optional[str] = None
     title_ht: Optional[str] = None
     description_fr: Optional[str] = None
