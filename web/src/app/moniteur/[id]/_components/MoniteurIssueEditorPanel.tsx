@@ -570,8 +570,11 @@ export function MoniteurIssueEditorPanel({
               <article
                 key={c.id}
                 className={cn(
-                  'rounded-xl border bg-white p-6 lg:p-7',
-                  isFinal ? 'border-slate-200 opacity-70' : 'border-slate-200',
+                  'rounded-xl border bg-white p-6 lg:p-7 border-slate-200',
+                  // Subtle visual demotion for accepted/rejected rows
+                  // (keeps focus on pending ones) without locking them
+                  // out — the Modifier button below still works.
+                  isFinal && 'bg-slate-50/40',
                 )}
               >
                 <header className="flex items-start justify-between gap-4 flex-wrap mb-4">
@@ -723,36 +726,28 @@ export function MoniteurIssueEditorPanel({
                         {c.detected_number || '—'}
                       </Detail>
                       <Detail label={t('editorial.moniteur.review.cardDate')}>
-                        {isFinal ? (
-                          /* Accepted / rejected entries — date is frozen
-                             once the entry has been promoted. The
-                             editable copy lives on the LegalText itself
-                             at that point. */
-                          <span>{c.detected_date ?? '—'}</span>
-                        ) : (
-                          /* Pending / deferred — the editor can fix a
-                             missing date right on the card without
-                             opening the Modifier panel. Saves on
-                             ``change`` (date inputs only emit a change
-                             event once the user picks a date), with a
-                             small spinner while the request is in
-                             flight. */
-                          <span className="inline-flex items-center gap-2">
-                            <input
-                              type="date"
-                              value={c.detected_date ?? ''}
-                              disabled={dateSaving === c.id}
-                              onChange={(e) =>
-                                saveInlineDate(c, e.target.value)
-                              }
-                              aria-label={t('editorial.moniteur.review.cardDate')}
-                              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
-                            />
-                            {dateSaving === c.id && (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                            )}
-                          </span>
-                        )}
+                        {/* Inline date picker — available on every entry
+                            (pending, deferred, accepted, promoted). Lets
+                            the editor fix a wrong date even after the
+                            entry was promoted. The LegalText keeps its
+                            own publication_date editable separately on
+                            the law detail page; this one is the entry-
+                            side record. */}
+                        <span className="inline-flex items-center gap-2">
+                          <input
+                            type="date"
+                            value={c.detected_date ?? ''}
+                            disabled={dateSaving === c.id}
+                            onChange={(e) =>
+                              saveInlineDate(c, e.target.value)
+                            }
+                            aria-label={t('editorial.moniteur.review.cardDate')}
+                            className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
+                          />
+                          {dateSaving === c.id && (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          )}
+                        </span>
                       </Detail>
                     </div>
 
@@ -823,65 +818,82 @@ export function MoniteurIssueEditorPanel({
                       <pre className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-sans bg-slate-50 border border-slate-100 rounded-md p-4 max-h-64 overflow-y-auto">
                         {c.raw_text}
                       </pre>
-                      {!isFinal && (
-                        <button
-                          type="button"
-                          onClick={() => startEditText(c)}
-                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          {t('editorial.moniteur.review.editText')}
-                        </button>
-                      )}
+                      {/* Raw-text edit — always available, even after
+                          the entry is accepted/promoted, so the editor
+                          can correct OCR mistakes that surface later. */}
+                      <button
+                        type="button"
+                        onClick={() => startEditText(c)}
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        {t('editorial.moniteur.review.editText')}
+                      </button>
                     </div>
                   )}
                 </details>
 
-                {!isFinal && editingFields?.candidateId !== c.id && (
+                {editingFields?.candidateId !== c.id && (
                   <div className="mt-5 flex items-center gap-2 flex-wrap">
-                    {PROMOTABLE_CATEGORIES.has(c.detected_category ?? '') ? (
-                      <button
-                        onClick={() => handleAccept(c)}
-                        disabled={isBusy}
-                        className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                      >
-                        {isBusy ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                    {/* Triage actions (accept / attach-to-parent /
+                        reject / defer) only matter before the entry
+                        reaches a terminal state. Once accepted or
+                        rejected, those decisions live in the DB; the
+                        editor still gets the Modifier button below to
+                        fix metadata mistakes that surface later. */}
+                    {!isFinal && (
+                      <>
+                        {PROMOTABLE_CATEGORIES.has(c.detected_category ?? '') ? (
+                          <button
+                            onClick={() => handleAccept(c)}
+                            disabled={isBusy}
+                            className="inline-flex items-center gap-2 rounded-md bg-primary text-white px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                          >
+                            {isBusy ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                            {t('editorial.moniteur.review.accept')}
+                          </button>
                         ) : (
-                          <Check className="w-4 h-4" />
+                          /* Non-promotable categories (promulgation, communiqué,
+                             errata, autre) don't get their own LegalText. They
+                             attach to a parent entry in the same issue —
+                             a promulgation letter rides along with the law it
+                             promulgates. The select lets the editor pick which
+                             entry is the parent; selection auto-accepts. */
+                          <AttachToParentSelect
+                            candidate={c}
+                            candidates={issue?.entries ?? []}
+                            disabled={isBusy}
+                            lang={lang}
+                            onAttach={(parentId) => handleAttachToParent(c, parentId)}
+                          />
                         )}
-                        {t('editorial.moniteur.review.accept')}
-                      </button>
-                    ) : (
-                      /* Non-promotable categories (promulgation, communiqué,
-                         errata, autre) don't get their own LegalText. They
-                         attach to a parent entry in the same issue —
-                         a promulgation letter rides along with the law it
-                         promulgates. The select lets the editor pick which
-                         entry is the parent; selection auto-accepts. */
-                      <AttachToParentSelect
-                        candidate={c}
-                        candidates={issue?.entries ?? []}
-                        disabled={isBusy}
-                        lang={lang}
-                        onAttach={(parentId) => handleAttachToParent(c, parentId)}
-                      />
+                        <button
+                          onClick={() => handleReject(c)}
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                          {t('editorial.moniteur.review.reject')}
+                        </button>
+                        <button
+                          onClick={() => handleDefer(c)}
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-2 rounded-md border border-slate-300 text-slate-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                        >
+                          {t('editorial.moniteur.review.defer')}
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={() => handleReject(c)}
-                      disabled={isBusy}
-                      className="inline-flex items-center gap-2 rounded-md border border-red-200 text-red-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                      {t('editorial.moniteur.review.reject')}
-                    </button>
-                    <button
-                      onClick={() => handleDefer(c)}
-                      disabled={isBusy}
-                      className="inline-flex items-center gap-2 rounded-md border border-slate-300 text-slate-700 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition-colors"
-                    >
-                      {t('editorial.moniteur.review.defer')}
-                    </button>
+                    {/* Modifier — always available, even after promotion.
+                        Metadata mistakes (wrong number, missing title,
+                        bad date) can surface later; the editor needs to
+                        be able to fix the entry without first unpromoting
+                        it. The LegalText row stays editable on its own
+                        detail page. */}
                     <button
                       type="button"
                       onClick={() => startEditFields(c)}

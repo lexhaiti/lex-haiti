@@ -368,6 +368,12 @@ function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
   // it — better than a blank chip. ``autre`` and any future enum value
   // get the slate styling below.
   const label = meta?.label ?? candidate.detected_category ?? 'Document'
+  // Title doubles as the editor-typed free-form name for ``autre``
+  // entries (per the c9aea41 commit). For other companion kinds it's
+  // an optional subtitle the parser may have detected. Either way,
+  // showing it when present makes "Autre", "Avis public" readable as
+  // two distinct rows instead of two anonymous ones.
+  const subtitle = candidate.display_title || candidate.detected_title || null
 
   return (
     <div className="-mx-1">
@@ -376,37 +382,46 @@ function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
         onClick={() => hasRawText && setExpanded((v) => !v)}
         disabled={!hasRawText}
         className={cn(
-          'w-full flex items-center justify-between gap-3 px-2 py-2 text-left rounded-md',
+          'w-full flex items-start justify-between gap-3 px-2 py-2 text-left rounded-md',
           hasRawText
             ? 'hover:bg-slate-50 cursor-pointer'
             : 'cursor-default',
         )}
       >
-        <span className="inline-flex items-center gap-2 min-w-0">
+        <span className="inline-flex items-start gap-2 min-w-0">
           {hasRawText && (
             <ChevronRight
               className={cn(
-                'w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200',
+                'w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200 mt-0.5',
                 expanded && 'rotate-90',
               )}
             />
           )}
-          <span
-            className={cn(
-              'text-[10px] font-bold uppercase tracking-widest',
-              meta?.icon ?? 'text-slate-400',
-            )}
-          >
-            {label}
-          </span>
-          {candidate.detected_number && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px]">
-              N° {candidate.detected_number}
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="inline-flex items-center gap-2 flex-wrap">
+              <span
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-widest',
+                  meta?.icon ?? 'text-slate-400',
+                )}
+              >
+                {label}
+              </span>
+              {candidate.detected_number && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px]">
+                  N° {candidate.detected_number}
+                </span>
+              )}
             </span>
-          )}
+            {subtitle && (
+              <span className="text-sm font-medium text-slate-700 leading-snug">
+                {subtitle}
+              </span>
+            )}
+          </span>
         </span>
         {candidate.page_from != null && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 tabular-nums whitespace-nowrap flex-shrink-0 mt-0.5">
             <BookOpen className="w-3 h-3" />
             p. {candidate.page_from}
             {candidate.page_to != null && candidate.page_to !== candidate.page_from

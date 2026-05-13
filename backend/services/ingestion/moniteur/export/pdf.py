@@ -83,21 +83,23 @@ def _entry_label(entry: MoniteurEntry) -> str:
 
 
 def _ordered_entries(issue: MoniteurIssue) -> list[MoniteurEntry]:
-    """Top-level entries in print order. Companion children
-    (promulgation, communiqué, errata, …) stay nested under their
-    parent and are rendered inline in the body, so the sommaire only
-    lists top-level documents.
+    """All entries (top-level + companion children) in print order.
 
-    Sort key is ``(page_from, position, id)``: entries with a known
-    page range appear in printed-Moniteur order, which is the order
-    a reader expects in the export. Entries without a ``page_from``
-    fall to the back (sorted by their saved ``position``) — that
-    handles the rare case where the editor created a row before the
-    sommaire's page range was known."""
-    # ``page_from`` is nullable; coerce ``None`` to a sentinel that
-    # sorts AFTER any real page number so unpaged rows trail.
+    Companion documents — promulgation letters, correspondances,
+    communiqués, errata, autres — appear on their own pages in the
+    printed Moniteur, so a faithful export has to list them too.
+    They used to be skipped here; now the export includes them
+    alongside the law they accompany, ordered by where they actually
+    sit in the original issue.
+
+    Sort key is ``(page_from, position, id)`` so entries follow the
+    printed-Moniteur reading order. Rows missing a page hint trail
+    at the end (sentinel ``10**9``), sorted by their saved position
+    so the editor's intended order still shows up when no page is
+    known. The on-screen detail page uses the same key — what you
+    see in the browser is what lands in the PDF."""
     return sorted(
-        (e for e in issue.entries if not e.parent_entry_id),
+        issue.entries,
         key=lambda e: (
             e.page_from if e.page_from is not None else 10**9,
             e.position,
