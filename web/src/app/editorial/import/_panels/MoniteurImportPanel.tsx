@@ -668,6 +668,13 @@ export default function MoniteurImportPanel() {
 const inputCls =
   'w-full h-11 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-900 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:bg-slate-50 disabled:text-slate-400'
 
+// Shared label style for the sommaire-row form. ``whitespace-nowrap``
+// keeps multi-word labels on a single line so the input baselines
+// don't drift between columns — "N° (facultatif)" used to wrap and
+// pushed its input below the others.
+const labelCls =
+  'text-[10px] font-bold uppercase tracking-widest text-primary/65 whitespace-nowrap'
+
 /**
  * One row of the sommaire pre-fill editor — type, title, optional N°,
  * and a page range. Visually a card so it stays readable when several
@@ -691,9 +698,16 @@ function SommaireRowEditor({
   onChange: (patch: Partial<SommaireRow>) => void
   onRemove: () => void
 }) {
+  // Cell uses a 12-col grid on lg+ that fits all five fields on one
+  // row; on md it wraps to a two-row layout (Type + Titre top, N° /
+  // Date / Pages share the second row); on mobile each field is its
+  // own row. Labels are single-line (``whitespace-nowrap``) so the
+  // baselines of the inputs stay aligned across columns regardless of
+  // label length — the previous "N° (facultatif)" label wrapped and
+  // pushed its input below the others.
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between mb-4">
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
           #{String(index + 1).padStart(2, '0')}
         </span>
@@ -702,15 +716,15 @@ function SommaireRowEditor({
           onClick={onRemove}
           disabled={disabled}
           aria-label={t('editorial.import.moniteur.removeEntry')}
-          className="text-slate-400 hover:text-red-600 disabled:opacity-50"
+          className="text-slate-400 hover:text-red-600 disabled:opacity-50 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-        {/* Type — 3 columns */}
-        <div className="sm:col-span-3 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-x-4 gap-y-3">
+        {/* Type — 3 / 4 / 2 cols on sm / md / lg */}
+        <div className="sm:col-span-6 md:col-span-3 lg:col-span-2 flex flex-col gap-1.5">
+          <span className={labelCls}>
             {t('editorial.import.moniteur.sommaireType')}
           </span>
           <Select
@@ -737,18 +751,12 @@ function SommaireRowEditor({
             </SelectContent>
           </Select>
         </div>
-        {/* Title — 4 columns. When the editor picks "autre", the
-            title doubles as the display name for the entry (since the
-            category itself doesn't carry any human label) — the
-            placeholder + caption switch to make that explicit so the
-            editor knows where to type the custom name. */}
-        <label className="sm:col-span-4 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
-            {row.detected_category === 'autre'
-              ? lang === 'ht'
-                ? 'Non pou afiche'
-                : 'Nom à afficher'
-              : t('editorial.import.moniteur.sommaireTitle')}
+        {/* Title — always labelled "Titre"; for ``autre`` entries it
+            doubles as the entry's display name but stays in the same
+            slot, with a placeholder hinting at the convention. */}
+        <label className="sm:col-span-6 md:col-span-9 lg:col-span-5 flex flex-col gap-1.5">
+          <span className={labelCls}>
+            {t('editorial.import.moniteur.sommaireTitle')}
           </span>
           <input
             type="text"
@@ -758,16 +766,18 @@ function SommaireRowEditor({
             placeholder={
               row.detected_category === 'autre'
                 ? lang === 'ht'
-                  ? 'Ex. : Avi piblik, Deklarasyon…'
-                  : 'Ex. : Avis public, Déclaration…'
+                  ? 'Non pou afiche — egz. Avi piblik, Deklarasyon…'
+                  : "Nom à afficher — ex. Avis public, Déclaration…"
                 : undefined
             }
             className={inputCls}
           />
         </label>
-        {/* N° — 1 column */}
-        <label className="sm:col-span-1 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+        {/* N° — small numeric column. "Facultatif" moved out of the
+            label (which wrapped on narrow widths and threw the input
+            baseline off) into a placeholder. */}
+        <label className="sm:col-span-3 md:col-span-2 lg:col-span-1 flex flex-col gap-1.5">
+          <span className={labelCls}>
             {t('editorial.import.moniteur.sommaireNumber')}
           </span>
           <input
@@ -775,16 +785,16 @@ function SommaireRowEditor({
             value={row.detected_number ?? ''}
             disabled={disabled}
             onChange={(e) => onChange({ detected_number: e.target.value })}
-            className={inputCls}
+            placeholder={lang === 'ht' ? 'opsyonèl' : 'facultatif'}
+            className={cn(inputCls, 'text-center placeholder:italic placeholder:text-slate-300')}
           />
         </label>
-        {/* Date — 2 columns. Optional; auto-prefilled from the issue
-            publication date when a new row is added so the editor only
-            needs to touch entries whose date differs from the issue
-            header (a decree signed earlier than its Moniteur appearance,
-            for instance). */}
-        <label className="sm:col-span-2 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+        {/* Date — auto-prefilled from the issue publication date when
+            a new row is added; editor only needs to touch entries
+            whose date differs (e.g. a decree signed earlier than its
+            Moniteur appearance). */}
+        <label className="sm:col-span-4 md:col-span-4 lg:col-span-2 flex flex-col gap-1.5">
+          <span className={labelCls}>
             {t('editorial.import.moniteur.sommaireDate', {
               fallback: 'Date',
             })}
@@ -799,19 +809,20 @@ function SommaireRowEditor({
             className={inputCls}
           />
         </label>
-        {/* Pages — 2 columns, two number inputs */}
-        <div className="sm:col-span-2 flex flex-col gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary/65">
+        {/* Pages — segmented "N → N" input. Both PageInputs are h-11
+            to match the rest of the row. */}
+        <div className="sm:col-span-5 md:col-span-6 lg:col-span-2 flex flex-col gap-1.5">
+          <span className={labelCls}>
             {t('editorial.import.moniteur.sommairePages')}
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <PageInput
               value={row.page_from}
               disabled={disabled}
               onChange={(v) => onChange({ page_from: v })}
               aria-label={t('editorial.import.moniteur.sommairePageFrom')}
             />
-            <span className="text-slate-300 text-xs">→</span>
+            <span className="text-slate-300 text-xs flex-shrink-0">→</span>
             <PageInput
               value={row.page_to}
               disabled={disabled}
