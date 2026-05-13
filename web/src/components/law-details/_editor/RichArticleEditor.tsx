@@ -109,12 +109,20 @@ export function RichArticleEditor({
     content: toEditorHtml(value),
     editable: !disabled,
     immediatelyRender: false,
+    // ``preserveWhitespace: 'full'`` keeps leading spaces / tabs /
+    // line breaks from pasted text (Word, PDF, plain text). Legal
+    // bodies in Haitian Codes often carry hand-typed indents on
+    // enumerated items — without this option Tiptap collapses every
+    // run of spaces to one, losing visual alignment on paste.
+    parseOptions: { preserveWhitespace: 'full' },
     editorProps: {
       attributes: {
         'aria-label': ariaLabel ?? 'Article body editor',
         class: cn(
+          // ``whitespace-pre-wrap`` echoes the preserved-whitespace
+          // parse so leading spaces show up while the editor is open.
           'prose prose-slate max-w-none px-4 py-3 outline-none min-h-[8rem]',
-          'text-base leading-relaxed text-gray-900',
+          'text-base leading-relaxed text-gray-900 whitespace-pre-wrap',
           'placeholder:text-slate-400 placeholder:italic',
         ),
         ...(placeholder ? { 'data-placeholder': placeholder } : {}),

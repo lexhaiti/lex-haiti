@@ -4,6 +4,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Clock, FileText } from 'lucide-react'
 
+import { looksLikeHtml } from './_editor/utils'
+
 interface PreambleViewerProps {
   /** Title to display above the body. */
   title: string
@@ -81,19 +83,29 @@ export default function PreambleViewer({
         <article className="max-w-none">
           <div className="relative">
             <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-[#C9A227] to-primary rounded-full" />
-            <div className="ml-6 space-y-5 text-gray-700 leading-relaxed text-base lg:text-lg">
-              {paragraphs.map((p, i) => (
-                <motion.p
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i * 0.02, 0.4) }}
-                  className="whitespace-pre-line"
-                >
-                  {p}
-                </motion.p>
-              ))}
-            </div>
+            {looksLikeHtml(text) ? (
+              // Editor-saved HTML — sanitized server-side, safe to
+              // inject. Same allowlist as article bodies (bold,
+              // italic, lists, alignment).
+              <div
+                className="ml-6 text-gray-700 leading-relaxed text-base lg:text-lg formal-block-html"
+                dangerouslySetInnerHTML={{ __html: text }}
+              />
+            ) : (
+              <div className="ml-6 space-y-5 text-gray-700 leading-relaxed text-base lg:text-lg">
+                {paragraphs.map((p, i) => (
+                  <motion.p
+                    key={i}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.02, 0.4) }}
+                    className="whitespace-pre-line"
+                  >
+                    {p}
+                  </motion.p>
+                ))}
+              </div>
+            )}
           </div>
         </article>
       </div>

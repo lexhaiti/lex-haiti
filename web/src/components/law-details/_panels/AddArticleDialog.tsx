@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import {
   insertArticle,
@@ -22,6 +21,8 @@ import {
   type ArticleEmbed,
   type LegalTextListItem,
 } from '@/lib/api/endpoints'
+import { RichArticleEditor } from '../_editor/RichArticleEditor'
+import { isHtmlEffectivelyEmpty } from '../_editor/utils'
 
 /**
  * Modal for inserting a brand-new article into a legal text — the
@@ -146,7 +147,7 @@ export function AddArticleDialog({
       )
       return
     }
-    if (!textFr.trim()) {
+    if (isHtmlEffectivelyEmpty(textFr)) {
       setError(
         lang === 'fr'
           ? 'Le contenu (FR) ne peut pas être vide.'
@@ -169,7 +170,10 @@ export function AddArticleDialog({
         number: number.trim(),
         title_fr: titleFr.trim() || null,
         text_fr: textFr.trim(),
-        text_ht: textHt.trim() || null,
+        // Rich-text HT — only send when the editor actually has
+        // content. ``<p></p>`` would otherwise be saved as an
+        // intentional empty body, hiding the missing translation.
+        text_ht: isHtmlEffectivelyEmpty(textHt) ? null : textHt.trim(),
         after_article_id: afterArticleId,
         effective_from: effectiveFrom || null,
         // Parser-correction mode: omit source so no LegalChange is
@@ -385,16 +389,23 @@ export function AddArticleDialog({
             />
           </div>
 
-          {/* Content FR */}
+          {/* Content FR — rich editor, formatting (bold/italic/lists/
+              align) survives the round trip to the backend sanitizer. */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">
               {lang === 'fr' ? 'Contenu (FR) *' : 'Kontni (FR) *'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textFr}
-              onChange={(e) => setTextFr(e.target.value)}
-              rows={8}
-              className="font-mono text-sm"
+              onChange={setTextFr}
+              placeholder={
+                lang === 'fr'
+                  ? "Tapez ou collez le texte de l'article…"
+                  : 'Tape oswa kole tèks atik la…'
+              }
+              ariaLabel={lang === 'fr' ? 'Contenu français' : 'Kontni fransè'}
+              tone="amber"
+              disabled={saving}
             />
           </div>
 
@@ -405,11 +416,17 @@ export function AddArticleDialog({
                 ? 'Contenu (KW, optionnel)'
                 : 'Kontni (KW, opsyonèl)'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textHt}
-              onChange={(e) => setTextHt(e.target.value)}
-              rows={6}
-              className="font-mono text-sm"
+              onChange={setTextHt}
+              placeholder={
+                lang === 'fr'
+                  ? 'Tapez ou collez la traduction kreyòl…'
+                  : 'Tape oswa kole tradiksyon kreyòl la…'
+              }
+              ariaLabel={lang === 'fr' ? 'Contenu kreyòl' : 'Kontni kreyòl'}
+              tone="blue"
+              disabled={saving}
             />
           </div>
 

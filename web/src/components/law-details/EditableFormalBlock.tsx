@@ -40,6 +40,8 @@ import {
   type FormalBlockKind,
 } from '@/lib/api/endpoints'
 import { AddBlockVersionDialog } from './_panels/AddBlockVersionDialog'
+import { RichArticleEditor } from './_editor/RichArticleEditor'
+import { isHtmlEffectivelyEmpty, looksLikeHtml } from './_editor/utils'
 
 export interface EditableFormalBlockProps {
   /** What the block currently shows. Either string or null. */
@@ -145,11 +147,17 @@ export function EditableFormalBlock({
     <div className="py-4 group">
       {editing ? (
         <div className="space-y-2">
-          <textarea
+          <RichArticleEditor
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={Math.max(3, (draft.match(/\n/g)?.length ?? 0) + 2)}
-            className="w-full rounded-md border border-amber-300 bg-amber-50/40 px-3 py-2 text-sm text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary italic"
+            onChange={setDraft}
+            placeholder={
+              isFr
+                ? 'Tapez ou collez la formule d’adoption…'
+                : 'Tape oswa kole fòmil adopsyon an…'
+            }
+            ariaLabel={title}
+            tone="amber"
+            disabled={saving}
           />
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center justify-end gap-2">
@@ -164,14 +172,28 @@ export function EditableFormalBlock({
         </div>
       ) : value ? (
         <div className="flex items-start gap-2">
-          <p
-            className={cn(
-              'flex-1 text-sm font-semibold italic text-slate-500 tracking-wide whitespace-pre-line leading-relaxed',
-              align === 'center' ? 'text-center' : 'text-left',
-            )}
-          >
-            {value}
-          </p>
+          {looksLikeHtml(value) ? (
+            // Rich-text value coming from the Tiptap editor — sanitized
+            // server-side, safe to inject. The block-level alignment
+            // toggle still wraps the whole block, but per-paragraph
+            // alignment baked into the saved HTML overrides it.
+            <div
+              className={cn(
+                'flex-1 text-sm font-semibold italic text-slate-500 tracking-wide leading-relaxed formal-block-html',
+                align === 'center' ? 'text-center' : 'text-left',
+              )}
+              dangerouslySetInnerHTML={{ __html: value }}
+            />
+          ) : (
+            <p
+              className={cn(
+                'flex-1 text-sm font-semibold italic text-slate-500 tracking-wide whitespace-pre-line leading-relaxed',
+                align === 'center' ? 'text-center' : 'text-left',
+              )}
+            >
+              {value}
+            </p>
+          )}
           {isEditor && onAlignChange && (
             // Two-state alignment toggle — quick affordance to flip
             // between left and center without opening MetadataEditor.
@@ -347,16 +369,17 @@ export function EditableFormalBlock({
           >
             {editing ? (
               <div className="mt-3 px-5 py-5 bg-amber-50/40 border border-amber-300 rounded-lg space-y-3">
-                <textarea
+                <RichArticleEditor
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  rows={Math.max(4, (draft.match(/\n/g)?.length ?? 0) + 3)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 leading-relaxed outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  onChange={setDraft}
                   placeholder={
                     isFr
                       ? 'Tapez le contenu de ce bloc…'
                       : 'Tape kontni blòk sa a…'
                   }
+                  ariaLabel={title}
+                  tone="amber"
+                  disabled={saving}
                 />
                 {error && <p className="text-xs text-red-600">{error}</p>}
                 <div className="flex items-center justify-end gap-2">
@@ -369,6 +392,11 @@ export function EditableFormalBlock({
                   </button>
                 </div>
               </div>
+            ) : looksLikeHtml(value) ? (
+              <div
+                className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed formal-block-html"
+                dangerouslySetInnerHTML={{ __html: value ?? '' }}
+              />
             ) : (
               <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                 {value}
@@ -424,7 +452,11 @@ export function EditableFormalBlock({
     setError(null)
     try {
       const trimmed = draft.trim()
-      await onSave(trimmed === '' ? null : trimmed)
+      // Tiptap emits ``<p></p>`` for a cleared editor — collapse to
+      // null so the backend treats it as "block cleared" instead of
+      // persisting an empty paragraph.
+      const next = isHtmlEffectivelyEmpty(trimmed) ? null : trimmed
+      await onSave(next)
       setEditing(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

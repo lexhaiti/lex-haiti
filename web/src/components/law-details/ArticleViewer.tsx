@@ -64,6 +64,7 @@ import { CitationColumn } from './_panels/CitationColumn'
 import { AddVersionDialog } from './_panels/AddVersionDialog'
 import { AddArticleDialog } from './_panels/AddArticleDialog'
 import { RichArticleEditor } from './_editor/RichArticleEditor'
+import { isHtmlEffectivelyEmpty, looksLikeHtml } from './_editor/utils'
 
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
@@ -181,17 +182,6 @@ function formatEffectiveSince(
 // scrubbing. Legacy plain-text bodies (imports made before Tiptap
 // shipped) fall through to the paragraph splitter below so the
 // French-enumeration heuristics still apply.
-const HTML_BODY_RE = /^\s*<[a-z][^>]*>/i
-
-/**
- * Tiptap emits ``<p></p>`` (or nested empty tags) for a cleared editor —
- * a string truthiness check misses that. Strip tags + whitespace and
- * check the remainder so "the editor looks empty to the user" is what
- * we measure, not "the HTML string has any characters at all."
- */
-function isHtmlEffectivelyEmpty(html: string): boolean {
-  return html.replace(/<[^>]*>/g, '').replace(/[\s ]+/g, '').length === 0
-}
 
 const ENUMERATION_RE = /(?<=^|\s)(\d+°|\d+\)|[a-z]\))(?=\s+\S)/gi
 
@@ -230,7 +220,7 @@ function splitParagraphIntoBlocks(paragraph: string): BodyBlock[] {
 }
 
 function renderArticleBody(content: string, currentLang: 'fr' | 'ht') {
-  if (HTML_BODY_RE.test(content)) {
+  if (looksLikeHtml(content)) {
     // Sanitized server-side; safe to inject. Wrap in the same legal-
     // article container so prose styles still apply.
     return (

@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import {
   addBlockVersion,
@@ -23,6 +22,8 @@ import {
   type FormalBlockKind,
   type LegalTextListItem,
 } from '@/lib/api/endpoints'
+import { RichArticleEditor } from '../_editor/RichArticleEditor'
+import { isHtmlEffectivelyEmpty } from '../_editor/utils'
 
 /**
  * Modal for adding a new version of one of the four formal blocks
@@ -122,7 +123,9 @@ export function AddBlockVersionDialog({
   async function save() {
     const fr = textFr.trim()
     const ht = textHt.trim()
-    if (!fr && !ht) {
+    const frEmpty = isHtmlEffectivelyEmpty(fr)
+    const htEmpty = isHtmlEffectivelyEmpty(ht)
+    if (frEmpty && htEmpty) {
       setError(
         lang === 'fr'
           ? "Saisissez au moins le contenu (FR) ou (KW)."
@@ -142,8 +145,8 @@ export function AddBlockVersionDialog({
     setError(null)
     try {
       const result = await addBlockVersion(lawSlug, blockKind, {
-        text_fr: fr || null,
-        text_ht: ht || null,
+        text_fr: frEmpty ? null : fr,
+        text_ht: htEmpty ? null : ht,
         effective_from: effectiveFrom || null,
         source_legal_text_id: picked.id,
       })
@@ -301,16 +304,17 @@ export function AddBlockVersionDialog({
             </p>
           </div>
 
-          {/* Content FR */}
+          {/* Content FR — rich editor, pre-filled with current block. */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">
               {lang === 'fr' ? 'Contenu (FR)' : 'Kontni (FR)'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textFr}
-              onChange={(e) => setTextFr(e.target.value)}
-              rows={8}
-              className="font-mono text-sm"
+              onChange={setTextFr}
+              ariaLabel={lang === 'fr' ? 'Contenu français' : 'Kontni fransè'}
+              tone="amber"
+              disabled={saving}
             />
           </div>
 
@@ -319,11 +323,12 @@ export function AddBlockVersionDialog({
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">
               {lang === 'fr' ? 'Contenu (KW)' : 'Kontni (KW)'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textHt}
-              onChange={(e) => setTextHt(e.target.value)}
-              rows={6}
-              className="font-mono text-sm"
+              onChange={setTextHt}
+              ariaLabel={lang === 'fr' ? 'Contenu kreyòl' : 'Kontni kreyòl'}
+              tone="blue"
+              disabled={saving}
             />
           </div>
 

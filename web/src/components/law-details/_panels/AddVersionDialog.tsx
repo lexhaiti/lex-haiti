@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import {
   addArticleVersion,
@@ -22,6 +21,8 @@ import {
   type ArticleVersionRead,
   type LegalTextListItem,
 } from '@/lib/api/endpoints'
+import { RichArticleEditor } from '../_editor/RichArticleEditor'
+import { isHtmlEffectivelyEmpty } from '../_editor/utils'
 
 /**
  * Modal for adding a new version of an article anchored to an
@@ -129,7 +130,7 @@ export function AddVersionDialog({
   }, [open, pickerQuery, excludeLegalTextId])
 
   async function save() {
-    if (!textFr.trim()) {
+    if (isHtmlEffectivelyEmpty(textFr)) {
       setError(
         lang === 'fr'
           ? 'Le contenu (FR) ne peut pas être vide.'
@@ -150,7 +151,7 @@ export function AddVersionDialog({
     try {
       const result = await addArticleVersion(articleId, {
         text_fr: textFr.trim(),
-        text_ht: textHt.trim() || null,
+        text_ht: isHtmlEffectivelyEmpty(textHt) ? null : textHt.trim(),
         title_fr: titleFr.trim() || null,
         effective_from: effectiveFrom || null,
         source_legal_text_id: picked.id,
@@ -332,16 +333,19 @@ export function AddVersionDialog({
             />
           </div>
 
-          {/* Content FR */}
+          {/* Content FR — rich editor, formatting and paste-indent
+              preserved. Pre-filled with the current version's body
+              so the editor edits the delta, not types from scratch. */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">
               {lang === 'fr' ? 'Contenu (FR) *' : 'Kontni (FR) *'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textFr}
-              onChange={(e) => setTextFr(e.target.value)}
-              rows={8}
-              className="font-mono text-sm"
+              onChange={setTextFr}
+              ariaLabel={lang === 'fr' ? 'Contenu français' : 'Kontni fransè'}
+              tone="amber"
+              disabled={saving}
             />
             <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
               {lang === 'fr'
@@ -357,11 +361,12 @@ export function AddVersionDialog({
                 ? 'Contenu (KW, optionnel)'
                 : 'Kontni (KW, opsyonèl)'}
             </label>
-            <Textarea
+            <RichArticleEditor
               value={textHt}
-              onChange={(e) => setTextHt(e.target.value)}
-              rows={6}
-              className="font-mono text-sm"
+              onChange={setTextHt}
+              ariaLabel={lang === 'fr' ? 'Contenu kreyòl' : 'Kontni kreyòl'}
+              tone="blue"
+              disabled={saving}
             />
           </div>
 

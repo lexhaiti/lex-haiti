@@ -219,6 +219,84 @@ class TestUpdateArticleContentDraft:
 
 
 # ---------------------------------------------------------------------------
+# Sanitizer helper — pinned independently of the article-content path
+# ---------------------------------------------------------------------------
+
+
+class TestSanitizeArticleHtml:
+    """Direct tests on ``_sanitize_article_html``. The helper is the
+    trust boundary between the Tiptap editor (which emits arbitrary
+    HTML) and the public renderer (which uses
+    ``dangerouslySetInnerHTML``), so the allowlist deserves
+    standalone coverage. Every write path that takes rich text — the
+    article inline editor, AddArticleDialog (correction + amendment),
+    AddVersionDialog, formal-block edits + AddBlockVersionDialog — flows
+    through this same function."""
+
+    def _clean(self, html):
+        from services.editorial.service import _sanitize_article_html
+
+        return _sanitize_article_html(html)
+
+    def test_keeps_basic_formatting_tags(self):
+        out = self._clean(
+            "<p><strong>Bold</strong> and <em>italic</em> and <u>under</u>.</p>"
+        )
+        assert "<strong>Bold</strong>" in out
+        assert "<em>italic</em>" in out
+        assert "<u>under</u>" in out
+
+    def test_keeps_lists(self):
+        out = self._clean(
+            "<ul><li>One</li><li>Two</li></ul><ol><li>A</li></ol>"
+        )
+        assert "<ul>" in out and "<li>One</li>" in out
+        assert "<ol>" in out and "<li>A</li>" in out
+
+    def test_keeps_paragraph_text_align(self):
+        for align in ("left", "center", "right", "justify"):
+            out = self._clean(f'<p style="text-align: {align}">x</p>')
+            assert f"text-align: {align}" in out, out
+
+    def test_strips_disallowed_css_properties(self):
+        out = self._clean(
+            '<p style="text-align: center; color: red; font-size: 99px">x</p>'
+        )
+        assert "text-align: center" in out
+        assert "color" not in out
+        assert "font-size" not in out
+
+    def test_strips_event_handlers(self):
+        out = self._clean('<p onclick="alert(1)" onmouseover="x()">y</p>')
+        assert "onclick" not in out
+        assert "onmouseover" not in out
+
+    def test_strips_disallowed_tags(self):
+        out = self._clean(
+            '<iframe src="evil"></iframe>'
+            '<p>safe</p>'
+            '<object data="bad"></object>'
+        )
+        assert "<iframe" not in out
+        assert "<object" not in out
+        assert "<p>safe</p>" in out
+
+    def test_strips_dangerous_protocols(self):
+        # ``<a>`` isn't in the allowlist, so the whole tag is stripped
+        # but the visible label survives — same defense-in-depth as
+        # script-tag content. We pin both.
+        out = self._clean('<a href="javascript:steal()">label</a>')
+        assert "javascript:" not in out
+        assert "label" in out
+
+    def test_none_in_none_out(self):
+        assert self._clean(None) is None
+
+    def test_whitespace_in_empty_out(self):
+        assert self._clean("   \n  ") == ""
+
+
+# ---------------------------------------------------------------------------
 # Versioning policy: published → create new draft version
 # ---------------------------------------------------------------------------
 

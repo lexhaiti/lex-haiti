@@ -565,6 +565,21 @@ class EditorialService:
                 )
             updates["enacting_formula_align"] = align
 
+        # Formal-block fields land here from the Tiptap editor (rich
+        # HTML) or from legacy plain-text seeds. Scrub through the same
+        # allowlist used by article bodies so the public renderer can
+        # ``dangerouslySetInnerHTML`` them without further worry.
+        _BLOCK_HTML_FIELDS = (
+            "preamble_fr", "preamble_ht",
+            "visas_fr", "visas_ht",
+            "considerants_fr", "considerants_ht",
+            "enacting_formula_fr", "enacting_formula_ht",
+        )
+        for field in _BLOCK_HTML_FIELDS:
+            if field in updates and isinstance(updates[field], str):
+                cleaned = _sanitize_article_html(updates[field])
+                updates[field] = cleaned or None
+
         diff: dict[str, dict[str, Any]] = {}
         for field, new_value in updates.items():
             old = getattr(text, field)
@@ -793,7 +808,9 @@ class EditorialService:
                 "amend not allowed on an empty article"
             )
 
-        text_fr = (payload.get("text_fr") or "").strip()
+        text_fr = _sanitize_article_html(
+            (payload.get("text_fr") or "").strip()
+        ) or ""
         if not text_fr:
             raise InvalidInput("text_fr cannot be empty")
 
@@ -839,7 +856,7 @@ class EditorialService:
             title_fr=payload.get("title_fr") or current.title_fr,
             title_ht=payload.get("title_ht") or current.title_ht,
             text_fr=text_fr,
-            text_ht=payload.get("text_ht") or None,
+            text_ht=_sanitize_article_html(payload.get("text_ht")) or None,
             effective_from=effective_from,
             status=current.status,  # carry forward unless editor flips
             source_amendment_id=amending.id,  # legacy single FK, kept in sync
@@ -920,7 +937,12 @@ class EditorialService:
         number = (payload.get("number") or "").strip()
         if not number:
             raise InvalidInput("number is required")
-        text_fr = (payload.get("text_fr") or "").strip()
+        # Rich-text bodies pass through the same allowlisted sanitizer
+        # used by the inline article editor — keeps the security model
+        # identical regardless of which write path the editor took.
+        text_fr = _sanitize_article_html(
+            (payload.get("text_fr") or "").strip()
+        ) or ""
         if not text_fr:
             raise InvalidInput("text_fr cannot be empty")
 
@@ -1050,7 +1072,7 @@ class EditorialService:
             title_fr=payload.get("title_fr") or None,
             title_ht=payload.get("title_ht") or None,
             text_fr=text_fr,
-            text_ht=payload.get("text_ht") or None,
+            text_ht=_sanitize_article_html(payload.get("text_ht")) or None,
             effective_from=effective_from,
             source_amendment_id=amending.id if amending else None,
             editorial_status=EditorialStatus.draft,
@@ -1520,9 +1542,11 @@ class EditorialService:
         # At least one language must carry the new content. Blocks are
         # bilingual; allowing both-empty would replace the block with
         # nothing, which is what abrogation means — that path goes
-        # through change_kind=abrogate, not amend.
-        text_fr = (payload.get("text_fr") or "").strip() or None
-        text_ht = (payload.get("text_ht") or "").strip() or None
+        # through change_kind=abrogate, not amend. Both languages go
+        # through the rich-text sanitizer so the Tiptap-emitted HTML is
+        # scrubbed to the same allowlist as article bodies.
+        text_fr = _sanitize_article_html(payload.get("text_fr")) or None
+        text_ht = _sanitize_article_html(payload.get("text_ht")) or None
         if not text_fr and not text_ht:
             raise InvalidInput(
                 "at least one of text_fr / text_ht must be non-empty"
