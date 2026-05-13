@@ -55,6 +55,7 @@ import {
 import { SignataireBlock } from '@/components/law-details/SignataireBlock'
 import { ChangesMadePanel } from '@/components/law-details/_panels/ChangesMadePanel'
 import { AddHeadingDialog } from '@/components/law-details/_panels/AddHeadingDialog'
+import { AddArticleDialog } from '@/components/law-details/_panels/AddArticleDialog'
 import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
@@ -145,6 +146,19 @@ export default function LawDetail() {
   // real total — what the editor and reader actually navigate — and
   // surface a tooltip explaining the gap so the number doesn't look
   // like a bug ("why 499 when the last article is 298?").
+  // True when the law has at least one article row. Drives the
+  // TOC + ArticleViewer rendering. Editors always see the TOC
+  // shell (with an "+ Ajouter une section" affordance) even when
+  // the parser produced nothing, so they can build the structure
+  // by hand instead of falling back to the preamble-only view.
+  const hasArticles = !!law?.articles && law.articles.length > 0
+  const showStructuralUi = hasArticles || isEditor
+  // Add-article modal state for the empty-text editor case. Opened
+  // by the "+ Ajouter le premier article" button when no articles
+  // exist; reuses ``AddArticleDialog`` in correction mode so no
+  // amending law is required.
+  const [emptyAddArticleOpen, setEmptyAddArticleOpen] = useState(false)
+
   const articleCounts = useMemo(() => {
     if (!law?.articles || law.articles.length === 0) {
       return { total: 0, topLevel: 0, highestNumber: 0 }
@@ -758,7 +772,7 @@ export default function LawDetail() {
       <div className="relative container pt-0">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
           {/* Table of Contents - Mobile Accordion / Desktop Sidebar */}
-          {law.articles && law.articles.length > 0 && (
+          {showStructuralUi && (
             <div className="block lg:hidden w-full mb-4">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -863,7 +877,7 @@ export default function LawDetail() {
           )}
 
           {/* Desktop Sidebar Toggle */}
-          {law.articles && law.articles.length > 0 && (
+          {showStructuralUi && (
             <Button
               variant="outline"
               size="sm"
@@ -880,7 +894,7 @@ export default function LawDetail() {
 
           {/* Table of Contents Sidebar (Desktop) */}
           <AnimatePresence>
-            {isSidebarOpen && law.articles && law.articles.length > 0 && (
+            {isSidebarOpen && showStructuralUi && (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -958,7 +972,7 @@ export default function LawDetail() {
           {/* Main Content Area */}
           <div className="flex-1 min-w-0 lg:py-8">
             {/* Top search panel — Légifrance-style scope radio + input */}
-            {law.articles && law.articles.length > 0 && (
+            {showStructuralUi && (
               <div className="mb-6">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-6 text-sm text-slate-700 flex-wrap">
@@ -1148,7 +1162,7 @@ export default function LawDetail() {
             )}
 
             <div ref={articleViewerRef} className="mb-8 scroll-mt-24">
-              {law.articles && law.articles.length > 0 ? (
+              {hasArticles ? (
                 <ArticleViewer
                   article={selectedArticle}
                   lawTitle={title}
@@ -1174,6 +1188,34 @@ export default function LawDetail() {
                     null
                   }
                 />
+              ) : isEditor ? (
+                /* Empty + editor: parser produced no article rows.
+                   Surface a card with a single CTA so the editor can
+                   start building the structure by hand instead of
+                   being stuck on the preamble-only fallback. After
+                   the first save, ``hasArticles`` flips true and the
+                   regular ArticleViewer takes over. */
+                <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-10 text-center">
+                  <FileText className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">
+                    {currentLang === 'fr'
+                      ? 'Aucun article détecté'
+                      : 'Pa gen atik detekte'}
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-5 max-w-md mx-auto leading-relaxed">
+                    {currentLang === 'fr'
+                      ? "Le parser n'a pas extrait d'articles pour ce texte. Vous pouvez les saisir manuellement."
+                      : "Pasè a pa ekstrè atik pou tèks sa. Ou ka antre yo manyèlman."}
+                  </p>
+                  <Button
+                    onClick={() => setEmptyAddArticleOpen(true)}
+                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    {currentLang === 'fr'
+                      ? 'Ajouter le premier article'
+                      : 'Ajoute premye atik la'}
+                  </Button>
+                </div>
               ) : (
                 /* Preamble-only mode: legal_text has no articles[] yet
                    (typical for historical constitutions and other texts
@@ -1301,6 +1343,26 @@ export default function LawDetail() {
                   }
                   return null
                 })()}
+                lang={currentLang}
+                onCreated={() => refetch()}
+              />
+            )}
+
+            {/* Empty-text add-article modal — opened by the
+                "Ajouter le premier article" CTA shown when the parser
+                produced no articles. Runs in correction mode so no
+                amending law is required. After save, ``refetch()``
+                flips ``hasArticles`` true and the normal
+                ArticleViewer takes over. */}
+            {isEditor && law && (
+              <AddArticleDialog
+                open={emptyAddArticleOpen}
+                onOpenChange={setEmptyAddArticleOpen}
+                lawSlug={law.slug}
+                lawId={law.id}
+                afterArticleId={null}
+                afterArticleLabel={null}
+                mode="correction"
                 lang={currentLang}
                 onCreated={() => refetch()}
               />
