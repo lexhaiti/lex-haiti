@@ -405,6 +405,91 @@ class MoniteurRepository:
         self.session.flush()
         return out
 
+    def import_from_json(
+        self,
+        *,
+        issue_data: dict,
+        entries: list[dict],
+        uploaded_by: Optional[int] = None,
+    ) -> MoniteurIssue:
+        """Dev-only path that bypasses the OCR / heuristic parser.
+
+        Idempotent on ``(number, year)`` — if an issue with that pair
+        already exists, its metadata is patched in place and pending
+        entries are replaced with the new structured data. Promoted
+        entries are kept untouched (same rule as
+        ``set_sommaire_entries`` / ``replace_entries``).
+
+        After this returns, the issue's ``processing_status`` is set
+        to ``parsed`` so it shows up in the review queue alongside
+        OCR-derived issues — the editor can review + promote with
+        the same workflow.
+        """
+        existing = (
+            self.session.query(MoniteurIssue)
+            .filter(
+                MoniteurIssue.number == issue_data["number"],
+                MoniteurIssue.year == issue_data["year"],
+            )
+            .one_or_none()
+        )
+        if existing is not None:
+            issue = existing
+            # Patch in place — only overwrite non-None values so the
+            # caller can omit fields they don't want changed.
+            for field in (
+                "publication_date",
+                "edition_label",
+                "director",
+                "director_role",
+            ):
+                if field in issue_data and issue_data[field] is not None:
+                    setattr(issue, field, issue_data[field])
+            # Drop only the pending entries — promoted rows survive.
+            for old in list(issue.entries):
+                if old.promoted_legal_text_id is None:
+                    self.session.delete(old)
+            self.session.flush()
+        else:
+            issue = MoniteurIssue(
+                number=issue_data["number"],
+                year=issue_data["year"],
+                publication_date=issue_data.get("publication_date"),
+                edition_label=issue_data.get("edition_label"),
+                director=issue_data.get("director"),
+                director_role=issue_data.get("director_role"),
+                uploaded_by=uploaded_by,
+                processing_status=MoniteurIssueStatus.uploaded,
+            )
+            self.session.add(issue)
+            self.session.flush()
+
+        # Append new entries with the editor-supplied structure. No
+        # parser invocation — caller is responsible for the content.
+        for i, item in enumerate(entries):
+            row = MoniteurEntry(
+                issue_id=issue.id,
+                position=i,
+                detected_category=item.get("detected_category"),
+                detected_title=item.get("detected_title"),
+                detected_number=item.get("detected_number"),
+                detected_date=item.get("detected_date"),
+                page_from=item.get("page_from") or 1,
+                page_to=item.get("page_to") or 1,
+                raw_text=item.get("raw_text") or "",
+                content_ast=item.get("content_ast"),
+            )
+            self.session.add(row)
+        self.session.flush()
+
+        # Skip the OCR-flavoured ``ocr_pending`` state — there was no
+        # OCR. The issue lands directly in ``parsed`` so editors can
+        # review it through the standard /editorial/moniteur/{id}
+        # review page.
+        issue.processing_status = MoniteurIssueStatus.parsed
+        self.session.flush()
+        return issue
+
     def set_sommaire_entries(
         self,
         issue: MoniteurIssue,

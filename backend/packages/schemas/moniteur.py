@@ -289,6 +289,49 @@ class TranscriptPreviewInput(BaseModel):
     raw_text: Optional[str] = None
 
 
+class JsonImportEntry(BaseModel):
+    """One entry inside a JSON-imported Moniteur issue.
+
+    Shape mirrors ``SommaireEntryInput`` but with the parser fields
+    pre-filled — the caller supplies the structured data, no OCR or
+    boundary detection is run. ``raw_text`` is the canonical body
+    (used for re-parse later if needed); ``content_ast`` is the
+    typed parser output, when the caller has it.
+    """
+
+    detected_category: MoniteurDocumentType
+    detected_title: Optional[str] = None
+    detected_number: Optional[str] = None
+    detected_date: Optional[date] = None
+    page_from: int = 1
+    page_to: int = 1
+    raw_text: str = ""
+    content_ast: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class MoniteurJsonImport(BaseModel):
+    """Top-level JSON-import payload — one Moniteur issue + N entries.
+
+    Dev-only path that bypasses the OCR / heuristic parser pipeline:
+    the caller hands over the structured data verbatim, the server
+    creates the issue + entry rows in one transaction. Idempotent on
+    ``(number, year)`` — re-importing the same issue updates its
+    entries rather than creating a duplicate.
+
+    ``schema_version`` is a future-proofing escape hatch. Bump it
+    when the JSON shape changes and add a back-compat branch in the
+    importer if old files need to keep loading.
+    """
+
+    schema_version: int = 1
+    issue: MoniteurIssueCreate
+    entries: List[JsonImportEntry] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SommaireBulkInput(BaseModel):
     """Wrapper for the sommaire endpoint — N entries at once.
 

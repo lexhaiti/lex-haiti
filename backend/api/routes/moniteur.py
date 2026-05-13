@@ -40,6 +40,7 @@ from packages.schemas.moniteur import (
     MoniteurIssueRead,
     MoniteurIssueUpdate,
     MoniteurIssueWithEntries,
+    MoniteurJsonImport,
     SommaireBulkInput,
     SommaireEntry,
     TranscriptArticlePreview,
@@ -317,6 +318,41 @@ def extract_metadata(
             for s in md.suggested_sommaire
         ],
     }
+
+
+@router.post(
+    "/issues/import-json",
+    response_model=MoniteurIssueRead,
+    status_code=201,
+    summary="JSON-import a Moniteur issue (dev path, bypasses OCR)",
+)
+def import_issue_from_json(
+    payload: MoniteurJsonImport,
+    db: DbSession,
+    user: EditorialUser,
+):
+    """Create or update a Moniteur issue + its entries from a
+    structured JSON payload, bypassing the OCR / heuristic-parser
+    pipeline.
+
+    Idempotent on ``(year, number)``: re-importing the same issue
+    updates its metadata in place and replaces the pending entries
+    (promoted rows survive). The issue lands at
+    ``processing_status='parsed'`` so editors can review and promote
+    via the standard review page.
+
+    Intended for devs / batch importers — the UI counterpart on
+    ``/editorial/import?type=json`` posts the same body.
+    """
+    repo = MoniteurRepository(db)
+    issue = repo.import_from_json(
+        issue_data=payload.issue.model_dump(),
+        entries=[e.model_dump() for e in payload.entries],
+        uploaded_by=user.id,
+    )
+    db.commit()
+    db.refresh(issue)
+    return _to_read(issue)
 
 
 @router.post(
