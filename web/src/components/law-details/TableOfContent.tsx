@@ -130,21 +130,30 @@ function formatHeadingNumber(
   return `${lbl[lang]} ${num}`
 }
 
+/** TOC build result. ``roots`` is the heading tree (each node carries
+ *  its attached articles + sub-nodes). ``orphans`` is the flat list
+ *  of articles with no ``heading_id`` — they render at the very top
+ *  of the TOC, *without* a wrapping heading row. (We used to synthesize
+ *  a "Dispositions générales" header for them, which surprised editors
+ *  who added an article without specifying a section.) */
+type TocBuildResult = { roots: TocNode[]; orphans: Article[] }
+
 /** Build a tree from flat headings + attach articles to their heading nodes */
-function buildTocTree(headings: Heading[], articles: Article[]): TocNode[] {
+function buildTocTree(headings: Heading[], articles: Article[]): TocBuildResult {
   // Map heading id -> TocNode
   const nodeMap = new Map<number, TocNode>()
   for (const h of headings) {
     nodeMap.set(h.id, { heading: h, articles: [], children: [] })
   }
 
-  // Attach articles to their heading
-  const unattached: Article[] = []
+  // Attach articles to their heading; articles with no/unknown
+  // heading_id end up in ``orphans`` and render flat at the TOC root.
+  const orphans: Article[] = []
   for (const article of articles) {
     if (article.heading_id && nodeMap.has(article.heading_id)) {
       nodeMap.get(article.heading_id)!.articles.push(article)
     } else {
-      unattached.push(article)
+      orphans.push(article)
     }
   }
 
@@ -168,49 +177,15 @@ function buildTocTree(headings: Heading[], articles: Article[]): TocNode[] {
   }
   sortNodes(roots)
 
-  // If there are articles without heading, create a virtual root
-  if (unattached.length > 0) {
-    roots.unshift({
-      heading: {
-        id: -1,
-        key: '__general',
-        number: null,
-        title_fr: 'Dispositions générales',
-        title_ht: 'Dispozisyon jeneral',
-      },
-      articles: unattached,
-      children: [],
-    })
-  }
-
-  return roots
+  return { roots, orphans }
 }
 
-/** Fallback: group articles by chapter string when no headings exist */
-function buildFlatGroups(
-  articles: Article[],
-  currentLang: 'fr' | 'ht',
-): TocNode[] {
-  const groups = new Map<string, Article[]>()
-  for (const a of articles) {
-    const key =
-      a.chapter ||
-      (currentLang === 'fr' ? 'Dispositions générales' : 'Dispozisyon jeneral')
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(a)
-  }
-
-  return Array.from(groups.entries()).map(([label, arts], idx) => ({
-    heading: {
-      id: -(idx + 1),
-      key: `__flat-${idx}`,
-      number: label,
-      title_fr: null,
-      title_ht: null,
-    },
-    articles: arts,
-    children: [],
-  }))
+/** Fallback when no headings exist: every article is an orphan. The
+ *  previous behaviour synthesised a "Dispositions générales" wrapper
+ *  per ``chapter`` string, but the chapter field was rarely populated
+ *  and the wrapper was misleading — flat works better. */
+function buildFlatGroups(articles: Article[]): TocBuildResult {
+  return { roots: [], orphans: articles.slice() }
 }
 
 /** Count all articles in a node and its descendants */
@@ -343,19 +318,38 @@ export default function TableOfContents({
     }
   }
 
-  // Build the heading tree
+  // Build the heading tree. ``orphans`` is the flat list of articles
+  // with no ``heading_id`` — they render at the top of the TOC without
+  // a wrapping heading row.
   const tocTree = useMemo(() => {
     if (headings.length > 0) {
       return buildTocTree(headings, articles)
     }
-    return buildFlatGroups(articles, currentLang)
-  }, [headings, articles, currentLang])
+    return buildFlatGroups(articles)
+  }, [headings, articles])
 
-  // Filter by search
+  // Filter by search — runs over the heading tree only; orphans use a
+  // dedicated filter so a search query like "1382" finds an orphan
+  // article that no heading contains.
   const filteredTree = useMemo(
-    () => filterTree(tocTree, searchQuery, currentLang),
-    [tocTree, searchQuery, currentLang],
+    () => filterTree(tocTree.roots, searchQuery, currentLang),
+    [tocTree.roots, searchQuery, currentLang],
   )
+  const filteredOrphans = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return tocTree.orphans
+    return tocTree.orphans.filter((a) => {
+      const title =
+        currentLang === 'ht' && a.title_ht ? a.title_ht : a.title_fr
+      const content =
+        currentLang === 'ht' && a.content_ht ? a.content_ht : a.content_fr
+      return (
+        a.number?.toLowerCase().includes(q) ||
+        title?.toLowerCase().includes(q) ||
+        content?.toLowerCase().includes(q)
+      )
+    })
+  }, [tocTree.orphans, searchQuery, currentLang])
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -369,7 +363,7 @@ export default function TableOfContents({
         walk(n.children)
       }
     }
-    walk(tocTree)
+    walk(tocTree.roots)
     setExpandedSections(keys)
   }
 
@@ -804,9 +798,60 @@ export default function TableOfContents({
               <span>{currentLang === 'fr' ? 'Considérants' : 'Konsideran'}</span>
             </button>
           )}
+          {/* Orphan articles — sit at the top of the TOC scroll area,
+              with no wrapping heading row. Used to be a synthetic
+              "Dispositions générales" group; that was misleading
+              because the title was made up by the renderer. Each row
+              is the same button used inside renderNode for attached
+              articles. */}
+          {filteredOrphans.length > 0 && (
+            <div className="mb-3">
+              {filteredOrphans.map((article) => {
+                const isSelected = selectedArticle === article.number
+                const title =
+                  currentLang === 'ht' && article.title_ht
+                    ? article.title_ht
+                    : article.title_fr
+                return (
+                  <button
+                    key={article.number}
+                    id={`toc-article-${article.number}`}
+                    onClick={() => onArticleSelect(article)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors group/item ${
+                      isSelected
+                        ? 'text-red-600 font-semibold'
+                        : 'text-gray-600 hover:text-red-600'
+                    }`}
+                  >
+                    <FileText
+                      className={`w-3.5 h-3.5 flex-shrink-0 ${
+                        isSelected
+                          ? 'text-red-600'
+                          : 'text-gray-400 group-hover/item:text-red-600 transition-colors'
+                      }`}
+                    />
+                    <span
+                      className={`flex-shrink-0 tabular-nums ${
+                        isSelected ? '' : 'text-gray-900'
+                      }`}
+                    >
+                      {article.number.toLowerCase().startsWith('article')
+                        ? article.number
+                        : `Art. ${article.number}`}
+                    </span>
+                    {title && (
+                      <span className="text-xs text-gray-500 truncate min-w-0">
+                        — {title}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {filteredTree.length > 0 ? (
             filteredTree.map((node) => renderNode(node, 0))
-          ) : (
+          ) : filteredOrphans.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -819,7 +864,7 @@ export default function TableOfContents({
                   : 'Pa gen atik jwenn'}
               </p>
             </motion.div>
-          )}
+          ) : null}
         </div>
       </ScrollArea>
 
