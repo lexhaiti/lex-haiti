@@ -42,8 +42,26 @@ from services.corpus.repository import CorpusRepository
 
 
 def article_to_embed(article: Article) -> ArticleEmbed:
-    """Flatten an Article + its current_version into the embed shape."""
+    """Flatten an Article + its current_version into the embed shape.
+
+    When the current version's ``source_amendment`` relationship has
+    been eager-loaded, surface its slug + title on the embed so the
+    article viewer can render a "Modifié par …" link directly. We
+    treat lazy-load failures as "no amendment metadata" rather than
+    crashing — callers that need the metadata should opt-in to eager
+    loading via ``selectinload(ArticleVersion.source_amendment)``.
+    """
     cv = article.current_version
+    source_amendment_slug: Optional[str] = None
+    source_amendment_title_fr: Optional[str] = None
+    if cv is not None and cv.source_amendment_id is not None:
+        try:
+            srcamd = cv.source_amendment
+        except Exception:
+            srcamd = None
+        if srcamd is not None:
+            source_amendment_slug = srcamd.slug
+            source_amendment_title_fr = srcamd.title_fr
     return ArticleEmbed(
         id=article.id,
         legal_text_id=article.legal_text_id,
@@ -61,6 +79,9 @@ def article_to_embed(article: Article) -> ArticleEmbed:
         effective_to=cv.effective_to if cv else None,
         transferred_to_article_id=cv.transferred_to_article_id if cv else None,
         version_number=cv.version_number if cv else None,
+        source_amendment_id=cv.source_amendment_id if cv else None,
+        source_amendment_slug=source_amendment_slug,
+        source_amendment_title_fr=source_amendment_title_fr,
     )
 
 
@@ -466,6 +487,68 @@ class CorpusService:
             .all()
         )
         return rows
+
+    def list_changes_received_by_slug(self, slug: str):
+        """All edits made to ``slug`` by other legal texts.
+
+        Powers the redesigned ``/loi/{slug}/amendements`` page. Each
+        row is denormalised with the amending text and the touched
+        target so the frontend can group by ``change_kind`` (modified
+        / added / abrogated) without N+1 fetches.
+        """
+        from packages.schemas.article import LegalChangeReceivedRead  # noqa: PLC0415
+
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if not text:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        rows = self.repo.list_changes_received_by(text.id)
+        out: list[LegalChangeReceivedRead] = []
+        for (
+            change,
+            amending_text,
+            amended_article,
+            new_version,
+            new_block_version,
+        ) in rows:
+            out.append(
+                LegalChangeReceivedRead(
+                    id=change.id,
+                    change_kind=change.change_kind.value,
+                    effective_on=change.effective_on,
+                    new_version_id=new_version.id if new_version else None,
+                    new_version_number=(
+                        new_version.version_number if new_version else None
+                    ),
+                    amending_text_id=amending_text.id,
+                    amending_text_slug=amending_text.slug,
+                    amending_text_title_fr=amending_text.title_fr,
+                    amended_article_id=(
+                        amended_article.id if amended_article else None
+                    ),
+                    amended_article_number=(
+                        amended_article.number if amended_article else None
+                    ),
+                    amended_article_slug=(
+                        amended_article.slug if amended_article else None
+                    ),
+                    amended_block_kind=(
+                        change.amended_block_kind.value
+                        if change.amended_block_kind
+                        else None
+                    ),
+                    new_block_version_id=(
+                        new_block_version.id if new_block_version else None
+                    ),
+                    new_block_version_number=(
+                        new_block_version.version_number
+                        if new_block_version
+                        else None
+                    ),
+                    created_at=change.created_at,
+                )
+            )
+        return out
 
     def list_changes_made_by_slug(self, slug: str):
         """All edits this legal text made to articles + formal blocks

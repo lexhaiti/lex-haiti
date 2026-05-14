@@ -591,6 +591,18 @@ class ArticleVersion(Base):
     source_amendment_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey(f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL")
     )
+    # Read-only relationship — lets the API embed the amending law's
+    # slug + title alongside an article version without an N+1 lookup.
+    # ``foreign_keys`` is required because ArticleVersion already has
+    # an unrelated FK to legal_texts via ``transferred_to_article_id``
+    # walking through articles (so SA can't infer the join).
+    source_amendment: Mapped[Optional["LegalText"]] = relationship(
+        "LegalText",
+        foreign_keys=[source_amendment_id],
+        # Lazy-load on demand. Bulk read paths (LegalTextRead with
+        # articles embedded) opt-in to ``selectinload`` so the embed
+        # builder doesn't fan out N+1.
+    )
 
     confidence: Mapped[Optional[Decimal]] = mapped_column(Numeric(4, 3))
     editorial_status: Mapped[EditorialStatus] = mapped_column(

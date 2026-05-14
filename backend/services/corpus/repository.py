@@ -194,12 +194,15 @@ class CorpusRepository:
         if with_headings:
             opts.append(selectinload(LegalText.headings))
         if with_articles:
-            # Eager-load each article's current_version so the service can
-            # build ArticleEmbed without N+1 queries.
+            # Eager-load each article's current_version so the service
+            # can build ArticleEmbed without N+1 queries. Also pull the
+            # amending-law row referenced by the version (when present)
+            # so the embed can surface "Modifié par X" without an extra
+            # roundtrip.
             opts.append(
-                selectinload(LegalText.articles).selectinload(
-                    Article.current_version
-                )
+                selectinload(LegalText.articles)
+                .selectinload(Article.current_version)
+                .selectinload(ArticleVersion.source_amendment)
             )
         if with_signers:
             opts.append(selectinload(LegalText.signers))
@@ -890,6 +893,54 @@ class CorpusRepository:
             .order_by(Article.position, Article.id)
         )
         return list(self.session.execute(stmt).scalars().all())
+
+    def list_changes_received_by(
+        self, amended_text_id: int
+    ) -> List[
+        tuple[
+            LegalChange,
+            LegalText,
+            Optional[Article],
+            Optional[ArticleVersion],
+            Optional[LegalTextBlockVersion],
+        ]
+    ]:
+        """All changes other legal texts introduced into ``amended_text_id``.
+
+        Returns ``(change, amending_text, amended_article, new_version,
+        new_block_version)`` tuples — the inverse direction of
+        ``list_changes_made_by``. Each row is denormalised with the
+        amending law so the amendments page can render the source link
+        without an N+1 fetch.
+
+        Sorted by article position when available (so the page reads
+        in document order), with a stable fallback on created_at desc.
+        """
+        stmt = (
+            select(
+                LegalChange,
+                LegalText,
+                Article,
+                ArticleVersion,
+                LegalTextBlockVersion,
+            )
+            .join(LegalText, LegalText.id == LegalChange.amending_text_id)
+            .outerjoin(Article, Article.id == LegalChange.amended_article_id)
+            .outerjoin(
+                ArticleVersion, ArticleVersion.id == LegalChange.new_version_id
+            )
+            .outerjoin(
+                LegalTextBlockVersion,
+                LegalTextBlockVersion.id == LegalChange.new_block_version_id,
+            )
+            .where(LegalChange.amended_text_id == amended_text_id)
+            .order_by(
+                Article.position.asc().nulls_last(),
+                LegalChange.created_at.desc(),
+                LegalChange.id.desc(),
+            )
+        )
+        return list(self.session.execute(stmt).all())
 
     def list_changes_made_by(
         self, amending_text_id: int

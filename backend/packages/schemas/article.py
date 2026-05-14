@@ -103,6 +103,13 @@ class ArticleEmbed(BaseModel):
     transferred_to_article_id: Optional[int] = None
     version_number: Optional[int] = None
 
+    # When the current version was introduced by an amending law,
+    # surface enough of it for the article viewer to render a
+    # "Modifié par <X>" link without a second fetch.
+    source_amendment_id: Optional[int] = None
+    source_amendment_slug: Optional[str] = None
+    source_amendment_title_fr: Optional[str] = None
+
 
 class ArticleRead(BaseModel):
     """Detail shape — includes current version."""
@@ -167,6 +174,34 @@ class LegalChangeMadeRead(BaseModel):
     amended_text_id: int
     amended_text_slug: str
     amended_text_title_fr: str
+    amended_article_id: Optional[int] = None
+    amended_article_number: Optional[str] = None
+    amended_article_slug: Optional[str] = None
+    amended_block_kind: Optional[str] = None
+    new_block_version_id: Optional[int] = None
+    new_block_version_number: Optional[int] = None
+    created_at: datetime
+
+
+class LegalChangeReceivedRead(BaseModel):
+    """One edit another law made *to this text* — the inverse of
+    ``LegalChangeMadeRead``.
+
+    Powers the redesigned ``/loi/{slug}/amendements`` page. Each row is
+    denormalised with the amending law + the touched article so the
+    page can render the link + label + diff seed without N+1 fetches:
+    "→ Article 12 a été remplacé par la Loi constitutionnelle de
+    2011 (v2 — 19 juin 2012)".
+    """
+
+    id: int
+    change_kind: str
+    effective_on: Optional[date] = None
+    new_version_id: Optional[int] = None
+    new_version_number: Optional[int] = None
+    amending_text_id: int
+    amending_text_slug: str
+    amending_text_title_fr: str
     amended_article_id: Optional[int] = None
     amended_article_number: Optional[str] = None
     amended_article_slug: Optional[str] = None

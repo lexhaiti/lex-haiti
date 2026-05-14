@@ -10,6 +10,7 @@ from packages.schemas.article import (
     ArticleListItem,
     ArticleWithHistoryRead,
     LegalChangeMadeRead,
+    LegalChangeReceivedRead,
 )
 from packages.schemas.block_version import BlockVersionRead
 from packages.schemas.enums import BlockKind
@@ -284,6 +285,25 @@ def get_changes_made(slug: str, service: CorpusServiceDep):
     OTHER texts?". Both read the same ``legal_changes`` graph.
     """
     return service.list_changes_made_by_slug(slug)
+
+
+@router.get(
+    "/{slug}/changes-received",
+    response_model=List[LegalChangeReceivedRead],
+)
+def get_changes_received(slug: str, service: CorpusServiceDep):
+    """All article + block changes other texts introduced into this one.
+
+    Powers the redesigned ``/loi/{slug}/amendements`` page. Returns one
+    row per ``legal_changes`` entry where ``amended_text_id`` matches —
+    inclusive of pure abrogations and new-article inserts (the older
+    ``/amendments`` endpoint only surfaced articles with >1 version, so
+    abrogations-without-content-change and new articles were invisible).
+
+    Sorted by amended article position so the page reads in document
+    order.
+    """
+    return service.list_changes_received_by_slug(slug)
 
 
 @router.get(
