@@ -43,13 +43,13 @@ def render_pdf(
     text: LegalTextRead,
     *,
     lang: str = "fr",
-    base_url: str = "https://lexhaiti.ht",
+    base_url: str = "https://lexhaiti.org",
 ) -> bytes:
     """Render a legal text as a fully-formatted PDF.
 
     The output has a cover page (brand identity + metadata), structured body
     (headings + articles), and a per-page provenance footer. The permalink in
-    the footer points back to the canonical page on lexhaiti.ht so a printed
+    the footer points back to the canonical page on lexhaiti.org so a printed
     copy is always verifiable.
     """
     labels = _common.labels_for(lang)

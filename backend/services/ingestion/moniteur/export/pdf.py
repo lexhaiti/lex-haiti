@@ -111,12 +111,12 @@ def _ordered_entries(issue: MoniteurIssue) -> list[MoniteurEntry]:
 def render_issue_pdf(
     issue: MoniteurIssue,
     *,
-    base_url: str = "https://lexhaiti.ht",
+    base_url: str = "https://lexhaiti.org",
 ) -> bytes:
     """Render a Moniteur issue as a branded PDF.
 
     Cover page → Sommaire → one section per top-level entry. Footer on
-    body pages carries the lexhaiti.ht permalink so a printed copy is
+    body pages carries the lexhaiti.org permalink so a printed copy is
     always traceable back to its source.
     """
     entries = _ordered_entries(issue)

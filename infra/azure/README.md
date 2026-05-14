@@ -52,9 +52,9 @@ invalidates every editor session.
      --command "alembic -c migrations/alembic.ini upgrade head"
    ```
 4. **Custom domain**: portal → `lex-haiti-api` → Custom domains.
-   Add `api.lexhaiti.ht` and follow the CNAME + asuid TXT instructions.
-5. **Vercel env**: set `NEXT_PUBLIC_API_URL=https://api.lexhaiti.ht`
-   and CORS allowlist `https://lexhaiti.ht` + your Vercel preview
+   Add `api.lexhaiti.org` and follow the CNAME + asuid TXT instructions.
+5. **Vercel env**: set `NEXT_PUBLIC_API_URL=https://api.lexhaiti.org`
+   and CORS allowlist `https://lexhaiti.org` + your Vercel preview
    hostnames on the FastAPI side.
 
 ## Cost ceiling

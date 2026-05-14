@@ -167,7 +167,7 @@ export const fr = {
       privacy: 'Politique de confidentialité',
     },
     location: 'Port-au-Prince, Haïti',
-    email: 'contact@lexhaiti.ht',
+    email: 'contact@lexhaiti.org',
     brand: 'Lex Haiti',
   },
   home: {
@@ -405,7 +405,7 @@ export const fr = {
     subtitle:
       'Entrez votre adresse e-mail. Vous recevrez un lien à usage unique pour vous connecter — pas de mot de passe.',
     emailLabel: 'Adresse e-mail',
-    emailPlaceholder: 'vous@lexhaiti.ht',
+    emailPlaceholder: 'vous@lexhaiti.org',
     submitButton: 'Recevoir le lien',
     submittingButton: 'Envoi…',
     note: 'Si votre adresse n’est pas autorisée, contactez l’administrateur.',

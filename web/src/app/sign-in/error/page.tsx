@@ -49,7 +49,7 @@ export default function SignInError() {
             </Link>
           </Button>
           <a
-            href="mailto:contact@lexhaiti.ht"
+            href="mailto:contact@lexhaiti.org"
             className="flex h-11 w-full items-center justify-center rounded-md text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             <Mail className="mr-1.5 h-4 w-4" />

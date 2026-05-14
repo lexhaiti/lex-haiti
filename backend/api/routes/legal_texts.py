@@ -346,7 +346,7 @@ def export_legal_text(
     The exported document carries a cover page (brand identity + metadata),
     the structured body (headings + articles), and a per-page provenance
     footer with the canonical permalink + version date — so a printed copy
-    is always verifiable on lexhaiti.ht.
+    is always verifiable on lexhaiti.org.
     """
     text = service.get_text_by_slug(slug, include="all")
 

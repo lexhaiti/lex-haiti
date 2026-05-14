@@ -145,7 +145,7 @@ az containerapp create \
     DATABASE_URL=secretref:database-url \
     REDIS_URL=secretref:redis-url \
     NEXTAUTH_SECRET=secretref:nextauth-secret \
-    PUBLIC_SITE_URL=https://lexhaiti.ht \
+    PUBLIC_SITE_URL=https://lexhaiti.org \
   --registry-server "$LH_REGISTRY.azurecr.io" \
   --registry-identity system \
   --only-show-errors >/dev/null
@@ -231,10 +231,10 @@ cat <<EOF
      az containerapp exec -n $LH_API_APP -g $LH_RG \\
         --command "/bin/bash -c 'cd /app/backend && alembic upgrade head'"
 
-4. Hook up the custom domain (api.lexhaiti.ht) and TLS via the portal:
+4. Hook up the custom domain (api.lexhaiti.org) and TLS via the portal:
      Container Apps → $LH_API_APP → Custom domains → Add custom domain
 
 5. Update Vercel env: NEXT_PUBLIC_API_URL=https://$API_FQDN
-   (replace with https://api.lexhaiti.ht once the custom domain is live)
+   (replace with https://api.lexhaiti.org once the custom domain is live)
 
 EOF

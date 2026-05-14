@@ -169,7 +169,7 @@ export const ht = {
       privacy: 'Politik konfidansyalite',
     },
     location: 'Pòtoprens, Ayiti',
-    email: 'contact@lexhaiti.ht',
+    email: 'contact@lexhaiti.org',
     brand: 'Lex Haiti',
   },
   home: {
@@ -395,7 +395,7 @@ export const ht = {
     subtitle:
       'Antre adrès imèl ou. W ap resevwa yon lyen pou yon sèl fwa pou konekte — pa gen modpas.',
     emailLabel: 'Adrès imèl',
-    emailPlaceholder: 'ou@lexhaiti.ht',
+    emailPlaceholder: 'ou@lexhaiti.org',
     submitButton: 'Resevwa lyen an',
     submittingButton: 'K ap voye…',
     note: 'Si adrès ou pa otorize, kontakte administratè a.',

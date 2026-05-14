@@ -107,8 +107,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--base-url",
-        default="https://lexhaiti.ht",
-        help="Base URL embedded in DOCX provenance footer (default: lexhaiti.ht)",
+        default="https://lexhaiti.org",
+        help="Base URL embedded in DOCX provenance footer (default: lexhaiti.org)",
     )
     args = parser.parse_args(argv)
 

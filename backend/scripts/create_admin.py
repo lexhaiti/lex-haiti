@@ -1,7 +1,7 @@
 """Create or promote a user to admin role.
 
 Usage:
-    python -m scripts.create_admin --email founders@lexhaiti.ht
+    python -m scripts.create_admin --email founders@lexhaiti.org
     python -m scripts.create_admin --email someone@example.com --role reviewer
 
 Idempotent: if the email already exists, the role is updated. The user signs

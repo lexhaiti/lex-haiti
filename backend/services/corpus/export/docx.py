@@ -40,7 +40,7 @@ def render_docx(
     text: LegalTextRead,
     *,
     lang: str = "fr",
-    base_url: str = "https://lexhaiti.ht",
+    base_url: str = "https://lexhaiti.org",
 ) -> bytes:
     """Render a legal text as a Word (.docx) document."""
     labels = _common.labels_for(lang)

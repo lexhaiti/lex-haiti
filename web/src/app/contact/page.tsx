@@ -36,7 +36,7 @@ export default async function Page() {
     {
       icon: Mail,
       title: 'Email',
-      detail: 'contact@lexhaiti.ht',
+      detail: 'contact@lexhaiti.org',
     },
   ]
 

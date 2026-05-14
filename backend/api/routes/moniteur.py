@@ -226,7 +226,7 @@ def export_issue_pdf(issue_id: int, db: DbSession):
     """LexHaïti-branded PDF of the Moniteur issue.
 
     Cover page → sommaire → one section per top-level entry. The PDF
-    carries the lexhaiti.ht permalink so a printed copy is always
+    carries the lexhaiti.org permalink so a printed copy is always
     traceable back to the canonical web version. Public read — no
     auth needed; the page is also publicly browsable.
     """

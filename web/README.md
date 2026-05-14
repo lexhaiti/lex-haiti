@@ -1,6 +1,6 @@
 # LexHaïti — Web
 
-The public-facing Next.js frontend for [LexHaïti](https://lexhaiti.ht), the open digital infrastructure of Haitian law.
+The public-facing Next.js frontend for [LexHaïti](https://lexhaiti.org), the open digital infrastructure of Haitian law.
 
 This package is **self-contained**. It has its own `package.json`, lockfile, tests, and config, and reaches the rest of the system only through:
 
