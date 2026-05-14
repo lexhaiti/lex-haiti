@@ -25,12 +25,35 @@ export class ApiError extends Error {
 // throws "Failed to parse URL" — so we resolve to an absolute
 // internal URL: API_INTERNAL_URL env var if set, else the dev backend
 // at 127.0.0.1:8000.
-const API_BASE =
+//
+// Normalize the result so the `/api/v1` path segment is always present.
+// Without this, an env var set to a bare origin (e.g.
+// ``NEXT_PUBLIC_API_URL=https://api.lexhaiti.org``) sends every request
+// to ``/<route>`` instead of ``/api/v1/<route>`` and 404s the whole
+// frontend silently. The FastAPI router is mounted at ``/api/v1`` and
+// has been for the life of the project — appending here is safe.
+function normalizeApiBase(raw: string): string {
+  let v = raw.endsWith('/') ? raw.slice(0, -1) : raw
+  try {
+    const parsed = new URL(v)
+    if (parsed.pathname === '' || parsed.pathname === '/') {
+      v = `${parsed.origin}/api/v1`
+    } else if (!/\/api\/v\d+(\/|$)/.test(parsed.pathname)) {
+      v = `${v}/api/v1`
+    }
+  } catch {
+    // Relative path (e.g. "/api/v1" from a Next.js rewrite) — leave as is.
+  }
+  return v
+}
+
+const API_BASE = normalizeApiBase(
   typeof window === 'undefined'
     ? (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000/api/v1')
     : (process.env.NEXT_PUBLIC_API_URL ??
         process.env.NEXT_PUBLIC_API_BASE ??
-        'http://127.0.0.1:8000/api/v1')
+        'http://127.0.0.1:8000/api/v1'),
+)
 
 /** Build a raw URL pointing at an API path. Use for endpoints that return
  *  files (PDF/DOCX exports) where the browser needs an href, not JSON. */
