@@ -29,7 +29,7 @@ import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { useT } from '@/i18n/useT'
 import {
   getTranslationStats,
-  listTexts,
+  listEditorialTexts,
   type TranslationStats,
 } from '@/lib/api/endpoints'
 import type { components } from '@/lib/api-types'
@@ -57,10 +57,11 @@ export default function EditorialDashboardPage() {
         if (!cancelled) setErr(e?.message ?? String(e))
       })
     // Fetch the full corpus listing for the "Tous les textes par
-    // année" section. Default sort puts the newest publication_date
-    // first, which is exactly what an editor wants when scanning
-    // recent additions to the corpus.
-    listTexts({ limit: 500, sort: 'publication_date' })
+    // année" section. listEditorialTexts (no editorial_status filter)
+    // returns drafts + published — exactly what an editor wants when
+    // scanning the inventory. Public listTexts would have hidden
+    // drafts behind the default published-only filter.
+    listEditorialTexts({ limit: 100 })
       .then((res) => {
         if (!cancelled) setAllLaws(res.items ?? [])
       })
