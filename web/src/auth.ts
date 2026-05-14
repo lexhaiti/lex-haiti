@@ -36,10 +36,77 @@ pool.on("connect", (client) => {
   })
 })
 
+// Cookie domain — share the session cookie across subdomains in prod.
+//
+// The FastAPI backend lives at api.lexhaiti.org while the Next.js
+// frontend serves lexhaiti.org / www.lexhaiti.org. Auth.js's default
+// cookie scope is "current host only" (lexhaiti.org without a leading
+// dot), so the browser refuses to send the session cookie when the
+// frontend calls api.lexhaiti.org → the API sees every request as
+// anonymous and the editor only sees public/published content.
+//
+// Setting Domain=.lexhaiti.org makes the cookie readable on every
+// subdomain. Dev (NEXTAUTH_URL on localhost) leaves Domain undefined
+// so localhost:3000 ↔ localhost:8000 keeps working — modern browsers
+// share host-only cookies on localhost across ports.
+const _cookieDomain = (() => {
+  try {
+    if (!process.env.NEXTAUTH_URL) return undefined
+    const u = new URL(process.env.NEXTAUTH_URL)
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return undefined
+    // Strip the leftmost label so www.lexhaiti.org → .lexhaiti.org and
+    // lexhaiti.org → .lexhaiti.org (root + www + any future *.foo
+    // subdomain all share the cookie).
+    const parts = u.hostname.split(".")
+    return parts.length >= 2 ? `.${parts.slice(-2).join(".")}` : undefined
+  } catch {
+    return undefined
+  }
+})()
+
+const _useSecureCookies = !!_cookieDomain
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PostgresAdapter(pool),
   trustHost: true,
   session: { strategy: "database" },
+  useSecureCookies: _useSecureCookies,
+  cookies: _cookieDomain
+    ? {
+        sessionToken: {
+          name: "__Secure-authjs.session-token",
+          options: {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: true,
+            domain: _cookieDomain,
+          },
+        },
+        callbackUrl: {
+          name: "__Secure-authjs.callback-url",
+          options: {
+            sameSite: "lax",
+            path: "/",
+            secure: true,
+            domain: _cookieDomain,
+          },
+        },
+        csrfToken: {
+          name: "__Host-authjs.csrf-token",
+          options: {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: true,
+            // ``__Host-`` prefix cookies cannot have Domain set —
+            // they're locked to the issuing host by design. The CSRF
+            // token only needs to be readable by the Auth.js handler
+            // on the same origin, so this is fine.
+          },
+        },
+      }
+    : undefined,
   providers: [
     Nodemailer({
       server: {
