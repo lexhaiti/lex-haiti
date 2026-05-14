@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from api.routes import (
+    admin_users,
     articles,
     citations,
     decisions,
@@ -23,3 +24,4 @@ api_router.include_router(moniteur.router)
 api_router.include_router(promulgations.router)
 api_router.include_router(search.router)
 api_router.include_router(stats.router)
+api_router.include_router(admin_users.router)

@@ -1383,3 +1383,30 @@ export async function updateArticleVersionStatus(
     patch,
   )
 }
+
+// ---------------------------------------------------------------------------
+// Admin: user management
+// ---------------------------------------------------------------------------
+// All routes here require the caller to be ``UserRole.admin`` — the
+// backend dependency raises 403 otherwise. The dashboard at
+// /editorial/users consumes these.
+
+export type AdminUserRead = components['schemas']['AdminUserRead']
+export type AdminUserCreate = components['schemas']['AdminUserCreate']
+export type AdminUserUpdate = components['schemas']['AdminUserUpdate']
+
+export async function listAdminUsers() {
+  return apiGet<AdminUserRead[]>('/admin/users')
+}
+
+export async function createAdminUser(payload: AdminUserCreate) {
+  return apiPost<AdminUserRead>('/admin/users', payload)
+}
+
+export async function updateAdminUser(userId: number, patch: AdminUserUpdate) {
+  return apiPatch<AdminUserRead>(`/admin/users/${userId}`, patch)
+}
+
+export async function deleteAdminUser(userId: number) {
+  return apiDelete<void>(`/admin/users/${userId}`)
+}

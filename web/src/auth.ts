@@ -119,13 +119,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           : undefined,
       },
       from: process.env.EMAIL_FROM ?? "no-reply@lexhaiti.local",
-      // Tight 5-minute expiry on the verification token. Editor-only
-      // app: the user is right there at their keyboard when they
-      // request the link, so a long window only widens the
-      // "stolen-link" attack surface without any UX benefit. The
-      // default 24h was the framework convention; 5 min matches the
-      // OWASP guidance for high-privilege passwordless auth.
-      maxAge: 5 * 60,
+      // 10-minute expiry on the verification token. Editor-only app:
+      // the user is right there at their keyboard when they request
+      // the link, so a long window only widens the stolen-link attack
+      // surface. The default 24h was the framework convention; 10 min
+      // matches OWASP guidance + Notion / Linear / Slack practice
+      // while leaving margin for slow SMTP relays.
+      maxAge: 10 * 60,
       sendVerificationRequest: sendMagicLinkEmail,
     }),
   ],
@@ -273,7 +273,7 @@ function renderMagicLinkText(args: {
     "Voici votre lien de connexion sécurisé à LexHaïti :",
     args.url,
     "",
-    "Ce lien expire dans 5 minutes et ne peut être utilisé qu'une seule fois.",
+    "Ce lien expire dans 10 minutes et ne peut être utilisé qu'une seule fois.",
     "",
     `Si vous n'êtes pas à l'origine de cette demande, ignorez cet email — aucune action ne sera prise sur votre compte.`,
     "",
@@ -352,7 +352,7 @@ function renderMagicLinkHtml(args: {
                 <tr>
                   <td style="padding:14px 16px;font-size:12.5px;color:#334155;line-height:1.5;">
                     <strong style="color:#0f172a;">Sécurité :</strong>
-                    ce lien expire dans 5 minutes et ne fonctionne qu'une seule fois.
+                    ce lien expire dans 10 minutes et ne fonctionne qu'une seule fois.
                   </td>
                 </tr>
               </table>

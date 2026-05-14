@@ -12,6 +12,7 @@ import {
   Plus,
   ShieldCheck,
   User as UserIcon,
+  Users,
 } from 'lucide-react'
 
 import {
@@ -38,12 +39,16 @@ import { cn } from '@/lib/utils'
  * this button is hidden.
  */
 export function AddTextButton({ className }: { className?: string }) {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const { t } = useT()
   const [open, setOpen] = useState(false)
 
   if (status !== 'authenticated') return null
 
+  // Admins get an extra "Manage users" item at the bottom of the
+  // dropdown. Hidden for editor/reviewer roles since they can't act
+  // on the /admin/users endpoint anyway (403 server-side).
+  const isAdmin = session?.user?.role === 'admin'
   const addText = t('userMenu.addText')
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
@@ -109,6 +114,14 @@ export function AddTextButton({ className }: { className?: string }) {
             {t('userMenu.editorial')}
           </Link>
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/editorial/users" className="cursor-pointer">
+              <Users className="mr-2 h-4 w-4" />
+              {t('userMenu.manageUsers')}
+            </Link>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

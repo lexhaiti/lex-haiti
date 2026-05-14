@@ -386,6 +386,7 @@ export const ht = {
     profile: 'Pwofil mwen',
     addText: 'Ajoute kontni',
     editorial: 'Konsòl editoryal',
+    manageUsers: 'Jere itilizatè yo',
     signOut: 'Dekonekte',
     signIn: 'Konekte',
   },
@@ -434,7 +435,7 @@ export const ht = {
       devNote: 'Nan devlòpman, imèl la kenbe pa Mailpit :',
       openMailpit: 'Ouvri Mailpit',
       tipExpiry:
-        'Pou sekirite ou, lyen an ekspire nan 5 minit. Si w rate l, rekòmanse pwosesis koneksyon an.',
+        'Pou sekirite ou, lyen an ekspire nan 10 minit. Si w rate l, rekòmanse pwosesis koneksyon an.',
       tipSpam: 'Pa gen imèl nan 2 minit? Tcheke dosye spam ou.',
       tipSecurity:
         'Yon sèl lyen valid alafwa — nouvo demand fè ansyen an invalid.',
