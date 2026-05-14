@@ -99,6 +99,9 @@ interface Article {
   effective_to?: string | null
   transferred_to_article_id?: number | null
   version_number?: number | null
+  source_amendment_id?: number | null
+  source_amendment_slug?: string | null
+  source_amendment_title_fr?: string | null
 }
 
 const STATUS_PILL: Record<
@@ -884,17 +887,37 @@ export default function ArticleViewer({
           </div>
         </div>
 
-        {/* Compact sub-line: effective date · version */}
-        {(effectiveSince || (article.version_number ?? 0) > 1) && (
+        {/* Compact sub-line: effective date · version · modified-by.
+            Shows up only when there's at least one fact to surface
+            (skipped entirely for plain v1-with-no-effective-date
+            articles, which are most). */}
+        {(effectiveSince ||
+          (article.version_number ?? 0) > 1 ||
+          article.source_amendment_slug) && (
           <p className="text-xs text-slate-500 mb-3 flex items-center gap-2 flex-wrap">
             {effectiveSince && <span>{effectiveSince}</span>}
-            {effectiveSince && (article.version_number ?? 0) > 1 && (
-              <span className="text-slate-300">·</span>
-            )}
             {(article.version_number ?? 0) > 1 && (
-              <span className="font-medium text-slate-500">
-                v{article.version_number}
-              </span>
+              <>
+                {effectiveSince && <span className="text-slate-300">·</span>}
+                <span className="font-medium text-slate-500">
+                  v{article.version_number}
+                </span>
+              </>
+            )}
+            {article.source_amendment_slug && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-500">
+                  {currentLang === 'fr' ? 'Modifié par ' : 'Modifye pa '}
+                  <a
+                    href={`/loi/${article.source_amendment_slug}`}
+                    className="font-semibold text-primary hover:underline underline-offset-2"
+                  >
+                    {article.source_amendment_title_fr ??
+                      (currentLang === 'fr' ? 'la loi modifiante' : 'lwa modifikatè a')}
+                  </a>
+                </span>
+              </>
             )}
           </p>
         )}
@@ -1310,7 +1333,7 @@ export default function ArticleViewer({
                   />
                 </motion.div>
               )}
-              {openPanel === 'compare' && versionEntries.length >= 2 && (
+              {openPanel === 'compare' && versions.length >= 2 && (
                 <motion.div
                   key="compare"
                   initial={{ opacity: 0, height: 0 }}
@@ -1319,7 +1342,7 @@ export default function ArticleViewer({
                   className="overflow-hidden"
                 >
                   <ComparePanel
-                    versions={versionEntries}
+                    versions={versions}
                     currentLang={currentLang}
                   />
                 </motion.div>

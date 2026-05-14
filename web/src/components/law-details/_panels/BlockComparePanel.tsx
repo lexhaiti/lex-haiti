@@ -1,13 +1,12 @@
 /**
- * Side-by-side compare panel — word-level diff between two versions of
- * a single article. Receives the full version list with body text from
- * the parent ArticleViewer and computes the diff locally so editors can
- * see deletions and additions inline.
+ * Side-by-side compare panel for formal-block versions (préambule,
+ * visas, considérants, enacting formula). Mirrors the article-side
+ * ComparePanel: two dropdowns + a swap button, word-level diff
+ * computed locally from the version bodies, deletions struck on the
+ * left and insertions highlighted on the right.
  *
- * Diff algorithm: classic LCS over word tokens, then a single backward
- * walk to produce the edit script. HTML tags are stripped before
- * tokenization so the diff reflects content changes only, not markup
- * differences from Tiptap's serializer.
+ * Same diff engine as the article comparer — see
+ * ``@/lib/diff/word-diff``.
  */
 'use client'
 
@@ -20,23 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ArticleVersionRead } from '@/lib/api/endpoints'
+import type { BlockVersionRead } from '@/lib/api/endpoints'
 import { diffHtml, type DiffOp } from '@/lib/diff/word-diff'
 
-interface ComparePanelProps {
-  /** Full version rows including body text. Newest-first ordering is
-   *  preserved from the parent; the diff doesn't care about order. */
-  versions: ArticleVersionRead[]
-  currentLang: 'fr' | 'ht'
+interface BlockComparePanelProps {
+  versions: BlockVersionRead[]
+  isFr: boolean
 }
 
-/**
- * Render a single side of the diff. ``side`` controls which op gets
- * styled: the left column highlights deletions (what existed in the
- * older version but not the newer), the right column highlights
- * insertions. The other side's marker is skipped so each column reads
- * as a clean version of that text.
- */
 function renderSide(ops: DiffOp[], side: 'old' | 'new') {
   const nodes: React.ReactNode[] = []
   let key = 0
@@ -66,21 +56,20 @@ function renderSide(ops: DiffOp[], side: 'old' | 'new') {
         </span>,
       )
     }
-    // delete on the 'new' side and insert on the 'old' side are intentionally omitted
   }
   return nodes
 }
 
-export function ComparePanel({ versions, currentLang }: ComparePanelProps) {
-  // Default selection: compare the previous version (versions[1]) against
-  // the latest (versions[0]). Parent passes them newest-first.
+export function BlockComparePanel({ versions, isFr }: BlockComparePanelProps) {
+  // Default: compare the previous version against the latest. The
+  // backend returns versions newest-first.
   const [fromId, setFromId] = useState<number>(
-    versions[1]?.id ?? versions[0].id,
+    versions[1]?.id ?? versions[0]?.id ?? 0,
   )
-  const [toId, setToId] = useState<number>(versions[0].id)
+  const [toId, setToId] = useState<number>(versions[0]?.id ?? 0)
 
   const versionsById = useMemo(() => {
-    const map = new Map<number, ArticleVersionRead>()
+    const map = new Map<number, BlockVersionRead>()
     for (const v of versions) map.set(v.id, v)
     return map
   }, [versions])
@@ -93,12 +82,22 @@ export function ComparePanel({ versions, currentLang }: ComparePanelProps) {
     return diffHtml(fromVersion.text_fr, toVersion.text_fr)
   }, [fromVersion, toVersion])
 
+  if (versions.length < 2) {
+    return (
+      <p className="mt-3 px-5 py-3 text-xs italic text-slate-400">
+        {isFr
+          ? 'Aucune comparaison possible — une seule version pour le moment.'
+          : 'Pa gen konparezon posib — sèlman yon vèsyon pou kounye a.'}
+      </p>
+    )
+  }
+
   const isSameVersion = fromId === toId
 
   return (
-    <div className="pt-6">
+    <div className="mt-3 px-5 py-5 bg-slate-50/60 border border-slate-200 rounded-lg">
       <p className="text-xs text-slate-500 mb-4">
-        {currentLang === 'fr'
+        {isFr
           ? 'Sélectionnez deux versions pour comparer.'
           : 'Chwazi de vèsyon pou konpare.'}
       </p>
@@ -123,11 +122,7 @@ export function ComparePanel({ versions, currentLang }: ComparePanelProps) {
             setFromId(toId)
             setToId(tmp)
           }}
-          aria-label={
-            currentLang === 'fr'
-              ? 'Inverser les versions'
-              : 'Echanje vèsyon yo'
-          }
+          aria-label={isFr ? 'Inverser les versions' : 'Echanje vèsyon yo'}
           className="text-slate-400 hover:text-slate-700 flex-shrink-0"
         >
           <ArrowLeftRight className="w-4 h-4" />
@@ -149,7 +144,7 @@ export function ComparePanel({ versions, currentLang }: ComparePanelProps) {
 
       {isSameVersion ? (
         <p className="text-xs italic text-slate-400">
-          {currentLang === 'fr'
+          {isFr
             ? 'Choisissez deux versions différentes pour afficher les différences.'
             : 'Chwazi de vèsyon diferan pou wè diferans yo.'}
         </p>

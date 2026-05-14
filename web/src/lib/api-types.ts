@@ -203,6 +203,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal-texts/{slug}/changes-received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changes Received
+         * @description All article + block changes other texts introduced into this one.
+         *
+         *     Powers the redesigned ``/loi/{slug}/amendements`` page. Returns one
+         *     row per ``legal_changes`` entry where ``amended_text_id`` matches —
+         *     inclusive of pure abrogations and new-article inserts (the older
+         *     ``/amendments`` endpoint only surfaced articles with >1 version, so
+         *     abrogations-without-content-change and new articles were invisible).
+         *
+         *     Sorted by amended article position so the page reads in document
+         *     order.
+         */
+        get: operations["get_changes_received_api_v1_legal_texts__slug__changes_received_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal-texts/{slug}/articles": {
         parameters: {
             query?: never;
@@ -234,7 +263,7 @@ export interface paths {
          *     The exported document carries a cover page (brand identity + metadata),
          *     the structured body (headings + articles), and a per-page provenance
          *     footer with the canonical permalink + version date — so a printed copy
-         *     is always verifiable on lexhaiti.ht.
+         *     is always verifiable on lexhaiti.org.
          */
         get: operations["export_legal_text_api_v1_legal_texts__slug__export_get"];
         put?: never;
@@ -503,6 +532,34 @@ export interface paths {
          *     CLAUDE.md "permalinks are forever").
          */
         patch: operations["update_article_content_api_v1_editorial_articles__article_id__content_patch"];
+        trace?: never;
+    };
+    "/api/v1/editorial/articles/{article_id}/version-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Flip the current version's lifecycle status (in_force / abrogated / …)
+         * @description Set the article's current version status directly — no new
+         *     version, no amending-law required. Use this to mark an article
+         *     ``abrogé`` after the amending law's effects have already been
+         *     captured elsewhere, or to flip a ``suspended`` row back to
+         *     ``in_force`` when the suspension is lifted.
+         *
+         *     For "this incoming law amended the article" use POST
+         *     /articles/{id}/versions instead — that path creates the new
+         *     versioned row and writes the LegalChange graph edge.
+         */
+        patch: operations["update_article_version_status_api_v1_editorial_articles__article_id__version_status_patch"];
         trace?: never;
     };
     "/api/v1/editorial/articles/{article_id}/versions": {
@@ -1056,7 +1113,7 @@ export interface paths {
          * @description LexHaïti-branded PDF of the Moniteur issue.
          *
          *     Cover page → sommaire → one section per top-level entry. The PDF
-         *     carries the lexhaiti.ht permalink so a printed copy is always
+         *     carries the lexhaiti.org permalink so a printed copy is always
          *     traceable back to the canonical web version. Public read — no
          *     auth needed; the page is also publicly browsable.
          */
@@ -1089,6 +1146,45 @@ export interface paths {
          *     edits, then submits the actual create-issue + upload + parse flow.
          */
         post: operations["extract_metadata_api_v1_moniteur_extract_metadata_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moniteur/issues/import-json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * JSON-import a Moniteur issue (dev path, bypasses OCR)
+         * @description Create or update a Moniteur issue + its entries from a
+         *     structured JSON payload, bypassing the OCR / heuristic-parser
+         *     pipeline.
+         *
+         *     Idempotent on ``(year, number)``: re-importing the same issue
+         *     updates its metadata in place and replaces the pending entries
+         *     (promoted rows survive). The issue lands at
+         *     ``processing_status='parsed'`` so editors can review and promote
+         *     via the standard review page.
+         *
+         *     When an entry carries an inline ``content`` block (a full
+         *     structured ``JsonImportLegalText``), it is auto-promoted to a
+         *     draft ``LegalText`` in the same transaction — no editorial
+         *     review needed before promotion. The issue lifecycle still rolls
+         *     forward via ``recompute_issue_status`` so a fully-populated
+         *     payload lands on ``published`` (draft texts) without manual
+         *     intervention.
+         *
+         *     Intended for devs / batch importers — the UI counterpart on
+         *     ``/editorial/import?type=json`` posts the same body.
+         */
+        post: operations["import_issue_from_json_api_v1_moniteur_issues_import_json_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1655,6 +1751,12 @@ export interface components {
             transferred_to_article_id?: number | null;
             /** Version Number */
             version_number?: number | null;
+            /** Source Amendment Id */
+            source_amendment_id?: number | null;
+            /** Source Amendment Slug */
+            source_amendment_slug?: string | null;
+            /** Source Amendment Title Fr */
+            source_amendment_title_fr?: string | null;
         };
         /**
          * ArticleInsertInput
@@ -1861,6 +1963,34 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * ArticleVersionStatusUpdate
+         * @description Editor payload to flip the current version's lifecycle status
+         *     independently of content editing.
+         *
+         *     Use case: an article was amended via a later law (a new version
+         *     already exists with the amended text), and now the editor wants to
+         *     mark the previous still-published version as ``abrogated`` to
+         *     surface the deprecation in the reader UI. The article's
+         *     ``current_version`` pointer stays where it is; only that version's
+         *     ``status`` field flips.
+         *
+         *     Different from ``ArticleContentUpdate`` (which touches body / title
+         *     and applies the draft-vs-published versioning rule) and different
+         *     from ``ArticleVersionAddInput`` (which creates a new version
+         *     anchored to an amending law). This one is the cheap "just change
+         *     the lifecycle pill" path.
+         */
+        ArticleVersionStatusUpdate: {
+            status: components["schemas"]["ArticleStatus"];
+            /**
+             * Effective To
+             * @description Optional end-of-effectiveness date. When the editor flips the status to abrogated/obsolete, this is typically the date the amending law took effect.
+             */
+            effective_to?: string | null;
+            /** Comment */
+            comment?: string | null;
         };
         /**
          * ArticleWithHistoryRead
@@ -2295,6 +2425,127 @@ export interface components {
             title_ht?: string | null;
         };
         /**
+         * JsonImportEntry
+         * @description One entry inside a JSON-imported Moniteur issue.
+         *
+         *     Shape mirrors ``SommaireEntryInput`` but with the parser fields
+         *     pre-filled — the caller supplies the structured data, no OCR or
+         *     boundary detection is run. ``raw_text`` is the canonical body
+         *     (used for re-parse later if needed); ``content_ast`` is the
+         *     typed parser output, when the caller has it.
+         *
+         *     Pages are optional — JSON-imported entries bypass the parser,
+         *     so the page-range hint is only meaningful when the caller wants
+         *     to record where the text appears in the printed issue.
+         *
+         *     When ``content`` is provided, the importer auto-promotes the
+         *     entry to a draft ``LegalText`` immediately — bypassing the
+         *     "pending → reviewed → promote" editorial flow. Use it when the
+         *     caller already has the full structured law and wants a one-shot
+         *     import-and-promote.
+         */
+        JsonImportEntry: {
+            detected_category: components["schemas"]["MoniteurDocumentType"];
+            /** Detected Title */
+            detected_title?: string | null;
+            /** Detected Number */
+            detected_number?: string | null;
+            /** Detected Date */
+            detected_date?: string | null;
+            /** Page From */
+            page_from?: number | null;
+            /** Page To */
+            page_to?: number | null;
+            /**
+             * Raw Text
+             * @default
+             */
+            raw_text: string;
+            /** Content Ast */
+            content_ast?: {
+                [key: string]: unknown;
+            } | null;
+            content?: components["schemas"]["JsonImportLegalText"] | null;
+        };
+        /**
+         * JsonImportLegalText
+         * @description Fully-structured legal text supplied inline inside a JSON-import
+         *     entry. Mirrors ``LegalTextCreate``'s editable surface so the
+         *     caller can hand-deliver a complete draft text (slug, formal
+         *     blocks, headings, articles, signers) without going through the
+         *     OCR/parser pipeline.
+         *
+         *     Used by ``JsonImportEntry.content`` — when present, the importer
+         *     auto-promotes the entry to a draft ``LegalText`` immediately
+         *     instead of leaving it pending for editorial review.
+         *
+         *     Only ``slug`` and ``title_fr`` are required; everything else
+         *     matches the defaults on ``LegalTextCreate`` so callers can omit
+         *     fields they don't have. ``editorial_status`` is forced to draft
+         *     server-side regardless of what the caller sends — promotion via
+         *     JSON-import always lands as a draft.
+         */
+        JsonImportLegalText: {
+            /** Slug */
+            slug: string;
+            category: components["schemas"]["LegalCategory"];
+            code_subcategory?: components["schemas"]["CodeSubcategory"] | null;
+            /**
+             * Jurisdiction
+             * @default HT
+             */
+            jurisdiction: string;
+            /** Title Fr */
+            title_fr: string;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Description Fr */
+            description_fr?: string | null;
+            /** Description Ht */
+            description_ht?: string | null;
+            /** Preamble Fr */
+            preamble_fr?: string | null;
+            /** Preamble Ht */
+            preamble_ht?: string | null;
+            /** Visas Fr */
+            visas_fr?: string | null;
+            /** Visas Ht */
+            visas_ht?: string | null;
+            /** Considerants Fr */
+            considerants_fr?: string | null;
+            /** Considerants Ht */
+            considerants_ht?: string | null;
+            /** Enacting Formula Fr */
+            enacting_formula_fr?: string | null;
+            /** Enacting Formula Ht */
+            enacting_formula_ht?: string | null;
+            /**
+             * Enacting Formula Align
+             * @default left
+             */
+            enacting_formula_align: string;
+            /** Promulgation Date */
+            promulgation_date?: string | null;
+            /** Publication Date */
+            publication_date?: string | null;
+            /** Moniteur Ref */
+            moniteur_ref?: string | null;
+            /** Official Number */
+            official_number?: string | null;
+            /** Issuing Authority */
+            issuing_authority?: string | null;
+            /** Official Formula */
+            official_formula?: string | null;
+            /** @default in_force */
+            status: components["schemas"]["LegalStatus"];
+            /** Headings */
+            headings?: components["schemas"]["LegalHeadingCreate"][] | null;
+            /** Articles */
+            articles?: components["schemas"]["ArticleCreate"][] | null;
+            /** Signers */
+            signers?: components["schemas"]["LegalSignerCreate"][] | null;
+        };
+        /**
          * LegalCategory
          * @description Top-level taxonomy of a corpus document. Used both by the public
          *     site (filter chips, breadcrumb) and the editorial pipeline (parser
@@ -2341,6 +2592,52 @@ export interface components {
             amended_text_slug: string;
             /** Amended Text Title Fr */
             amended_text_title_fr: string;
+            /** Amended Article Id */
+            amended_article_id?: number | null;
+            /** Amended Article Number */
+            amended_article_number?: string | null;
+            /** Amended Article Slug */
+            amended_article_slug?: string | null;
+            /** Amended Block Kind */
+            amended_block_kind?: string | null;
+            /** New Block Version Id */
+            new_block_version_id?: number | null;
+            /** New Block Version Number */
+            new_block_version_number?: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * LegalChangeReceivedRead
+         * @description One edit another law made *to this text* — the inverse of
+         *     ``LegalChangeMadeRead``.
+         *
+         *     Powers the redesigned ``/loi/{slug}/amendements`` page. Each row is
+         *     denormalised with the amending law + the touched article so the
+         *     page can render the link + label + diff seed without N+1 fetches:
+         *     "→ Article 12 a été remplacé par la Loi constitutionnelle de
+         *     2011 (v2 — 19 juin 2012)".
+         */
+        LegalChangeReceivedRead: {
+            /** Id */
+            id: number;
+            /** Change Kind */
+            change_kind: string;
+            /** Effective On */
+            effective_on?: string | null;
+            /** New Version Id */
+            new_version_id?: number | null;
+            /** New Version Number */
+            new_version_number?: number | null;
+            /** Amending Text Id */
+            amending_text_id: number;
+            /** Amending Text Slug */
+            amending_text_slug: string;
+            /** Amending Text Title Fr */
+            amending_text_title_fr: string;
             /** Amended Article Id */
             amended_article_id?: number | null;
             /** Amended Article Number */
@@ -3230,6 +3527,30 @@ export interface components {
              * @default []
              */
             entries: components["schemas"]["MoniteurEntryRead"][];
+        };
+        /**
+         * MoniteurJsonImport
+         * @description Top-level JSON-import payload — one Moniteur issue + N entries.
+         *
+         *     Dev-only path that bypasses the OCR / heuristic parser pipeline:
+         *     the caller hands over the structured data verbatim, the server
+         *     creates the issue + entry rows in one transaction. Idempotent on
+         *     ``(number, year)`` — re-importing the same issue updates its
+         *     entries rather than creating a duplicate.
+         *
+         *     ``schema_version`` is a future-proofing escape hatch. Bump it
+         *     when the JSON shape changes and add a back-compat branch in the
+         *     importer if old files need to keep loading.
+         */
+        MoniteurJsonImport: {
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            issue: components["schemas"]["MoniteurIssueCreate"];
+            /** Entries */
+            entries?: components["schemas"]["JsonImportEntry"][];
         };
         /** PaginatedResponse[ArticleListItem] */
         PaginatedResponse_ArticleListItem_: {
@@ -4127,6 +4448,37 @@ export interface operations {
             };
         };
     };
+    get_changes_received_api_v1_legal_texts__slug__changes_received_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalChangeReceivedRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_articles_in_text_api_v1_legal_texts__slug__articles_get: {
         parameters: {
             query?: {
@@ -4616,6 +4968,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ArticleContentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleEmbed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_article_version_status_api_v1_editorial_articles__article_id__version_status_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleVersionStatusUpdate"];
             };
         };
         responses: {
@@ -5562,6 +5949,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_issue_from_json_api_v1_moniteur_issues_import_json_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoniteurJsonImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoniteurIssueRead"];
                 };
             };
             /** @description Validation Error */

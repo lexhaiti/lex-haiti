@@ -562,6 +562,31 @@ export const fr = {
     countPlural: 'articles amendés',
     versionLabel: 'Version',
     of: 'sur',
+    diffLabel: 'Comparaison',
+    showHistory: "Voir l'historique complet",
+    hideHistory: "Masquer l'historique",
+    amendedBy: 'Modifié par',
+    inForceSince: 'En vigueur depuis le',
+    sections: {
+      modified: {
+        title: 'Articles modifiés',
+        short: 'modifiés',
+        subtitle:
+          'Articles dont le contenu a été remplacé ou retravaillé par une loi modifiante. La version en vigueur figure en premier, l’historique complet est accessible sur chaque carte.',
+      },
+      added: {
+        title: 'Nouveaux articles',
+        short: 'nouveaux',
+        subtitle:
+          'Articles introduits par une loi modifiante. Ils n’existaient pas dans la rédaction d’origine du texte.',
+      },
+      abrogated: {
+        title: 'Articles abrogés',
+        short: 'abrogés',
+        subtitle:
+          'Articles supprimés par une loi modifiante. Leur contenu reste consultable, mais ils n’ont plus de valeur juridique.',
+      },
+    },
     empty: {
       title: 'Aucun amendement enregistré',
       desc: "Ce texte ne possède pas encore d'articles avec plusieurs versions dans le corpus. Les amendements apparaîtront ici à mesure que les éditeurs ajoutent les versions historiques.",

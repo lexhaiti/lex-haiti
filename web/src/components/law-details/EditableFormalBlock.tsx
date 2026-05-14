@@ -11,11 +11,19 @@
  *
  * UX rules:
  *   - Read-only by default. PenLine icon appears only when isEditor.
- *   - "Edit" toggles a textarea seeded with the current value.
+ *   - "Modifier" toggles a textarea seeded with the current value.
  *   - Save runs the PATCH and exits edit mode on success.
  *   - Cancel discards local edits.
  *   - The compact variant is used for one-line blocks (enacting
  *     formula); the textarea grows for multi-line blocks.
+ *
+ * Versions + Compare:
+ *   - Editors always see Versions / Comparer / "+ Ajouter une version"
+ *     affordances when the block is wired with ``lawSlug + lawId +
+ *     blockKind``. Comparer is disabled (kept visible) until a second
+ *     version exists.
+ *   - Public viewers get Versions + Comparer when there's actually
+ *     history to show (``versions.length >= 2``).
  */
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -24,8 +32,8 @@ import {
   AlignLeft,
   Check,
   ChevronDown,
-  ChevronRight,
   Clock,
+  GitCompare,
   Loader2,
   PenLine,
   Plus,
@@ -40,6 +48,7 @@ import {
   type FormalBlockKind,
 } from '@/lib/api/endpoints'
 import { AddBlockVersionDialog } from './_panels/AddBlockVersionDialog'
+import { BlockComparePanel } from './_panels/BlockComparePanel'
 import { RichArticleEditor } from './_editor/RichArticleEditor'
 import { isHtmlEffectivelyEmpty, looksLikeHtml } from './_editor/utils'
 
@@ -62,28 +71,41 @@ export interface EditableFormalBlockProps {
   onSave: (newValue: string | null) => Promise<void>
   /** Bilingual i18n hook — pass `currentLang === 'fr'` from the parent. */
   isFr: boolean
-  // --- Versioning (Option A) — all four below must be provided for
-  // the "Versions" accordion + "Ajouter une version" affordance to
-  // render. When any is missing the block stays version-less, same
-  // shape as before this opt-in was added. ---
-  /** Parent legal-text slug — used as the API path component. */
+  /** Parent legal-text slug — used as the API path component for
+   *  versions endpoints. */
   lawSlug?: string
   /** Parent legal-text id — used to exclude self-amendments from the
    *  source-law picker in the add-version dialog. */
   lawId?: number
   /** Which formal block this is. */
   blockKind?: FormalBlockKind
-  /** Current HT content of the block. Mirrors ``value`` for the
-   *  visible-language side; the dialog needs both to pre-fill. The
-   *  ``value`` prop is whatever the page shows in the active language. */
+  /** Current HT content of the block. The dialog needs both languages
+   *  to pre-fill; ``value`` is whatever the page shows in the active
+   *  language. */
   valueHt?: string | null
-  /** Alignment for the compact display variant ('left' or 'center').
-   *  Only meaningful when ``variant === 'compact'``. Defaults to
-   *  'left' to match the article-body alignment. */
+  /** Alignment for the compact display variant ('left' or 'center'). */
   align?: 'left' | 'center'
-  /** Save handler for the alignment toggle. Editor-only. When
-   *  unset, the toggle isn't shown. */
+  /** Save handler for the alignment toggle. Editor-only. */
   onAlignChange?: (next: 'left' | 'center') => Promise<void>
+}
+
+/**
+ * Strip HTML + collapse whitespace to a single preview snippet, used
+ * on the collapsed accordion header. Keeps the editor (and the reader)
+ * oriented without having to expand each block to remember what's
+ * inside.
+ */
+function previewSnippet(value: string | null, limit = 90): string {
+  if (!value) return ''
+  const plain = value
+    .replace(/<\/(p|li|blockquote|h[1-6])>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (plain.length <= limit) return plain
+  return plain.slice(0, limit).trimEnd() + '…'
 }
 
 export function EditableFormalBlock({
@@ -108,41 +130,60 @@ export function EditableFormalBlock({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Versioning state — only fetched when the four versioning props are
-  // present AND editor mode is on. Public viewers don't surface block
-  // history today, same UX call as the article side.
-  const versioningEnabled =
-    isEditor && !!lawSlug && lawId != null && !!blockKind
+  // Versioning state. ``canVersion`` means "we have the props to fetch
+  // versions" — editors always see the affordances when canVersion;
+  // public sees them when versions.length >= 2 (i.e. real history to
+  // surface).
+  const canVersion = !!lawSlug && lawId != null && !!blockKind
   const [versions, setVersions] = useState<BlockVersionRead[]>([])
   const [versionsExpanded, setVersionsExpanded] = useState(false)
+  const [compareExpanded, setCompareExpanded] = useState(false)
   const [addVersionOpen, setAddVersionOpen] = useState(false)
 
   function refetchVersions() {
-    if (!versioningEnabled || !lawSlug || !blockKind) return
+    if (!canVersion || !lawSlug || !blockKind) return
     void listBlockVersions(lawSlug, blockKind)
       .then(setVersions)
       .catch(() => setVersions([]))
   }
 
   useEffect(() => {
-    if (!versioningEnabled) {
+    if (!canVersion) {
       setVersions([])
       return
     }
     refetchVersions()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [versioningEnabled, lawSlug, blockKind])
+  }, [canVersion, lawSlug, blockKind])
 
   // Keep draft in sync when the live value updates from outside.
   useEffect(() => {
     if (!editing) setDraft(value ?? '')
   }, [value, editing])
 
-  // Compact variant — no accordion, content always shown. Reads as
-  // a left-aligned paragraph (formal adoption lines often span two
-  // or three lines: "Sur proposition de …\nLe Sénat a adopté la loi
-  // suivante :"). ``whitespace-pre-line`` preserves newlines the
-  // editor typed in the textarea.
+  // Visibility rules for the action chips:
+  // - Versions chip: editor sees always when canVersion; public sees
+  //   only when there's real history (2+ versions).
+  // - Compare chip: same — but it's *disabled* when there's only one
+  //   version, so editors still see the affordance.
+  const showVersionsChip = canVersion && (isEditor || versions.length >= 2)
+  const showCompareChip = canVersion && (isEditor || versions.length >= 2)
+  const canCompare = versions.length >= 2
+
+  const currentVersionPill = (() => {
+    if (versions.length === 0) return null
+    // The "current" version is the latest published one; fall back to
+    // the most recent row when nothing is published yet.
+    const live =
+      versions.find((v) => v.editorial_status === 'published') ?? versions[0]
+    return {
+      number: live.version_number,
+      from: live.effective_from ?? null,
+    }
+  })()
+
+  // Compact variant — unchanged from before; the redesign focuses on
+  // the collapsible accordion.
   const renderCompact = () => (
     <div className="py-4 group">
       {editing ? (
@@ -173,10 +214,6 @@ export function EditableFormalBlock({
       ) : value ? (
         <div className="flex items-start gap-2">
           {looksLikeHtml(value) ? (
-            // Rich-text value coming from the Tiptap editor — sanitized
-            // server-side, safe to inject. The block-level alignment
-            // toggle still wraps the whole block, but per-paragraph
-            // alignment baked into the saved HTML overrides it.
             <div
               className={cn(
                 'flex-1 text-sm font-semibold italic text-slate-500 tracking-wide leading-relaxed formal-block-html',
@@ -195,9 +232,6 @@ export function EditableFormalBlock({
             </p>
           )}
           {isEditor && onAlignChange && (
-            // Two-state alignment toggle — quick affordance to flip
-            // between left and center without opening MetadataEditor.
-            // Editor-only. Hidden when no save handler is plumbed in.
             <button
               type="button"
               onClick={() => {
@@ -206,28 +240,16 @@ export function EditableFormalBlock({
               className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-primary flex-shrink-0 mt-0.5"
               aria-label={
                 align === 'center'
-                  ? isFr
-                    ? 'Aligner à gauche'
-                    : 'Aliyen agoch'
-                  : isFr
-                    ? 'Centrer'
-                    : 'Mete nan mitan'
+                  ? isFr ? 'Aligner à gauche' : 'Aliyen agoch'
+                  : isFr ? 'Centrer' : 'Mete nan mitan'
               }
               title={
                 align === 'center'
-                  ? isFr
-                    ? 'Aligner à gauche'
-                    : 'Aliyen agoch'
-                  : isFr
-                    ? 'Centrer'
-                    : 'Mete nan mitan'
+                  ? isFr ? 'Aligner à gauche' : 'Aliyen agoch'
+                  : isFr ? 'Centrer' : 'Mete nan mitan'
               }
             >
-              {align === 'center' ? (
-                <AlignLeft className="w-3.5 h-3.5" />
-              ) : (
-                <AlignCenter className="w-3.5 h-3.5" />
-              )}
+              {align === 'center' ? <AlignLeft className="w-3.5 h-3.5" /> : <AlignCenter className="w-3.5 h-3.5" />}
             </button>
           )}
           {isEditor && (
@@ -246,10 +268,6 @@ export function EditableFormalBlock({
           )}
         </div>
       ) : isEditor ? (
-        // Empty + editor: invite the editor to fill it. Without this,
-        // a missing compact block (e.g. enacting_formula_fr null) was
-        // an invisible row with only a hover-only pencil — the editor
-        // didn't see anything to click on.
         <button
           type="button"
           onClick={() => {
@@ -260,105 +278,87 @@ export function EditableFormalBlock({
           className="inline-flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-4 py-1.5 text-xs italic text-amber-800 hover:bg-amber-50 hover:border-amber-400 transition-colors"
         >
           <PenLine className="w-3 h-3" />
-          {isFr
-            ? `Ajouter — ${title.toLowerCase()}`
-            : `Ajoute — ${title.toLowerCase()}`}
+          {isFr ? `Ajouter — ${title.toLowerCase()}` : `Ajoute — ${title.toLowerCase()}`}
         </button>
       ) : null}
     </div>
   )
 
-  // Collapsible variant
+  // ── Collapsible variant — the redesign ─────────────────────────────
+  const hasContent = !!value && !isHtmlEffectivelyEmpty(value)
+  const snippet = previewSnippet(value)
+
   const renderCollapsible = () => (
-    <div>
-      <div className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors group">
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-3 flex-1 text-left"
-        >
-          {expanded ? (
-            <ChevronDown className="w-4 h-4 text-red-600 flex-shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
+    <div
+      className={cn(
+        'group rounded-xl border bg-white transition-all duration-200 overflow-hidden',
+        expanded
+          ? 'border-slate-200 shadow-sm'
+          : 'border-slate-200/80 hover:border-slate-300 hover:shadow-sm',
+      )}
+    >
+      {/* Header row — the whole bar is the toggle target. Flex layout:
+          left-accent / chevron+title / snippet / version pill. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className={cn(
+          'relative w-full flex items-center gap-3 px-4 py-3 text-left',
+          'transition-colors',
+          expanded
+            ? 'bg-gradient-to-r from-primary/5 via-white to-white'
+            : 'bg-white hover:bg-slate-50/60',
+        )}
+      >
+        {/* Left accent rail — animates in when expanded. */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute left-0 top-0 bottom-0 w-[3px] transition-colors',
+            expanded ? 'bg-primary' : 'bg-transparent group-hover:bg-slate-200',
           )}
-          <span className="text-sm font-bold uppercase tracking-widest text-slate-600">
-            {title}
+        />
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200',
+            expanded ? 'rotate-0 text-primary' : '-rotate-90',
+          )}
+        />
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 flex-shrink-0">
+          {title}
+        </span>
+        {/* Inline preview snippet — only when there's actual content
+            and we're not currently expanded. Helps the reader scan the
+            page without expanding each block individually. */}
+        {!expanded && hasContent && (
+          <span className="text-sm text-slate-500 italic truncate min-w-0 flex-1">
+            {snippet}
           </span>
-          {hint && (
-            <span className="text-xs text-slate-400 ml-2">{hint}</span>
-          )}
-        </button>
-        {isEditor && expanded && !editing && versioningEnabled && (
-          // Versions chip toggles the inline timeline below the
-          // content. Always rendered in editor mode — even at v1 it's
-          // useful (shows the effective_from we'll supersede).
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setVersionsExpanded((v) => !v)
-            }}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border transition-colors',
-              versionsExpanded
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-slate-700 border-slate-200 hover:border-primary hover:text-primary',
+        )}
+        {!expanded && !hasContent && hint && (
+          <span className="text-xs text-slate-400 italic flex-shrink truncate">
+            {hint}
+          </span>
+        )}
+        {/* Right-side meta: version pill when there's history. */}
+        {currentVersionPill && (
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 flex-shrink-0">
+            <span>v{currentVersionPill.number}</span>
+            {currentVersionPill.from && (
+              <>
+                <span className="text-emerald-300">·</span>
+                <span className="font-medium normal-case tracking-normal text-emerald-700/80">
+                  {currentVersionPill.from}
+                </span>
+              </>
             )}
-            aria-pressed={versionsExpanded}
-            title={isFr ? 'Historique des versions' : 'Istwa vèsyon'}
-          >
-            <Clock className="w-3 h-3" />
-            {isFr ? 'Versions' : 'Vèsyon'}
-            {versions.length > 0 && (
-              <span
-                className={cn(
-                  'text-[10px] font-bold px-1 rounded',
-                  versionsExpanded
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-500',
-                )}
-              >
-                {versions.length}
-              </span>
-            )}
-          </button>
+          </span>
         )}
-        {isEditor && expanded && !editing && versioningEnabled && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setAddVersionOpen(true)
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors"
-            title={
-              isFr
-                ? 'Ajouter une nouvelle version, ancrée à une loi modifiante'
-                : 'Ajoute yon nouvo vèsyon, ankre nan yon lwa modifikatè'
-            }
-          >
-            <Plus className="w-3 h-3" />
-            {isFr ? 'Ajouter une version' : 'Ajoute yon vèsyon'}
-          </button>
-        )}
-        {isEditor && expanded && !editing && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditing(true)
-              setDraft(value ?? '')
-              setError(null)
-            }}
-            className="text-slate-400 hover:text-primary transition-colors"
-            aria-label={isFr ? 'Modifier' : 'Modifye'}
-          >
-            <PenLine className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-      <AnimatePresence>
+      </button>
+
+      {/* Expanded body. */}
+      <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -367,59 +367,162 @@ export function EditableFormalBlock({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            {editing ? (
-              <div className="mt-3 px-5 py-5 bg-amber-50/40 border border-amber-300 rounded-lg space-y-3">
-                <RichArticleEditor
-                  value={draft}
-                  onChange={setDraft}
-                  placeholder={
-                    isFr
-                      ? 'Tapez le contenu de ce bloc…'
-                      : 'Tape kontni blòk sa a…'
-                  }
-                  ariaLabel={title}
-                  tone="amber"
-                  disabled={saving}
-                />
-                {error && <p className="text-xs text-red-600">{error}</p>}
-                <div className="flex items-center justify-end gap-2">
-                  <button type="button" onClick={cancel} disabled={saving} className={cancelBtnCls}>
-                    <X className="w-3 h-3" /> {isFr ? 'Annuler' : 'Anile'}
-                  </button>
-                  <button type="button" onClick={save} disabled={saving} className={saveBtnCls}>
-                    {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                    {isFr ? 'Enregistrer' : 'Sove'}
-                  </button>
+            <div className="px-5 pb-5 pt-1">
+              {/* Action row — sits between the header and the content
+                  so affordances are obvious without scrolling. The
+                  chip set adapts: public sees Versions/Comparer only
+                  when there's history; editors always see them. */}
+              {!editing && (showVersionsChip || showCompareChip || isEditor) && (
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                  {showVersionsChip && (
+                    <button
+                      type="button"
+                      onClick={() => setVersionsExpanded((v) => !v)}
+                      aria-pressed={versionsExpanded}
+                      className={cn(actionChipCls, versionsExpanded && actionChipActiveCls)}
+                      title={isFr ? 'Historique des versions' : 'Istwa vèsyon'}
+                    >
+                      <Clock className="w-3 h-3" />
+                      {isFr ? 'Versions' : 'Vèsyon'}
+                      {versions.length > 0 && (
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold px-1 rounded',
+                            versionsExpanded
+                              ? 'bg-white/20 text-white'
+                              : 'bg-slate-100 text-slate-500',
+                          )}
+                        >
+                          {versions.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                  {showCompareChip && (
+                    <button
+                      type="button"
+                      onClick={() => setCompareExpanded((v) => !v)}
+                      disabled={!canCompare}
+                      aria-pressed={compareExpanded}
+                      title={
+                        canCompare
+                          ? isFr ? 'Comparer deux versions' : 'Konpare de vèsyon'
+                          : isFr
+                            ? 'Disponible dès la seconde version'
+                            : 'Disponib depi dezyèm vèsyon an'
+                      }
+                      className={cn(
+                        actionChipCls,
+                        compareExpanded && actionChipActiveCls,
+                        !canCompare && actionChipDisabledCls,
+                      )}
+                    >
+                      <GitCompare className="w-3 h-3" />
+                      {isFr ? 'Comparer' : 'Konpare'}
+                    </button>
+                  )}
+                  {isEditor && canVersion && (
+                    <button
+                      type="button"
+                      onClick={() => setAddVersionOpen(true)}
+                      className={addVersionChipCls}
+                      title={
+                        isFr
+                          ? 'Ajouter une nouvelle version, ancrée à une loi modifiante'
+                          : 'Ajoute yon nouvo vèsyon, ankre nan yon lwa modifikatè'
+                      }
+                    >
+                      <Plus className="w-3 h-3" />
+                      {isFr ? 'Ajouter une version' : 'Ajoute yon vèsyon'}
+                    </button>
+                  )}
+                  {isEditor && hasContent && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(true)
+                        setDraft(value ?? '')
+                        setError(null)
+                      }}
+                      className={editChipCls}
+                      aria-label={isFr ? 'Modifier' : 'Modifye'}
+                    >
+                      <PenLine className="w-3 h-3" />
+                      {isFr ? 'Modifier' : 'Modifye'}
+                    </button>
+                  )}
                 </div>
-              </div>
-            ) : looksLikeHtml(value) ? (
-              <div
-                className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed formal-block-html"
-                dangerouslySetInnerHTML={{ __html: value ?? '' }}
-              />
-            ) : (
-              <div className="mt-3 px-5 py-5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {value}
-              </div>
-            )}
-            {/* Versions timeline — editor-only, inline under the
-                block content. Same vocabulary as the article-side
-                VersionsPanel: numbered dots, effective range, the
-                latest entry marked "En vigueur". */}
-            {versioningEnabled && versionsExpanded && (
-              <BlockVersionsTimeline
-                versions={versions}
-                isFr={isFr}
-              />
-            )}
+              )}
+
+              {/* Content / editor / empty-state slot. */}
+              {editing ? (
+                <div className="px-5 py-5 bg-amber-50/40 border border-amber-300 rounded-lg space-y-3">
+                  <RichArticleEditor
+                    value={draft}
+                    onChange={setDraft}
+                    placeholder={
+                      isFr
+                        ? 'Tapez le contenu de ce bloc…'
+                        : 'Tape kontni blòk sa a…'
+                    }
+                    ariaLabel={title}
+                    tone="amber"
+                    disabled={saving}
+                  />
+                  {error && <p className="text-xs text-red-600">{error}</p>}
+                  <div className="flex items-center justify-end gap-2">
+                    <button type="button" onClick={cancel} disabled={saving} className={cancelBtnCls}>
+                      <X className="w-3 h-3" /> {isFr ? 'Annuler' : 'Anile'}
+                    </button>
+                    <button type="button" onClick={save} disabled={saving} className={saveBtnCls}>
+                      {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      {isFr ? 'Enregistrer' : 'Sove'}
+                    </button>
+                  </div>
+                </div>
+              ) : hasContent ? (
+                looksLikeHtml(value) ? (
+                  <div
+                    className="px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed formal-block-html"
+                    dangerouslySetInnerHTML={{ __html: value ?? '' }}
+                  />
+                ) : (
+                  <div className="px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                    {value}
+                  </div>
+                )
+              ) : isEditor ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(true)
+                    setDraft('')
+                    setError(null)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-4 py-2 text-sm italic text-amber-800 hover:bg-amber-50 hover:border-amber-400 transition-colors"
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                  {isFr ? `Ajouter — ${title.toLowerCase()}` : `Ajoute — ${title.toLowerCase()}`}
+                </button>
+              ) : null}
+
+              {/* Versions timeline — visible to anyone when toggled and
+                  there's data to show. */}
+              {versionsExpanded && (
+                <BlockVersionsTimeline versions={versions} isFr={isFr} />
+              )}
+              {/* Compare panel — same. Disabled state is handled inside
+                  the panel (it shows a "one version" message rather
+                  than rendering empty diffs). */}
+              {compareExpanded && (
+                <BlockComparePanel versions={versions} isFr={isFr} />
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Add-version modal — mounted at the block root so the Radix
-          portal positions it relative to the viewport. ``onCreated``
-          refetches the timeline so the new row shows up immediately
-          in the accordion above. */}
-      {versioningEnabled && lawSlug && lawId != null && blockKind && (
+
+      {canVersion && lawSlug && lawId != null && blockKind && (
         <AddBlockVersionDialog
           open={addVersionOpen}
           onOpenChange={setAddVersionOpen}
@@ -439,22 +542,16 @@ export function EditableFormalBlock({
     </div>
   )
 
-  // Hide whole block if value is null and editor is not active.
-  // (Editors still don't see hidden blocks here — they should add the
-  // field via the MetadataEditor first; that ships separately.)
-  if (!value && !isEditor) return null
+  // Hide whole block if value is null and viewer isn't an editor.
+  if (!hasContent && !isEditor) return null
 
   return variant === 'compact' ? renderCompact() : renderCollapsible()
 
-  // ── helpers ─────────────────────────────────────────────────────────
   async function save() {
     setSaving(true)
     setError(null)
     try {
       const trimmed = draft.trim()
-      // Tiptap emits ``<p></p>`` for a cleared editor — collapse to
-      // null so the backend treats it as "block cleared" instead of
-      // persisting an empty paragraph.
       const next = isHtmlEffectivelyEmpty(trimmed) ? null : trimmed
       await onSave(next)
       setEditing(false)
@@ -470,6 +567,31 @@ export function EditableFormalBlock({
     setError(null)
   }
 }
+
+// ── Action-row chip styles ──────────────────────────────────────────────
+
+const actionChipCls = cn(
+  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]',
+  'font-semibold border bg-white text-slate-700 border-slate-200',
+  'hover:border-primary hover:text-primary transition-colors',
+)
+const actionChipActiveCls = cn(
+  'bg-primary text-white border-primary hover:text-white hover:border-primary',
+)
+const actionChipDisabledCls = cn(
+  'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed',
+  'hover:border-slate-200 hover:text-slate-400',
+)
+const addVersionChipCls = cn(
+  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]',
+  'font-semibold bg-amber-50 text-amber-800 border border-amber-200',
+  'hover:bg-amber-100 hover:border-amber-300 transition-colors',
+)
+const editChipCls = cn(
+  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]',
+  'font-semibold bg-white text-slate-500 border border-slate-200',
+  'hover:text-primary hover:border-primary transition-colors',
+)
 
 const cancelBtnCls = cn(
   'inline-flex items-center gap-1.5 rounded-md border border-slate-300',
@@ -487,12 +609,6 @@ const saveBtnCls = cn(
  * article-side VersionsPanel — same vertical dot-and-line vocabulary
  * but condensed (one line per version) so it tucks under the
  * accordion content without dominating the page.
- *
- * "Current" semantics: the version with the highest version_number
- * AND editorial_status=published is the live one; everything below
- * is historical. Falls back to the latest row when no published
- * version exists (typical for newly-added drafts that haven't been
- * approved yet).
  */
 function BlockVersionsTimeline({
   versions,
@@ -510,8 +626,6 @@ function BlockVersionsTimeline({
       </p>
     )
   }
-  // Find the current version — latest published, else just the most
-  // recent row (versions are passed newest-first from the API).
   const currentIdx = versions.findIndex(
     (v) => v.editorial_status === 'published',
   )
@@ -553,12 +667,8 @@ function BlockVersionsTimeline({
               </span>
               <span className="text-xs font-semibold text-slate-700">
                 {to
-                  ? isFr
-                    ? `Du ${from} au ${to}`
-                    : `${from} – ${to}`
-                  : isFr
-                    ? `Depuis le ${from}`
-                    : `Depi ${from}`}
+                  ? isFr ? `Du ${from} au ${to}` : `${from} – ${to}`
+                  : isFr ? `Depuis le ${from}` : `Depi ${from}`}
               </span>
               {isCurrent && (
                 <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">

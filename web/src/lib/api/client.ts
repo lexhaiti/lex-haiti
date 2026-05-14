@@ -99,6 +99,48 @@ async function safeJson(res: Response) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// In-memory TTL cache for GETs
+// ---------------------------------------------------------------------------
+//
+// Browser-only. The public-side reader navigates the same texts back
+// and forth (home → article → home → article); without this, every
+// repeated visit re-hits the API and the Constitution payload alone
+// is ~2 MB. A small module-scope cache cuts repeat visits to a single
+// round-trip until the TTL elapses or a mutation invalidates.
+//
+// Design:
+//   - Keyed by ``method + URL`` so query-string variants are distinct
+//     (``/legal-texts?category=loi`` and ``…?category=code`` cache
+//     separately).
+//   - Each entry stores the parsed JSON + an expiration timestamp.
+//     ``DEFAULT_TTL_MS`` is short (5 min) because legal content is
+//     stable but editors can mutate it; longer cache windows risk
+//     stale reads after an inline edit.
+//   - In-flight de-dupe: if two consumers ask for the same URL while
+//     the first request is pending, the second piggybacks on its
+//     promise. Cuts the "two-component-fetched-the-same-thing"
+//     thundering herd.
+//   - Any non-GET request flushes the whole cache. Coarse but safe:
+//     after an edit, the next render gets fresh data.
+
+const DEFAULT_TTL_MS = 5 * 60 * 1000
+
+type CacheEntry = { expiresAt: number; data: unknown }
+const cache = new Map<string, CacheEntry>()
+const inflight = new Map<string, Promise<unknown>>()
+
+function cacheKey(method: string, url: string): string {
+  return `${method} ${url}`
+}
+
+/** Drop all cached responses. Called automatically after any mutation. */
+export function clearApiCache(): void {
+  if (typeof window === 'undefined') return
+  cache.clear()
+  inflight.clear()
+}
+
 export async function apiGet<T>(
   path: string,
   opts?: {
@@ -107,34 +149,67 @@ export async function apiGet<T>(
     headers?: Record<string, string>
     next?: RequestInit['next']
     cache?: RequestInit['cache']
+    /**
+     * Override the default TTL (5 min) for this call. ``0`` disables
+     * caching entirely — useful for inline-edit refetches that need
+     * a guaranteed fresh read.
+     */
+    cacheTtlMs?: number
   },
 ): Promise<T> {
   const query = buildQuery(opts?.params)
   const url = `${API_BASE}${path}${query}`
+  const key = cacheKey('GET', url)
+  const ttl = opts?.cacheTtlMs ?? DEFAULT_TTL_MS
+  const useCache =
+    typeof window !== 'undefined' && ttl > 0 && opts?.cache !== 'no-store'
 
-  const res = await fetch(url, {
-    method: 'GET',
-    credentials: 'include', // carry the Auth.js session cookie
-    headers: {
-      Accept: 'application/json',
-      ...(opts?.headers ?? {}),
-    },
-    signal: opts?.signal,
-    next: opts?.next,
-    cache: opts?.cache ?? 'no-store',
-  })
-
-  if (!res.ok) {
-    const body = await safeJson(res)
-    throw new ApiError({
-      status: res.status,
-      url,
-      message: `Request failed (${res.status})`,
-      body,
-    })
+  if (useCache) {
+    const hit = cache.get(key)
+    if (hit && hit.expiresAt > Date.now()) {
+      return hit.data as T
+    }
+    const pending = inflight.get(key) as Promise<T> | undefined
+    if (pending) return pending
   }
 
-  return (await res.json()) as T
+  const fetchPromise = (async () => {
+    const res = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        ...(opts?.headers ?? {}),
+      },
+      signal: opts?.signal,
+      next: opts?.next,
+      cache: opts?.cache ?? 'no-store',
+    })
+
+    if (!res.ok) {
+      const body = await safeJson(res)
+      throw new ApiError({
+        status: res.status,
+        url,
+        message: `Request failed (${res.status})`,
+        body,
+      })
+    }
+
+    return (await res.json()) as T
+  })()
+
+  if (useCache) {
+    inflight.set(key, fetchPromise as Promise<unknown>)
+    try {
+      const data = await fetchPromise
+      cache.set(key, { expiresAt: Date.now() + ttl, data })
+      return data
+    } finally {
+      inflight.delete(key)
+    }
+  }
+  return fetchPromise
 }
 
 export async function apiPost<T>(
@@ -204,6 +279,9 @@ export async function apiPostForm<T>(
       body: errBody,
     })
   }
+  // Multipart upload mutates server state; invalidate the GET cache so
+  // the next read pulls fresh data.
+  clearApiCache()
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }
@@ -240,6 +318,10 @@ async function apiSend<T>(
       body: errBody,
     })
   }
+  // Any successful mutation invalidates the read cache so the next
+  // GET sees the change without callers needing to thread `bypassCache`
+  // through their refetch helpers.
+  clearApiCache()
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
 }

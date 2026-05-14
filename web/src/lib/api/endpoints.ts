@@ -420,10 +420,26 @@ export async function listChangesMadeBy(slug: string) {
   )
 }
 
+export type LegalChangeReceivedRead =
+  components['schemas']['LegalChangeReceivedRead']
+
+/**
+ * All edits other legal texts made to this one — articles + formal
+ * blocks. Inverse direction of ``/changes-made``. Powers the redesigned
+ * ``/loi/[slug]/amendements`` page, which groups rows by ``change_kind``
+ * into "modifiés" / "nouveaux" / "abrogés" sections.
+ */
+export async function listChangesReceivedBy(slug: string) {
+  return apiGet<LegalChangeReceivedRead[]>(
+    `/legal-texts/${encodeURIComponent(slug)}/changes-received`,
+  )
+}
+
 /**
  * All articles in a legal text that have more than one version.
- * Returns each article's full version history embedded — used by the
- * `/loi/[slug]/amendements` page.
+ * Returns each article's full version history embedded — kept for the
+ * "modifiés" section of the amendments page which needs the version
+ * bodies for the inline diff.
  */
 export async function getAmendmentsForText(slug: string) {
   return apiGet<ArticleWithHistoryRead[]>(

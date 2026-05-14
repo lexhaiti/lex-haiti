@@ -608,6 +608,28 @@ export default function LawDetail() {
                         {articleCounts.total}{' '}
                         {t('lawDetail.meta.articles')}
                       </span>
+                      {/* Inline breakdown so the math is readable
+                          without opening the tooltip:
+                            498 articles · 29 abrogés · 527 entrées
+                          Only renders when there are abrogations or
+                          bis insertions — simple laws stay clean. */}
+                      {(articleCounts.abrogated > 0 ||
+                        (articleCounts.highestNumber > 0 &&
+                          articleCounts.total + articleCounts.abrogated !==
+                            articleCounts.highestNumber)) && (
+                        <span className="ml-1 text-[11px] font-normal text-slate-400 normal-case tracking-normal">
+                          ·{' '}
+                          {articleCounts.abrogated > 0 && (
+                            <>
+                              {articleCounts.abrogated} abrogé
+                              {articleCounts.abrogated > 1 ? 's' : ''}{' '}
+                              ·{' '}
+                            </>
+                          )}
+                          {articleCounts.total + articleCounts.abrogated}{' '}
+                          entrées au total
+                        </span>
+                      )}
                       {/* Info tooltip — surfaced when the total count
                           differs from the highest visible article
                           number (dash-suffixed insertions like 35-1

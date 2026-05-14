@@ -550,6 +550,31 @@ export const ht = {
     countPlural: 'atik amande',
     versionLabel: 'Vèsyon',
     of: 'sou',
+    diffLabel: 'Konparezon',
+    showHistory: 'Wè istwa konplè a',
+    hideHistory: 'Kache istwa a',
+    amendedBy: 'Modifye pa',
+    inForceSince: 'An vigè depi',
+    sections: {
+      modified: {
+        title: 'Atik modifye yo',
+        short: 'modifye',
+        subtitle:
+          'Atik yo ki te ranplase oswa retravaye pa yon lwa modifikatè. Vèsyon ki an vigè a parèt anwo, istwa konplè a disponib sou chak kat.',
+      },
+      added: {
+        title: 'Nouvo atik yo',
+        short: 'nouvo',
+        subtitle:
+          'Atik yo ki te entwodui pa yon lwa modifikatè. Yo pa t egziste nan tèks orijinal la.',
+      },
+      abrogated: {
+        title: 'Atik abwoje yo',
+        short: 'abwoje',
+        subtitle:
+          'Atik yo ki te efase pa yon lwa modifikatè. Kontni an rete disponib pou konsiltasyon, men li pa gen pi valè jiridik.',
+      },
+    },
     empty: {
       title: 'Pa gen amandman anrejistre',
       desc: 'Tèks sa a poko gen atik ak plizyè vèsyon nan kòpis la. Amandman yo ap parèt isit la lè editè yo ajoute vèsyon istorik yo.',
