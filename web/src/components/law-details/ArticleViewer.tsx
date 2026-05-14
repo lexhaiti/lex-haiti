@@ -422,7 +422,13 @@ export default function ArticleViewer({
   // doesn't show the previous one's timeline.
   const [versions, setVersions] = useState<ArticleVersionRead[]>([])
   useEffect(() => {
-    if (!article || !isEditor) {
+    // Fetch versions for editors always, and for public viewers when
+    // the article carries ``version_number > 1`` — i.e. there's real
+    // history to surface. The ArticleEmbed already exposes
+    // version_number, so we can avoid the extra fetch for plain v1
+    // articles (the overwhelming majority of the corpus).
+    const hasHistory = (article?.version_number ?? 1) > 1
+    if (!article || !(isEditor || hasHistory)) {
       setVersions([])
       return
     }
@@ -443,7 +449,7 @@ export default function ArticleViewer({
     return () => {
       cancelled = true
     }
-  }, [article?.id, isEditor])
+  }, [article?.id, article?.version_number, isEditor])
 
   // Citation state — outgoing (this article cites X) and incoming (X cites
   // this article). Re-fetched whenever the selected article changes.
@@ -1138,7 +1144,9 @@ export default function ArticleViewer({
             real /articles/{id}/versions endpoint; the triggers only
             render when there's something useful to show (a multi-
             version history). */}
-      {(outboundEntries.length + inboundEntries.length > 0 || isEditor) && (
+      {(outboundEntries.length + inboundEntries.length > 0 ||
+        versionEntries.length >= 2 ||
+        isEditor) && (
         <div className="pt-5">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Textes liés — visible to the public when there are
@@ -1155,36 +1163,37 @@ export default function ArticleViewer({
                 onClick={() => togglePanel('links')}
               />
             )}
-            {isEditor && (
-              <>
-                {/* Versions — always visible to editors. Even at v1
-                    the panel is useful (it shows the in-force date,
-                    which is also what "Ajouter une version" will
-                    supersede). */}
-                <AccordionTrigger
-                  icon={Clock}
-                  label={currentLang === 'fr' ? 'Versions' : 'Vèsyon'}
-                  count={versionEntries.length || undefined}
-                  open={openPanel === 'versions'}
-                  onClick={() => togglePanel('versions')}
-                />
-                {/* Comparer — always visible to editors but disabled
-                    when there's nothing to compare against. Keeps the
-                    affordance discoverable rather than hiding it
-                    until a second version exists. */}
-                <AccordionTrigger
-                  icon={GitCompare}
-                  label={currentLang === 'fr' ? 'Comparer' : 'Konpare'}
-                  open={openPanel === 'compare'}
-                  disabled={versionEntries.length < 2}
-                  onClick={() => togglePanel('compare')}
-                  disabledTitle={
-                    currentLang === 'fr'
-                      ? 'Disponible dès la seconde version'
-                      : 'Disponib depi dezyèm vèsyon an'
-                  }
-                />
-              </>
+            {/* Versions — visible to the public when there is real
+                history (≥ 2 versions), always visible to editors so
+                they can confirm a v1-only article truly hasn't been
+                amended. The chip count reflects the number of versions. */}
+            {(versionEntries.length >= 2 || isEditor) && (
+              <AccordionTrigger
+                icon={Clock}
+                label={currentLang === 'fr' ? 'Versions' : 'Vèsyon'}
+                count={versionEntries.length || undefined}
+                open={openPanel === 'versions'}
+                onClick={() => togglePanel('versions')}
+              />
+            )}
+            {/* Comparer — same visibility rule. For public, only
+                rendered when there are ≥ 2 versions so we never show
+                a disabled chip a reader can't act on. Editors see it
+                even at v1 (disabled) so the affordance stays
+                discoverable. */}
+            {(versionEntries.length >= 2 || isEditor) && (
+              <AccordionTrigger
+                icon={GitCompare}
+                label={currentLang === 'fr' ? 'Comparer' : 'Konpare'}
+                open={openPanel === 'compare'}
+                disabled={versionEntries.length < 2}
+                onClick={() => togglePanel('compare')}
+                disabledTitle={
+                  currentLang === 'fr'
+                    ? 'Disponible dès la seconde version'
+                    : 'Disponib depi dezyèm vèsyon an'
+                }
+              />
             )}
             {/* Editor-only "Add version" affordance. Always visible in
                 editor mode so the *first* amendment can be created

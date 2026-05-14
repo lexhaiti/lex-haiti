@@ -12,15 +12,18 @@
  */
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
   CalendarRange,
+  ChevronDown,
   FileText,
   Languages,
   Loader2,
   Newspaper,
+  Search,
   Sparkles,
+  X,
 } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
@@ -45,6 +48,12 @@ export default function EditorialDashboardPage() {
   const [stats, setStats] = useState<TranslationStats | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [allLaws, setAllLaws] = useState<LegalTextListItem[] | null>(null)
+  // Search + open-years state for the by-year inventory list. ``openYears``
+  // defaults to a Set seeded once the data lands (the most recent year is
+  // expanded by default; older years stay collapsed so the page reads
+  // quickly even with hundreds of entries).
+  const [lawsQuery, setLawsQuery] = useState('')
+  const [openYears, setOpenYears] = useState<Set<string> | null>(null)
 
   useEffect(() => {
     if (!isEditor) return
@@ -75,11 +84,23 @@ export default function EditorialDashboardPage() {
 
   // Group laws by their publication year. Texts without a date land
   // in a trailing "(année inconnue)" bucket so the editor can spot
-  // and fix them rather than have them silently disappear.
+  // and fix them rather than have them silently disappear. The
+  // search box filters the list ahead of grouping; an active query
+  // also forces every matching year open so hits aren't hidden
+  // behind a collapsed accordion.
   const lawsByYear = useMemo(() => {
     if (!allLaws) return null
+    const q = lawsQuery.trim().toLowerCase()
+    const matches = q
+      ? allLaws.filter(
+          (law) =>
+            (law.title_fr || '').toLowerCase().includes(q) ||
+            (law.title_ht || '').toLowerCase().includes(q) ||
+            (law.slug || '').toLowerCase().includes(q),
+        )
+      : allLaws
     const groups = new Map<string, LegalTextListItem[]>()
-    for (const law of allLaws) {
+    for (const law of matches) {
       const year = law.publication_date
         ? law.publication_date.slice(0, 4)
         : '—'
@@ -93,7 +114,37 @@ export default function EditorialDashboardPage() {
       if (b[0] === '—') return -1
       return Number(b[0]) - Number(a[0])
     })
-  }, [allLaws])
+  }, [allLaws, lawsQuery])
+
+  // Seed openYears once the data arrives: pop the most recent (first
+  // in the sorted list) open by default, everything else collapsed.
+  // ``useEffect`` rather than ``useMemo`` because we only want to
+  // initialize once; subsequent user toggles persist.
+  useEffect(() => {
+    if (openYears !== null) return
+    if (!lawsByYear || lawsByYear.length === 0) return
+    setOpenYears(new Set([lawsByYear[0][0]]))
+  }, [lawsByYear, openYears])
+
+  // Active query forces every year-with-hits open so matches aren't
+  // hidden behind a collapsed accordion. ``effectiveOpen`` is the
+  // render-time set; we don't mutate ``openYears`` so toggles after
+  // clearing the search restore the user's prior accordion state.
+  const effectiveOpenYears = useMemo(() => {
+    if (lawsQuery.trim() && lawsByYear) {
+      return new Set(lawsByYear.map(([year]) => year))
+    }
+    return openYears ?? new Set<string>()
+  }, [lawsQuery, lawsByYear, openYears])
+
+  function toggleYear(year: string) {
+    setOpenYears((prev) => {
+      const next = new Set(prev ?? [])
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
+      return next
+    })
+  }
 
   if (status === 'loading') {
     return (
@@ -284,9 +335,10 @@ export default function EditorialDashboardPage() {
       )}
 
       {/* All laws grouped by publication year — quick inventory for
-          editors. Each title links to its detail page. Year header is
-          sticky-ish via spacing so even with hundreds of texts the
-          page reads as scannable columns. */}
+          editors. Single-column list (one text per line) for fast
+          scanning, accordion per year so older buckets stay folded
+          by default, and a sticky search filter at the top of the
+          block for instant title lookup. */}
       <section className="space-y-3">
         <header className="flex items-center gap-2">
           <CalendarRange className="w-4 h-4 text-slate-400" />
@@ -299,45 +351,119 @@ export default function EditorialDashboardPage() {
             </span>
           )}
         </header>
+        {/* Search filter — purely client-side, hits title_fr / title_ht
+            / slug. Active query also force-opens every accordion. */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="search"
+            value={lawsQuery}
+            onChange={(e) => setLawsQuery(e.target.value)}
+            placeholder={
+              isFr
+                ? 'Filtrer par titre ou slug…'
+                : 'Filtre pa tit oswa slug…'
+            }
+            className="w-full pl-9 pr-9 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+          {lawsQuery && (
+            <button
+              type="button"
+              onClick={() => setLawsQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
+              aria-label={isFr ? 'Effacer le filtre' : 'Efase filtè'}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         {lawsByYear === null ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
             <Loader2 className="inline w-4 h-4 animate-spin mr-2" />
             {isFr ? 'Chargement…' : 'Chaje…'}
           </div>
         ) : lawsByYear.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">
-            {isFr ? 'Aucun texte au corpus.' : 'Pa gen tèks nan kòpis la.'}
+          <p className="text-sm text-slate-400 italic px-1">
+            {lawsQuery.trim()
+              ? isFr
+                ? 'Aucun texte ne correspond à ce filtre.'
+                : 'Pa gen tèks ki koresponn ak filtè sa a.'
+              : isFr
+                ? 'Aucun texte au corpus.'
+                : 'Pa gen tèks nan kòpis la.'}
           </p>
         ) : (
-          <div className="space-y-6">
-            {lawsByYear.map(([year, items]) => (
-              <div key={year}>
-                <div className="flex items-baseline gap-3 mb-2 pb-1.5 border-b border-slate-100">
-                  <span className="text-2xl font-black text-slate-300 tabular-nums leading-none">
-                    {year}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
-                    {items.length}{' '}
-                    {items.length === 1
-                      ? isFr ? 'texte' : 'tèks'
-                      : isFr ? 'textes' : 'tèks'}
-                  </span>
-                </div>
-                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
-                  {items.map((law) => (
-                    <li key={law.id} className="text-sm leading-relaxed">
-                      <Link
-                        href={`/loi/${law.slug}`}
-                        className="text-slate-700 hover:text-primary hover:underline underline-offset-2"
+          <div className="space-y-2">
+            {lawsByYear.map(([year, items]) => {
+              const isOpen = effectiveOpenYears.has(year)
+              return (
+                <div
+                  key={year}
+                  className="rounded-lg border border-slate-200 bg-white overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleYear(year)}
+                    aria-expanded={isOpen}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-3 text-left',
+                      'hover:bg-slate-50 transition-colors',
+                      isOpen && 'bg-slate-50/60',
+                    )}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'w-4 h-4 text-slate-400 transition-transform',
+                        !isOpen && '-rotate-90',
+                      )}
+                    />
+                    <span className="text-xl font-black text-slate-300 tabular-nums leading-none">
+                      {year}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
+                      {items.length}{' '}
+                      {items.length === 1
+                        ? isFr
+                          ? 'texte'
+                          : 'tèks'
+                        : isFr
+                          ? 'textes'
+                          : 'tèks'}
+                    </span>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden"
                       >
-                        {(isFr ? law.title_fr : (law.title_ht || law.title_fr)) ||
-                          law.slug}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                          {items.map((law) => (
+                            <li
+                              key={law.id}
+                              className="px-4 py-2.5 text-sm leading-relaxed hover:bg-slate-50/50 transition-colors"
+                            >
+                              <Link
+                                href={`/loi/${law.slug}`}
+                                className="text-slate-700 hover:text-primary hover:underline underline-offset-2"
+                              >
+                                {(isFr
+                                  ? law.title_fr
+                                  : law.title_ht || law.title_fr) ||
+                                  law.slug}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )
+            })}
           </div>
         )}
       </section>
