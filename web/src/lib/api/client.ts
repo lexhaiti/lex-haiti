@@ -47,9 +47,23 @@ function normalizeApiBase(raw: string): string {
   return v
 }
 
+// On the server (Vercel RSC, route handlers), prefer API_INTERNAL_URL if
+// set (e.g. a direct VPC path to the backend). Otherwise fall back to
+// NEXT_PUBLIC_API_URL when it is an absolute URL — that env var IS set in
+// prod (https://api.lexhaiti.org) and the browser-side already uses it.
+// A relative NEXT_PUBLIC_API_URL (e.g. "/api/v1" in local dev) is NOT
+// valid for server-side fetch, so we skip it and fall back to the local
+// default.
+const serverBase =
+  process.env.API_INTERNAL_URL ??
+  (process.env.NEXT_PUBLIC_API_URL?.startsWith('http')
+    ? process.env.NEXT_PUBLIC_API_URL
+    : undefined) ??
+  'http://127.0.0.1:8000/api/v1'
+
 const API_BASE = normalizeApiBase(
   typeof window === 'undefined'
-    ? (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000/api/v1')
+    ? serverBase
     : (process.env.NEXT_PUBLIC_API_URL ??
         process.env.NEXT_PUBLIC_API_BASE ??
         'http://127.0.0.1:8000/api/v1'),
