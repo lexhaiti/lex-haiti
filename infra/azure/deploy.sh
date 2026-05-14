@@ -65,6 +65,9 @@ ok "ready ($LH_REGISTRY.azurecr.io)"
 # ─── 3. Postgres + pgvector ─────────────────────────────────────────
 bold "Postgres Flexible Server: $LH_DB_SERVER"
 # Burstable B2s is the smallest tier that supports pgvector cleanly.
+# Note: as of the 2.66+ Azure CLI, ``--database-name`` was scoped to
+# the Elastic Cluster mode. We create the server first and then add
+# the database with ``flexible-server db create``.
 az postgres flexible-server create \
   --name "$LH_DB_SERVER" \
   --resource-group "$LH_RG" \
@@ -73,11 +76,15 @@ az postgres flexible-server create \
   --version 16 \
   --admin-user "$LH_DB_ADMIN_USER" \
   --admin-password "$LH_DB_ADMIN_PWD" \
-  --database-name "$LH_DB_NAME" \
   --public-access 0.0.0.0 \
   --storage-size 32 \
   --yes --only-show-errors >/dev/null
 ok "server up"
+
+az postgres flexible-server db create \
+  --resource-group "$LH_RG" --server-name "$LH_DB_SERVER" \
+  --database-name "$LH_DB_NAME" --only-show-errors >/dev/null
+ok "database $LH_DB_NAME created"
 
 # Allowlist pgvector at the server level + create extension in the DB.
 az postgres flexible-server parameter set \
