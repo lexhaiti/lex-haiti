@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, Extension, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import {
@@ -9,12 +9,89 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   List,
   ListOrdered,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+
+/**
+ * Custom Tiptap extension: paragraph-level indentation.
+ *
+ * Stores indent as ``margin-left: <N>em`` on the paragraph's
+ * ``style`` attribute. The backend sanitizer's CSSSanitizer
+ * allowlists ``margin-left``, so the value round-trips through
+ * persistence. Tab adds 2em (max 8em); Shift-Tab removes 2em.
+ *
+ * Bound only to ``paragraph`` — lists already handle their own
+ * indentation through ``Mod-]`` / ``Mod-[`` in StarterKit.
+ */
+const STEP_EM = 2
+const MAX_EM = 8
+
+const ParagraphIndent = Extension.create({
+  name: 'paragraphIndent',
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph'],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (el) => {
+              const ml = (el as HTMLElement).style.marginLeft
+              if (!ml) return 0
+              const m = /^(\d+(?:\.\d+)?)em$/.exec(ml.trim())
+              return m ? Math.min(parseFloat(m[1]), MAX_EM) : 0
+            },
+            renderHTML: (attrs) => {
+              const v = attrs.indent
+              if (!v) return {}
+              return { style: `margin-left: ${v}em` }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => {
+        const { state, view } = this.editor
+        const node = state.selection.$from.parent
+        if (node.type.name !== 'paragraph') return false
+        const next = Math.min((node.attrs.indent ?? 0) + STEP_EM, MAX_EM)
+        if (next === node.attrs.indent) return true
+        view.dispatch(
+          state.tr.setNodeMarkup(state.selection.$from.before(), null, {
+            ...node.attrs,
+            indent: next,
+          }),
+        )
+        return true
+      },
+      'Shift-Tab': () => {
+        const { state, view } = this.editor
+        const node = state.selection.$from.parent
+        if (node.type.name !== 'paragraph') return false
+        const next = Math.max((node.attrs.indent ?? 0) - STEP_EM, 0)
+        if (next === node.attrs.indent) return true
+        view.dispatch(
+          state.tr.setNodeMarkup(state.selection.$from.before(), null, {
+            ...node.attrs,
+            indent: next,
+          }),
+        )
+        return true
+      },
+    }
+  },
+})
 
 /**
  * Minimal Tiptap-backed rich-text editor for article bodies.
@@ -105,6 +182,7 @@ export function RichArticleEditor({
         alignments: ['left', 'center', 'right', 'justify'],
         defaultAlignment: 'left',
       }),
+      ParagraphIndent,
     ],
     content: toEditorHtml(value),
     editable: !disabled,
@@ -233,6 +311,37 @@ export function RichArticleEditor({
           label="Aligner à droite"
           active={editor.isActive({ textAlign: 'right' })}
           onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          tone={tone}
+        />
+        <ToolbarSeparator />
+        <ToolbarButton
+          icon={IndentDecrease}
+          label="Diminuer le retrait (Shift+Tab)"
+          onClick={() => {
+            editor.chain().focus().run()
+            // Trigger the same keymap path used by Shift-Tab so the
+            // toolbar button and the keyboard shortcut produce
+            // identical document state.
+            const ev = new KeyboardEvent('keydown', {
+              key: 'Tab',
+              shiftKey: true,
+              bubbles: true,
+            })
+            editor.view.dom.dispatchEvent(ev)
+          }}
+          tone={tone}
+        />
+        <ToolbarButton
+          icon={IndentIncrease}
+          label="Augmenter le retrait (Tab)"
+          onClick={() => {
+            editor.chain().focus().run()
+            const ev = new KeyboardEvent('keydown', {
+              key: 'Tab',
+              bubbles: true,
+            })
+            editor.view.dom.dispatchEvent(ev)
+          }}
           tone={tone}
         />
       </div>

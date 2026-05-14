@@ -25,6 +25,7 @@ from packages.schemas.article import (
     ArticleInsertInput,
     ArticleVersionAddInput,
     ArticleVersionRead,
+    ArticleVersionStatusUpdate,
 )
 from packages.schemas.block_version import (
     BlockVersionAddInput,
@@ -419,6 +420,39 @@ def update_article_content(
     comment = payload.pop("comment", None)
     result = service.update_article_content(
         article_id, actor=user, updates=payload, comment=comment
+    )
+    db.commit()
+    return result
+
+
+@router.patch(
+    "/articles/{article_id}/version-status",
+    response_model=ArticleEmbed,
+    summary="Flip the current version's lifecycle status (in_force / abrogated / …)",
+)
+def update_article_version_status(
+    article_id: int,
+    body: ArticleVersionStatusUpdate,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Set the article's current version status directly — no new
+    version, no amending-law required. Use this to mark an article
+    ``abrogé`` after the amending law's effects have already been
+    captured elsewhere, or to flip a ``suspended`` row back to
+    ``in_force`` when the suspension is lifted.
+
+    For "this incoming law amended the article" use POST
+    /articles/{id}/versions instead — that path creates the new
+    versioned row and writes the LegalChange graph edge.
+    """
+    result = service.update_article_version_status(
+        article_id,
+        actor=user,
+        status=body.status,
+        effective_to=body.effective_to,
+        comment=body.comment,
     )
     db.commit()
     return result

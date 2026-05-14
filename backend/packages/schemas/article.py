@@ -195,6 +195,38 @@ class ArticleContentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ArticleVersionStatusUpdate(BaseModel):
+    """Editor payload to flip the current version's lifecycle status
+    independently of content editing.
+
+    Use case: an article was amended via a later law (a new version
+    already exists with the amended text), and now the editor wants to
+    mark the previous still-published version as ``abrogated`` to
+    surface the deprecation in the reader UI. The article's
+    ``current_version`` pointer stays where it is; only that version's
+    ``status`` field flips.
+
+    Different from ``ArticleContentUpdate`` (which touches body / title
+    and applies the draft-vs-published versioning rule) and different
+    from ``ArticleVersionAddInput`` (which creates a new version
+    anchored to an amending law). This one is the cheap "just change
+    the lifecycle pill" path.
+    """
+
+    status: ArticleStatus
+    effective_to: Optional[date] = Field(
+        default=None,
+        description=(
+            "Optional end-of-effectiveness date. When the editor flips "
+            "the status to abrogated/obsolete, this is typically the "
+            "date the amending law took effect."
+        ),
+    )
+    comment: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ArticleInsertInput(BaseModel):
     """Editor-supplied payload to insert a brand-new article into a
     legal text.

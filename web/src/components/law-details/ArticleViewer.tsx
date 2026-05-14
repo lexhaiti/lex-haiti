@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/toast-simple'
+import { cn } from '@/lib/utils'
 import {
   citationsFromArticle,
   citationsToArticle,
@@ -47,9 +48,11 @@ import {
   listArticleVersions,
   resolveArticles,
   updateArticleContent,
+  updateArticleVersionStatus,
   type ArticleContentPatch,
   type ArticleResolved,
   type ArticleVersionRead,
+  type ArticleVersionStatusPatch,
 } from '@/lib/api/endpoints'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
@@ -381,6 +384,31 @@ export default function ArticleViewer({
     bodyHtDraft: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [statusSaving, setStatusSaving] = useState(false)
+
+  async function handleStatusChange(next: ArticleStatus) {
+    if (!article || next === status) return
+    setStatusSaving(true)
+    try {
+      const patch: ArticleVersionStatusPatch = { status: next }
+      await updateArticleVersionStatus(article.id, patch)
+      toast(
+        currentLang === 'fr'
+          ? `Statut de l’article mis à jour : ${STATUS_PILL[next].label.fr}`
+          : `Estati atik la mete a jou : ${STATUS_PILL[next].label.ht}`,
+      )
+      onArticleSaved?.()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      toast(
+        currentLang === 'fr'
+          ? `Échec : ${msg}`
+          : `Echèk : ${msg}`,
+      )
+    } finally {
+      setStatusSaving(false)
+    }
+  }
   const isCurrentEdit = editing && article && editing.articleId === article.id
   const isBilingualEdit = isCurrentEdit && editing!.mode === 'bilingual'
 
@@ -788,12 +816,46 @@ export default function ArticleViewer({
           </nav>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Badge
-              variant="outline"
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusMeta.cls}`}
-            >
-              {statusMeta.label[currentLang]}
-            </Badge>
+            {isEditor && article ? (
+              /* Editor-only inline status flip — drops directly into
+                  ``current_version.status`` without creating a new
+                  version. For "this incoming law amended us, here's the
+                  new text" use the Ajouter une version flow instead;
+                  this one is the "the article is already abrogé, just
+                  reflect that in the badge" path. */
+              <Select
+                value={status}
+                disabled={statusSaving}
+                onValueChange={(next) => handleStatusChange(next as ArticleStatus)}
+              >
+                <SelectTrigger
+                  aria-label={
+                    currentLang === 'fr' ? "Statut de l'article" : 'Estati atik la'
+                  }
+                  className={cn(
+                    'h-7 px-2.5 py-0 rounded-full text-[10px] font-bold uppercase tracking-wider border',
+                    statusMeta.cls,
+                    'min-w-0 w-auto gap-1',
+                  )}
+                >
+                  <SelectValue>{statusMeta.label[currentLang]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {(Object.keys(STATUS_PILL) as ArticleStatus[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_PILL[s].label[currentLang]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge
+                variant="outline"
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusMeta.cls}`}
+              >
+                {statusMeta.label[currentLang]}
+              </Badge>
+            )}
 
             <span className="w-px h-5 bg-gray-200" />
 

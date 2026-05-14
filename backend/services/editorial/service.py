@@ -136,12 +136,22 @@ def _attribute_filter(tag: str, name: str, value: str) -> bool:
     return False
 
 
-# Restrict CSS in ``style`` attributes to the single property we
-# actually need on paragraphs: ``text-align``. Bleach 6 drops the
-# entire ``style`` value unless ``CSSSanitizer`` says otherwise, so
-# this is what makes ``<p style="text-align: center">`` survive the
-# scrub.
-_CSS_SANITIZER = CSSSanitizer(allowed_css_properties=["text-align"])
+# Restrict CSS in ``style`` attributes to a tight allowlist:
+#   - ``text-align`` for left/center/right alignment toggles
+#   - ``margin-left`` / ``padding-left`` / ``text-indent`` for the
+#     paragraph-indent feature (Tab key in the editor and Word/PDF
+#     paste that brings inherited indents along)
+# Bleach 6 drops the entire ``style`` value unless ``CSSSanitizer``
+# whitelists each property by name. Values are still bounded by
+# ``tinycss2``'s parser — only sane CSS reaches the renderer.
+_CSS_SANITIZER = CSSSanitizer(
+    allowed_css_properties=[
+        "text-align",
+        "margin-left",
+        "padding-left",
+        "text-indent",
+    ]
+)
 
 
 def _sanitize_article_html(value: str | None) -> str | None:
@@ -766,6 +776,73 @@ class EditorialService:
         self.session.flush()
 
         # Reload with eager-loaded current_version for the response DTO.
+        refreshed = self.repo.get_article(article_id)
+        assert refreshed is not None
+        return article_to_embed(refreshed)
+
+    def update_article_version_status(
+        self,
+        article_id: int,
+        *,
+        actor: User,
+        status: Any,
+        effective_to: Optional[date] = None,
+        comment: Optional[str] = None,
+    ) -> ArticleEmbed:
+        """Flip the lifecycle status of an article's current version
+        without changing content or creating a new version.
+
+        Use case: a later law abrogated this article and the editor
+        wants the reader UI to show ``abrogé`` immediately, without
+        promoting a new version through the amending-law flow.
+        ``effective_to`` is optional — when provided, it stamps the
+        date the status change took effect.
+
+        No-op (returns the article unchanged) when both status and
+        effective_to already match the current version, so an
+        accidental re-save doesn't bloat the audit log.
+        """
+        article = self.repo.get_article(article_id)
+        if article is None:
+            raise NotFound(f"Article not found: {article_id}")
+        current = article.current_version
+        if current is None:
+            raise InvalidInput(
+                f"Article {article_id} has no current version to update"
+            )
+
+        diff: dict[str, dict[str, Any]] = {}
+        if current.status != status:
+            diff["status"] = {
+                "before": current.status.value
+                if hasattr(current.status, "value")
+                else current.status,
+                "after": status.value if hasattr(status, "value") else status,
+            }
+            current.status = status
+        if effective_to is not None and current.effective_to != effective_to:
+            diff["effective_to"] = {
+                "before": current.effective_to.isoformat()
+                if current.effective_to
+                else None,
+                "after": effective_to.isoformat(),
+            }
+            current.effective_to = effective_to
+
+        if not diff:
+            return article_to_embed(article)
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="update_article_version_status",
+            target_type="article_version",
+            target_id=current.id,
+            diff=diff,
+            comment=comment,
+        )
+        self.session.flush()
+
         refreshed = self.repo.get_article(article_id)
         assert refreshed is not None
         return article_to_embed(refreshed)

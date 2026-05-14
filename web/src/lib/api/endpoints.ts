@@ -1202,6 +1202,19 @@ export type ArticleContentPatch = {
   comment?: string | null
 }
 
+/**
+ * Payload for ``PATCH /editorial/articles/{id}/version-status``.
+ * Flips the current version's lifecycle status without creating a
+ * new version or touching the body — distinct from
+ * ``ArticleContentPatch`` (content edits) and the add-version flow
+ * (amending-law-driven supersede).
+ */
+export type ArticleVersionStatusPatch = {
+  status: 'in_force' | 'abrogated' | 'suspended' | 'transferred' | 'obsolete'
+  effective_to?: string | null
+  comment?: string | null
+}
+
 export type ArticleEmbed = components['schemas']['ArticleEmbed']
 
 export type LegalHeadingRead = {
@@ -1354,6 +1367,16 @@ export async function updateArticleContent(
 ) {
   return apiPatch<ArticleEmbed>(
     `/editorial/articles/${articleId}/content`,
+    patch,
+  )
+}
+
+export async function updateArticleVersionStatus(
+  articleId: number,
+  patch: ArticleVersionStatusPatch,
+) {
+  return apiPatch<ArticleEmbed>(
+    `/editorial/articles/${articleId}/version-status`,
     patch,
   )
 }
