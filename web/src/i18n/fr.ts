@@ -445,7 +445,7 @@ export const fr = {
       devNote: 'En développement, l’e-mail est intercepté par Mailpit :',
       openMailpit: 'Ouvrir Mailpit',
       tipExpiry:
-        'Le lien expire dans 24 heures. Si vous l’avez raté, recommencez la procédure de connexion.',
+        'Le lien expire dans 5 minutes pour votre sécurité. Si vous l’avez raté, recommencez la procédure de connexion.',
       tipSpam:
         'Pas d’e-mail dans les 2 minutes ? Vérifiez vos courriers indésirables ou la file spam.',
       tipSecurity:
