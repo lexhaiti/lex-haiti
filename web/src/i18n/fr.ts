@@ -444,7 +444,13 @@ export const fr = {
       body: 'Un lien de connexion a été envoyé. Cliquez dessus depuis votre boîte mail pour vous connecter.',
       devNote: 'En développement, l’e-mail est intercepté par Mailpit :',
       openMailpit: 'Ouvrir Mailpit',
-      backToSignIn: '← Utiliser une autre adresse',
+      tipExpiry:
+        'Le lien expire dans 24 heures. Si vous l’avez raté, recommencez la procédure de connexion.',
+      tipSpam:
+        'Pas d’e-mail dans les 2 minutes ? Vérifiez vos courriers indésirables ou la file spam.',
+      tipSecurity:
+        'Un seul lien à la fois est valide — toute nouvelle demande invalide le précédent.',
+      backToSignIn: 'Utiliser une autre adresse',
     },
   },
   notFound: {

@@ -20,6 +20,7 @@
 import NextAuth, { type DefaultSession } from "next-auth"
 import Nodemailer from "next-auth/providers/nodemailer"
 import PostgresAdapter from "@auth/pg-adapter"
+import { createTransport } from "nodemailer"
 import { Pool } from "pg"
 
 const pool = new Pool({
@@ -118,6 +119,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           : undefined,
       },
       from: process.env.EMAIL_FROM ?? "no-reply@lexhaiti.local",
+      sendVerificationRequest: sendMagicLinkEmail,
     }),
   ],
   pages: {
@@ -189,4 +191,193 @@ declare module "next-auth" {
   interface Session {
     user: SessionUser
   }
+}
+
+// ---------------------------------------------------------------------------
+// Branded magic-link email template
+// ---------------------------------------------------------------------------
+//
+// Auth.js's default email is text/HTML with no styling — readable, but
+// generic. The block below replaces it with a brand-consistent template:
+// a navy header band that mirrors the website's hero, a clear greeting,
+// the actual link as a single primary-color button, expiry guidance,
+// and a quiet footer for the "didn't request this?" disclaimer.
+//
+// The transport is built from the same ``server`` config Auth.js passes
+// through; in dev it points at Mailpit, in prod it points at the
+// configured SMTP relay (Mailgun / SES / IONOS / etc.).
+
+async function sendMagicLinkEmail(params: {
+  identifier: string
+  url: string
+  // The Auth.js provider arg carries the resolved Nodemailer config.
+  // We accept ``any`` here because the upstream type
+  // (``NodemailerConfig.server``) allows ``undefined``, which doesn't
+  // round-trip cleanly through nodemailer's ``createTransport``
+  // signature — the runtime always sets ``server`` because we declare
+  // it above, but the static type doesn't reflect that. Narrow + cast
+  // inside the body.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  provider: { server?: any; from?: string }
+}): Promise<void> {
+  const { identifier: to, url, provider } = params
+  if (!provider.server || !provider.from) {
+    throw new Error("Nodemailer provider not fully configured")
+  }
+  const { host } = new URL(url)
+  const transport = createTransport(provider.server)
+  const result = await transport.sendMail({
+    to,
+    from: provider.from,
+    subject: `Votre lien de connexion — LexHaïti`,
+    text: renderMagicLinkText({ url, host, to }),
+    html: renderMagicLinkHtml({ url, host, to }),
+  })
+  const rejected = result?.rejected || []
+  if (rejected.length) {
+    throw new Error(`Email(s) (${rejected.join(", ")}) rejected by SMTP server.`)
+  }
+}
+
+/** Friendly greeting derived from the email address — "Bonjour Glory,"
+ *  rather than "Bonjour info@lexhaiti.org,". Picks up the local part,
+ *  drops common punctuation, and title-cases. */
+function deriveGreetingName(email: string): string {
+  const local = email.split("@")[0] || email
+  const cleaned = local.replace(/[._+-]+/g, " ").trim()
+  if (!cleaned) return ""
+  // Title-case each space-separated word.
+  return cleaned
+    .split(/\s+/)
+    .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ")
+}
+
+function renderMagicLinkText(args: {
+  url: string
+  host: string
+  to: string
+}): string {
+  const name = deriveGreetingName(args.to)
+  const hello = name ? `Bonjour ${name},` : "Bonjour,"
+  return [
+    hello,
+    "",
+    "Voici votre lien de connexion sécurisé à LexHaïti :",
+    args.url,
+    "",
+    "Ce lien expire dans 24 heures et ne peut être utilisé qu'une seule fois.",
+    "",
+    `Si vous n'êtes pas à l'origine de cette demande, ignorez cet email — aucune action ne sera prise sur votre compte.`,
+    "",
+    "— L'équipe LexHaïti",
+    "https://lexhaiti.org",
+  ].join("\n")
+}
+
+function renderMagicLinkHtml(args: {
+  url: string
+  host: string
+  to: string
+}): string {
+  const name = deriveGreetingName(args.to)
+  const greeting = name ? `Bonjour ${escapeHtml(name)},` : "Bonjour,"
+  const safeUrl = escapeHtml(args.url)
+  // Inline CSS only — most email clients strip <style> and external
+  // stylesheets. The palette mirrors the website's primary navy
+  // (#0D1B4C) and a warm gold accent (#C9A227).
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion à LexHaïti</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f5f9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#0f172a;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f3f5f9;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(15,23,42,0.06);">
+          <!-- Navy banner -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0D1B4C 0%,#1a2a6c 60%,#0D1B4C 100%);padding:32px 36px;color:#ffffff;">
+              <p style="margin:0 0 6px 0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#C9A227;font-weight:700;">LexHaïti</p>
+              <h1 style="margin:0;font-size:24px;line-height:1.2;font-weight:800;letter-spacing:-0.01em;color:#ffffff;">
+                Votre lien de connexion
+              </h1>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 36px 8px 36px;font-size:15px;line-height:1.6;color:#0f172a;">
+              <p style="margin:0 0 16px 0;font-weight:600;">${greeting}</p>
+              <p style="margin:0 0 16px 0;color:#475569;">
+                Cliquez sur le bouton ci-dessous pour vous connecter à LexHaïti. Ce lien est strictement personnel et n'a été envoyé qu'à votre adresse.
+              </p>
+            </td>
+          </tr>
+          <!-- CTA button -->
+          <tr>
+            <td align="center" style="padding:8px 36px 24px 36px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color:#0D1B4C;border-radius:8px;">
+                    <a href="${safeUrl}" target="_blank" rel="noopener"
+                       style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                      Se connecter à LexHaïti →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Fallback URL -->
+          <tr>
+            <td style="padding:0 36px 28px 36px;font-size:12px;color:#94a3b8;">
+              <p style="margin:0 0 6px 0;">Le bouton ne fonctionne pas&nbsp;? Copiez-collez ce lien dans votre navigateur&nbsp;:</p>
+              <p style="margin:0;word-break:break-all;color:#475569;">${safeUrl}</p>
+            </td>
+          </tr>
+          <!-- Expiry callout -->
+          <tr>
+            <td style="padding:0 36px 28px 36px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f1f5f9;border-left:3px solid #C9A227;border-radius:6px;">
+                <tr>
+                  <td style="padding:14px 16px;font-size:12.5px;color:#334155;line-height:1.5;">
+                    <strong style="color:#0f172a;">Sécurité :</strong>
+                    ce lien expire dans 24 heures et ne fonctionne qu'une seule fois.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:0 36px 32px 36px;font-size:11.5px;color:#94a3b8;line-height:1.6;border-top:1px solid #e2e8f0;padding-top:20px;">
+              <p style="margin:0 0 6px 0;">
+                Vous n'êtes pas à l'origine de cette demande&nbsp;? Vous pouvez ignorer cet email — aucune action ne sera prise sur votre compte.
+              </p>
+              <p style="margin:0;">
+                — L'équipe LexHaïti, <a href="https://lexhaiti.org" style="color:#0D1B4C;text-decoration:none;">lexhaiti.org</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0 0;font-size:11px;color:#94a3b8;">
+          Cet email a été envoyé depuis ${escapeHtml(args.host)}.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }

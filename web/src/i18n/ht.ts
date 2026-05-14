@@ -433,7 +433,12 @@ export const ht = {
       body: 'Yon lyen koneksyon voye. Klike sou li depi nan bwat imèl ou pou konekte.',
       devNote: 'Nan devlòpman, imèl la kenbe pa Mailpit :',
       openMailpit: 'Ouvri Mailpit',
-      backToSignIn: '← Sèvi ak yon lòt adrès',
+      tipExpiry:
+        'Lyen an ekspire nan 24 èdtan. Si w rate l, rekòmanse pwosesis koneksyon an.',
+      tipSpam: 'Pa gen imèl nan 2 minit? Tcheke dosye spam ou.',
+      tipSecurity:
+        'Yon sèl lyen valid alafwa — nouvo demand fè ansyen an invalid.',
+      backToSignIn: 'Sèvi ak yon lòt adrès',
     },
   },
   notFound: {
