@@ -39,7 +39,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 
-from packages.schemas.enums import (
+from schemas.enums import (
     ArticleStatus,
     AuthorityType,
     BlockKind,

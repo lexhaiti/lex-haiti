@@ -19,7 +19,7 @@ from api.deps import (
     DbSession,
     EditorialUser,
 )
-from packages.schemas.article import (
+from schemas.article import (
     ArticleContentUpdate,
     ArticleEmbed,
     ArticleInsertInput,
@@ -27,12 +27,12 @@ from packages.schemas.article import (
     ArticleVersionRead,
     ArticleVersionStatusUpdate,
 )
-from packages.schemas.block_version import (
+from schemas.block_version import (
     BlockVersionAddInput,
     BlockVersionRead,
 )
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.enums import (
+from schemas.common import PaginatedResponse
+from schemas.enums import (
     BlockKind,
     CodeSubcategory,
     EditorialStatus,
@@ -40,19 +40,19 @@ from packages.schemas.enums import (
     LegalStatus,
     LegalTheme,
 )
-from packages.schemas.heading import (
+from schemas.heading import (
     LegalHeadingInsertInput,
     LegalHeadingPatch,
     LegalHeadingRead,
 )
-from packages.schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
-from packages.schemas.signer import (
+from schemas.legal_text import LegalTextCreate, LegalTextListItem, LegalTextRead
+from schemas.signer import (
     LegalSignerBulkInput,
     LegalSignerCreate,
     LegalSignerRead,
     LegalSignerUpdate,
 )
-from packages.schemas.theme import LegalThemeTagWrite
+from schemas.theme import LegalThemeTagWrite
 from services.corpus.repository import CorpusRepository
 from services.corpus.service import article_to_embed
 from services.editorial.service import EditorialService

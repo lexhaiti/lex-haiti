@@ -71,7 +71,7 @@ from sqlalchemy.orm import Session
 
 from api.config import get_settings
 from api.db import SessionLocal
-from packages.schemas.moniteur import MoniteurJsonImport
+from schemas.moniteur import MoniteurJsonImport
 from services.auth.enums import UserRole
 from services.auth.models import User
 from services.ingestion.moniteur.repository import MoniteurRepository

@@ -18,7 +18,7 @@ Single-level article numbering. Rare TOC beyond Chapitre/Section.
 """
 from __future__ import annotations
 
-from packages.schemas.enums import HeadingLevel, LegalCategory, ParserProfile
+from schemas.enums import HeadingLevel, LegalCategory, ParserProfile
 
 from .base import BaseParser, _HEADING_PATTERNS_DEFAULT
 

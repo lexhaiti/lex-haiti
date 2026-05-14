@@ -13,8 +13,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from api.deps import DbSession, SearchServiceDep
-from packages.schemas.moniteur import MoniteurIssueRead
-from packages.schemas.search import GlobalSearchResponse
+from schemas.moniteur import MoniteurIssueRead
+from schemas.search import GlobalSearchResponse
 from services.ingestion.moniteur.repository import MoniteurRepository
 
 router = APIRouter(tags=["search"])

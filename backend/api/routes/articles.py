@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Query
 
 from api.deps import CorpusServiceDep
-from packages.schemas.article import (
+from schemas.article import (
     ArticleResolved,
     ArticleVersionRead,
     ArticleWithHistoryRead,

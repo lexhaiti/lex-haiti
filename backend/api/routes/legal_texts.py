@@ -6,16 +6,16 @@ from fastapi.responses import Response
 
 from api.config import get_settings
 from api.deps import CorpusServiceDep, SearchServiceDep
-from packages.schemas.article import (
+from schemas.article import (
     ArticleListItem,
     ArticleWithHistoryRead,
     LegalChangeMadeRead,
     LegalChangeReceivedRead,
 )
-from packages.schemas.block_version import BlockVersionRead
-from packages.schemas.enums import BlockKind
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.enums import (
+from schemas.block_version import BlockVersionRead
+from schemas.enums import BlockKind
+from schemas.common import PaginatedResponse
+from schemas.enums import (
     CodeSubcategory,
     EditorialStatus,
     LegalCategory,
@@ -23,9 +23,9 @@ from packages.schemas.enums import (
     LegalTheme,
     ThemeSource,
 )
-from packages.schemas.heading import TocNode
-from packages.schemas.legal_text import LegalTextListItem, LegalTextRead
-from packages.schemas.search import (
+from schemas.heading import TocNode
+from schemas.legal_text import LegalTextListItem, LegalTextRead
+from schemas.search import (
     AdvancedSearchInput,
     PaginatedSearchResponse,
 )

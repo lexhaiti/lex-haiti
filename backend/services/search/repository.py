@@ -18,7 +18,7 @@ from typing import Any, Optional
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
-from packages.schemas.enums import CodeSubcategory, LegalCategory, LegalStatus
+from schemas.enums import CodeSubcategory, LegalCategory, LegalStatus
 
 
 # ts_headline options:

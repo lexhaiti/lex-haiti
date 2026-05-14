@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Iterable
 
-from packages.schemas.enums import LegalCategory, LegalTheme
+from schemas.enums import LegalCategory, LegalTheme
 
 # Saturation: confidence reaches 1.0 after this many distinct keywords match.
 _CONFIDENCE_SATURATION = 3

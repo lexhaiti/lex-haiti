@@ -25,7 +25,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from packages.schemas.enums import (
+from schemas.enums import (
     ArticleStatus,
     CodeSubcategory,
     EditorialStatus,

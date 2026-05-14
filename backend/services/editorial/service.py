@@ -14,20 +14,20 @@ from bleach.css_sanitizer import CSSSanitizer
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from packages.schemas.enums import (
+from schemas.enums import (
     CodeSubcategory,
     EditorialStatus,
     LegalCategory,
     LegalStatus,
     LegalTheme,
 )
-from packages.schemas.article import ArticleCreate, ArticleEmbed
-from packages.schemas.heading import LegalHeadingCreate
-from packages.schemas.legal_text import LegalTextCreate, LegalTextRead
-from packages.schemas.signer import LegalSignerCreate
+from schemas.article import ArticleCreate, ArticleEmbed
+from schemas.heading import LegalHeadingCreate
+from schemas.legal_text import LegalTextCreate, LegalTextRead
+from schemas.signer import LegalSignerCreate
 from services.auth.models import User
 from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
-from packages.schemas.enums import BlockKind, ChangeKind
+from schemas.enums import BlockKind, ChangeKind
 from services.corpus.models import (
     Article,
     ArticleVersion,
@@ -1764,8 +1764,8 @@ class EditorialService:
         # call the public service which does the same lookup but with the
         # filter — won't work for drafts. So replicate the conversion inline.
         from services.corpus.service import article_to_embed, text_to_read
-        from packages.schemas.heading import LegalHeadingRead
-        from packages.schemas.signer import LegalSignerRead
+        from schemas.heading import LegalHeadingRead
+        from schemas.signer import LegalSignerRead
 
         if include == "all":
             return text_to_read(

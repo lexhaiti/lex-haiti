@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from packages.schemas.enums import SignatoryChamber, SigningCapacity
+from schemas.enums import SignatoryChamber, SigningCapacity
 
 
 class LegalSignerBase(BaseModel):

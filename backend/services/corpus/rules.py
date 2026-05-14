@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from packages.schemas.enums import LegalCategory
+from schemas.enums import LegalCategory
 
 if TYPE_CHECKING:  # pragma: no cover
     from services.corpus.models import LegalText

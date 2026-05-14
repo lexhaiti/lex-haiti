@@ -40,7 +40,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy import select
 
 from api.db import SessionLocal
-from packages.schemas.enums import (
+from schemas.enums import (
     EditorialStatus,
     LegalCategory,
     LegalStatus,

@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from packages.schemas.enums import (
+from schemas.enums import (
     LegalCategory,
     SignatoryChamber,
     SigningCapacity,

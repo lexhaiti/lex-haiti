@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from packages.schemas.enums import (
+from schemas.enums import (
     LegalCategory,
     MoniteurDocumentType,
     ParserProfile,

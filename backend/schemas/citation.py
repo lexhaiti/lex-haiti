@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from packages.schemas.enums import (
+from schemas.enums import (
     CitationNodeType,
     CitationRelation,
     EditorialStatus,

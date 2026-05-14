@@ -32,7 +32,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from api.db import SessionLocal
-from packages.schemas.enums import (
+from schemas.enums import (
     EditorialStatus,
     HeadingLevel,
     LegalCategory,

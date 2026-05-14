@@ -24,14 +24,14 @@ from sqlalchemy.orm import selectinload
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
 from api.deps import DbSession, EditorialUser
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.enums import (
+from schemas.common import PaginatedResponse
+from schemas.enums import (
     LegalCategory,
     MoniteurCandidateStatus,
     MoniteurIssueStatus,
     PROMOTABLE_TYPES,
 )
-from packages.schemas.moniteur import (
+from schemas.moniteur import (
     EntryReviewInput,
     MoniteurEntryParserProfileUpdate,
     MoniteurEntryRead,

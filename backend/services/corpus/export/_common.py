@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Iterable, Optional
 
-from packages.schemas.article import ArticleEmbed
-from packages.schemas.heading import LegalHeadingRead
-from packages.schemas.legal_text import LegalTextRead
+from schemas.article import ArticleEmbed
+from schemas.heading import LegalHeadingRead
+from schemas.legal_text import LegalTextRead
 
 # Inline list markers commonly used in French / Haitian legal drafting:
 #   a) b) c)  — lowercase Latin (most common)

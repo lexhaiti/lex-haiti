@@ -3,9 +3,9 @@ from typing import Optional
 from fastapi import APIRouter, Query
 
 from api.deps import CorpusServiceDep
-from packages.schemas.citation import CitationRead
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.enums import CitationNodeType, CitationRelation
+from schemas.citation import CitationRead
+from schemas.common import PaginatedResponse
+from schemas.enums import CitationNodeType, CitationRelation
 
 router = APIRouter(prefix="/citations", tags=["citations"])
 

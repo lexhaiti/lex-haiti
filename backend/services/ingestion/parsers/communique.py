@@ -9,7 +9,7 @@ officielles. Anything where "the document is the prose, period".
 """
 from __future__ import annotations
 
-from packages.schemas.enums import BlockKind, LegalCategory, ParserProfile
+from schemas.enums import BlockKind, LegalCategory, ParserProfile
 
 from .base import (
     BaseParser,

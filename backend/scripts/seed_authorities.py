@@ -38,7 +38,7 @@ from typing import Optional
 from sqlalchemy import select
 
 from api.db import SessionLocal
-from packages.schemas.enums import AuthorityType
+from schemas.enums import AuthorityType
 from services.corpus.models import Authority
 
 _log = logging.getLogger(__name__)

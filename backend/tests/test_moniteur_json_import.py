@@ -221,7 +221,7 @@ class TestJsonImportEntrySchema:
     fields and the inline content block."""
 
     def test_page_fields_are_optional(self):
-        from packages.schemas.moniteur import JsonImportEntry
+        from schemas.moniteur import JsonImportEntry
 
         entry = JsonImportEntry.model_validate(
             {
@@ -234,7 +234,7 @@ class TestJsonImportEntrySchema:
         assert entry.content is None
 
     def test_content_block_accepts_full_legal_text(self):
-        from packages.schemas.moniteur import JsonImportEntry
+        from schemas.moniteur import JsonImportEntry
 
         entry = JsonImportEntry.model_validate(
             {
@@ -262,7 +262,7 @@ class TestJsonImportEntrySchema:
     def test_unknown_fields_rejected_on_entry(self):
         from pydantic import ValidationError
 
-        from packages.schemas.moniteur import JsonImportEntry
+        from schemas.moniteur import JsonImportEntry
 
         with pytest.raises(ValidationError):
             JsonImportEntry.model_validate(
@@ -275,7 +275,7 @@ class TestJsonImportEntrySchema:
     def test_unknown_fields_rejected_on_content(self):
         from pydantic import ValidationError
 
-        from packages.schemas.moniteur import JsonImportLegalText
+        from schemas.moniteur import JsonImportLegalText
 
         with pytest.raises(ValidationError):
             JsonImportLegalText.model_validate(

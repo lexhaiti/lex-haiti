@@ -40,7 +40,7 @@ from __future__ import annotations
 import re
 from typing import ClassVar, Optional, Pattern
 
-from packages.schemas.enums import (
+from schemas.enums import (
     BlockKind,
     HeadingLevel,
     LegalCategory,

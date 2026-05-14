@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from packages.schemas.enums import CourtType, EditorialStatus
+from schemas.enums import CourtType, EditorialStatus
 
 
 class DecisionBase(BaseModel):

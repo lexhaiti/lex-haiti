@@ -29,7 +29,7 @@ import re
 from dataclasses import dataclass, field
 from typing import ClassVar, Optional, Pattern
 
-from packages.schemas.enums import (
+from schemas.enums import (
     BlockKind,
     HeadingLevel,
     LegalCategory,

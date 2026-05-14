@@ -23,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session, selectinload
 
-from packages.schemas.enums import (
+from schemas.enums import (
     CitationNodeType,
     CitationRelation,
     CodeSubcategory,

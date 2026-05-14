@@ -12,7 +12,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from packages.schemas.enums import LegalTheme, ThemeSource
+from schemas.enums import LegalTheme, ThemeSource
 
 
 class LegalThemeTagRead(BaseModel):

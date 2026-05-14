@@ -4,9 +4,9 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from packages.schemas.article import ArticleListItem
-from packages.schemas.legal_text import LegalTextListItem
-from packages.schemas.moniteur import MoniteurIssueRead
+from schemas.article import ArticleListItem
+from schemas.legal_text import LegalTextListItem
+from schemas.moniteur import MoniteurIssueRead
 
 
 class SearchSnippet(BaseModel):

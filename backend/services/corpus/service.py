@@ -10,17 +10,17 @@ from typing import List, Literal, Optional, Sequence, Union
 
 from sqlalchemy.orm import Session
 
-from packages.schemas.article import (
+from schemas.article import (
     ArticleEmbed,
     ArticleListItem,
     ArticleRead,
     ArticleResolved,
     ArticleWithHistoryRead,
 )
-from packages.schemas.citation import CitationRead
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.decision import DecisionListItem, DecisionRead
-from packages.schemas.enums import (
+from schemas.citation import CitationRead
+from schemas.common import PaginatedResponse
+from schemas.decision import DecisionListItem, DecisionRead
+from schemas.enums import (
     ArticleStatus,
     CitationNodeType,
     CitationRelation,
@@ -32,10 +32,10 @@ from packages.schemas.enums import (
     LegalTheme,
     ThemeSource,
 )
-from packages.schemas.heading import LegalHeadingRead, TocNode
-from packages.schemas.legal_text import LegalTextListItem, LegalTextRead, MatchSnippet
-from packages.schemas.signer import LegalSignerRead
-from packages.schemas.theme import LegalThemeTagRead
+from schemas.heading import LegalHeadingRead, TocNode
+from schemas.legal_text import LegalTextListItem, LegalTextRead, MatchSnippet
+from schemas.signer import LegalSignerRead
+from schemas.theme import LegalThemeTagRead
 from services.corpus.exceptions import NotFound
 from services.corpus.models import Article, LegalText
 from services.corpus.repository import CorpusRepository
@@ -561,7 +561,7 @@ class CorpusService:
         first. Public read path for the "Versions" accordion shown on
         each formal block in the law-detail view.
         """
-        from packages.schemas.enums import BlockKind  # noqa: PLC0415
+        from schemas.enums import BlockKind  # noqa: PLC0415
         from services.corpus.models import LegalTextBlockVersion  # noqa: PLC0415
         from sqlalchemy.orm import selectinload  # noqa: PLC0415
 
@@ -598,7 +598,7 @@ class CorpusService:
         target so the frontend can group by ``change_kind`` (modified
         / added / abrogated) without N+1 fetches.
         """
-        from packages.schemas.article import LegalChangeReceivedRead  # noqa: PLC0415
+        from schemas.article import LegalChangeReceivedRead  # noqa: PLC0415
 
         text = self.repo.get_text_by_slug(slug, editorial_status=None)
         if not text:
@@ -661,7 +661,7 @@ class CorpusService:
         whichever target it touched (article or formal block) so the
         panel can render the link + label without an N+1 fetch.
         """
-        from packages.schemas.article import LegalChangeMadeRead  # noqa: PLC0415
+        from schemas.article import LegalChangeMadeRead  # noqa: PLC0415
 
         text = self.repo.get_text_by_slug(slug, editorial_status=None)
         if not text:

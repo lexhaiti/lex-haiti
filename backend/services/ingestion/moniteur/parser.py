@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 
-from packages.schemas.enums import LegalCategory
+from schemas.enums import LegalCategory
 from services.ingestion.ocr import extract_text_from_pdf
 
 # ---------------------------------------------------------------------------

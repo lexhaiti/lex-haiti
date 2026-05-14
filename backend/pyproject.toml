@@ -74,7 +74,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["api*", "services*", "packages*", "workers*"]
+include = ["api*", "services*", "schemas*", "workers*"]
 exclude = ["tests*", "migrations*", "scripts*"]
 
 [tool.ruff]
@@ -105,7 +105,7 @@ asyncio_mode = "auto"
 # change crossing a context line breaks the build instead of slipping in.
 # -----------------------------------------------------------------------
 [tool.importlinter]
-root_packages = ["api", "services", "packages", "workers"]
+root_packages = ["api", "services", "schemas", "workers"]
 # Required because some `forbidden` contracts target external packages (fastapi, starlette).
 include_external_packages = true
 
@@ -136,10 +136,10 @@ modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Layered architecture: api → services → packages"
+name = "Layered architecture: api → services → schemas"
 type = "layers"
 layers = [
     "api",
     "services",
-    "packages",
+    "schemas",
 ]

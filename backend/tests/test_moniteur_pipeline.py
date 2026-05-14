@@ -7,7 +7,7 @@ extractor which works on plain strings.
 
 from datetime import date
 
-from packages.schemas.enums import LegalCategory
+from schemas.enums import LegalCategory
 from services.ingestion.moniteur.parser import (
     detect_law_candidates,
 )
@@ -146,7 +146,7 @@ def test_profile_for_category_maps_legal_categories():
     """The category-to-profile table must cover the LegalCategory values
     the Moniteur pipeline actually emits — anything missing falls back to
     generic, which is fine but means the typ-specific logic doesn't run."""
-    from packages.schemas.enums import MoniteurDocumentType, ParserProfile
+    from schemas.enums import MoniteurDocumentType, ParserProfile
     from services.ingestion.parsers import profile_for_category
 
     # Direct mappings — the ones that have a dedicated profile.

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
 
 from api.deps import DbSession, EditorialUser
-from packages.schemas.promulgation import (
+from schemas.promulgation import (
     PromulgationCreate,
     PromulgationRead,
     PromulgationUpdate,

@@ -159,28 +159,9 @@ function formatEffectiveSince(
   return lang === 'fr' ? `En vigueur depuis le ${fmt}` : `An vigè depi ${fmt}`
 }
 
-// Modification provenance ("Modifié par X") was previously rendered
-// from a hardcoded MOCK_PROVENANCE constant. Removed — the line will
-// come back when the citation graph is wired here (inbound citations
-// of relation `modifie` against this article). Until then we don't
-// fake the provenance to visitors.
-
-// MOCK_VERSIONS deleted. VersionsPanel + ComparePanel imports remain
-// in `_panels/` so the components are ready to wire when the per-
-// article versions endpoint ships; the triggers in this file are
-// hidden in the meantime.
-
-// MOCK_OUTBOUND / MOCK_INBOUND removed: citations are now fetched live via
-// /api/v1/citations and rendered through `outboundEntries` / `inboundEntries`
-// computed in the component. See backfill_citations.py for seeding.
-//
-// RELATION_META (relation → bilingual label + colour classes) was moved
-// into the CitationColumn panel where it's consumed.
-
-// ----------------------------------------------------------------------------
 // Body renderer — handles French legal enumerations (1°, a), 1)) inside paragraphs.
 // TODO(api): once the parser produces structured enumeration data, drop the heuristic.
-
+//
 // Rich-text bodies emitted by the Tiptap editor start with a block-
 // level tag (``<p>``, ``<ul>``, etc.). The backend's HTML sanitizer
 // allowlists a tight set of tags + a single ``text-align`` style, so

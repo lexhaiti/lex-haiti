@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from packages.schemas.enums import RawDocumentStatus, RawDocumentType, RawPageStatus
+from schemas.enums import RawDocumentStatus, RawDocumentType, RawPageStatus
 
 
 class RawDocumentRead(BaseModel):

@@ -26,9 +26,9 @@ from pathlib import Path
 from sqlalchemy import select
 
 from api.db import SessionLocal
-from packages.schemas.heading import LegalHeadingRead
-from packages.schemas.signer import LegalSignerRead
-from packages.schemas.theme import LegalThemeTagRead
+from schemas.heading import LegalHeadingRead
+from schemas.signer import LegalSignerRead
+from schemas.theme import LegalThemeTagRead
 from services.corpus.export import render_docx
 from services.corpus.models import LegalText, MoniteurIssue
 from services.corpus.repository import CorpusRepository

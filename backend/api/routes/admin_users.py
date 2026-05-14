@@ -21,7 +21,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import func, select
 
 from api.deps import AdminUser, DbSession
-from packages.schemas.admin_user import (
+from schemas.admin_user import (
     AdminUserCreate,
     AdminUserRead,
     AdminUserUpdate,

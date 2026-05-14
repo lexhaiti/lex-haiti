@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from packages.schemas.enums import (
+from schemas.enums import (
     LegalCategory,
     SignatoryChamber,
     SigningCapacity,

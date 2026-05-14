@@ -3,7 +3,7 @@ uncertain. Inherits everything from BaseParser; no overrides."""
 from __future__ import annotations
 
 from .base import BaseParser
-from packages.schemas.enums import ParserProfile
+from schemas.enums import ParserProfile
 
 
 class GenericParser(BaseParser):

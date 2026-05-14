@@ -5,10 +5,10 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from packages.schemas.article import ArticleListItem
-from packages.schemas.enums import CodeSubcategory, LegalCategory, LegalStatus
-from packages.schemas.legal_text import LegalTextListItem
-from packages.schemas.search import (
+from schemas.article import ArticleListItem
+from schemas.enums import CodeSubcategory, LegalCategory, LegalStatus
+from schemas.legal_text import LegalTextListItem
+from schemas.search import (
     PaginatedSearchResponse,
     SearchHit,
     SearchSnippet,

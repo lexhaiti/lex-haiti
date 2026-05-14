@@ -8,7 +8,7 @@ pattern used for ordinary lois. ``extract_signatories`` dispatches on
 category is ``constitution``.
 """
 
-from packages.schemas.enums import (
+from schemas.enums import (
     LegalCategory,
     SignatoryChamber,
     SigningCapacity,

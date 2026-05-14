@@ -22,7 +22,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from docx.shared import Cm, Pt, RGBColor
 
-from packages.schemas.legal_text import LegalTextRead
+from schemas.legal_text import LegalTextRead
 
 from . import _common
 

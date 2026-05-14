@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from api.config import get_settings
-from packages.schemas.enums import EditorialStatus
+from schemas.enums import EditorialStatus
 from services.corpus.models import Article, ArticleVersion, LegalText
 from services.corpus.repository import CorpusRepository
 from services.corpus.themes import suggest_themes

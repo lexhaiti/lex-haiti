@@ -5,16 +5,16 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from packages.schemas.article import ArticleCreate, ArticleEmbed
-from packages.schemas.enums import (
+from schemas.article import ArticleCreate, ArticleEmbed
+from schemas.enums import (
     CodeSubcategory,
     EditorialStatus,
     LegalCategory,
     LegalStatus,
 )
-from packages.schemas.heading import LegalHeadingCreate, LegalHeadingRead
-from packages.schemas.signer import LegalSignerCreate, LegalSignerRead
-from packages.schemas.theme import LegalThemeTagRead
+from schemas.heading import LegalHeadingCreate, LegalHeadingRead
+from schemas.signer import LegalSignerCreate, LegalSignerRead
+from schemas.theme import LegalThemeTagRead
 
 
 class LegalTextBase(BaseModel):

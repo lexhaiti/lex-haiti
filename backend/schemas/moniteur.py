@@ -16,8 +16,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from packages.schemas.article import ArticleCreate
-from packages.schemas.enums import (
+from schemas.article import ArticleCreate
+from schemas.enums import (
     CodeSubcategory,
     LegalCategory,
     LegalStatus,
@@ -26,8 +26,8 @@ from packages.schemas.enums import (
     MoniteurIssueStatus,
     ParserProfile,
 )
-from packages.schemas.heading import LegalHeadingCreate
-from packages.schemas.signer import LegalSignerCreate
+from schemas.heading import LegalHeadingCreate
+from schemas.signer import LegalSignerCreate
 
 
 class MoniteurIssueBase(BaseModel):

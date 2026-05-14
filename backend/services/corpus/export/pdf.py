@@ -24,7 +24,7 @@ if sys.platform == "darwin":
 from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E402
 from weasyprint import HTML  # noqa: E402
 
-from packages.schemas.legal_text import LegalTextRead  # noqa: E402
+from schemas.legal_text import LegalTextRead  # noqa: E402
 
 from . import _common  # noqa: E402
 

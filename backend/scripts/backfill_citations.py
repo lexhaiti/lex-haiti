@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from api.config import get_settings
-from packages.schemas.enums import (
+from schemas.enums import (
     CitationNodeType,
     CitationRelation,
     EditorialStatus,

@@ -4,9 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, Query
 
 from api.deps import CorpusServiceDep
-from packages.schemas.common import PaginatedResponse
-from packages.schemas.decision import DecisionListItem, DecisionRead
-from packages.schemas.enums import CourtType
+from schemas.common import PaginatedResponse
+from schemas.decision import DecisionListItem, DecisionRead
+from schemas.enums import CourtType
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
 

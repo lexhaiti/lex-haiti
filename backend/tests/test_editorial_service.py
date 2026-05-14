@@ -23,10 +23,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from packages.schemas.article import ArticleCreate, ArticleVersionCreate
-from packages.schemas.enums import ArticleStatus, EditorialStatus, LegalCategory, LegalStatus
-from packages.schemas.heading import LegalHeadingCreate
-from packages.schemas.legal_text import LegalTextCreate
+from schemas.article import ArticleCreate, ArticleVersionCreate
+from schemas.enums import ArticleStatus, EditorialStatus, LegalCategory, LegalStatus
+from schemas.heading import LegalHeadingCreate
+from schemas.legal_text import LegalTextCreate
 from services.corpus.exceptions import AlreadyExists, InvalidInput, NotFound
 
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from packages.schemas.enums import BlockKind, LegalCategory, ParserProfile
+from schemas.enums import BlockKind, LegalCategory, ParserProfile
 
 from .base import BaseParser, ParserContext, ParsedTocNode, ParserOutput
 

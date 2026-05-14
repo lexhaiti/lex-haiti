@@ -14,7 +14,7 @@ from sqlalchemy import cast, desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.types import String
 
-from packages.schemas.enums import (
+from schemas.enums import (
     BlockKind,
     EditorialStatus,
     LegalCategory,
@@ -275,7 +275,7 @@ class MoniteurRepository:
         return self.session.execute(stmt).scalar_one_or_none()
 
     # Inverse French-month map for slug parsing. Mirrors the one in
-    # ``packages.schemas.moniteur`` so slugs round-trip cleanly.
+    # ``schemas.moniteur`` so slugs round-trip cleanly.
     _SLUG_MONTHS = {
         "janvier": 1, "fevrier": 2, "fevrier": 2, "mars": 3,
         "avril": 4, "mai": 5, "juin": 6, "juillet": 7,
@@ -512,7 +512,7 @@ class MoniteurRepository:
         accepted + promoted so the issue lifecycle rolls forward to
         ``published`` once every entry is in a terminal state.
         """
-        from packages.schemas.legal_text import LegalTextCreate
+        from schemas.legal_text import LegalTextCreate
         from services.editorial.service import EditorialService
 
         service = EditorialService(self.session)

@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 
 from api.deps import DbSession
-from packages.schemas.common import CorpusStats
+from schemas.common import CorpusStats
 from services.corpus.repository import CorpusRepository
 from services.ingestion.moniteur.repository import MoniteurRepository
 

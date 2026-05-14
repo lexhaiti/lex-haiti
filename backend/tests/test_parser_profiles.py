@@ -7,7 +7,7 @@ as an annex; Lois use the implicit-preamble + Vu/Considérant pattern;
 etc.
 """
 
-from packages.schemas.enums import BlockKind, LegalCategory, ParserProfile
+from schemas.enums import BlockKind, LegalCategory, ParserProfile
 from services.ingestion.parsers import (
     ParserContext,
     get_parser,

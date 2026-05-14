@@ -9,7 +9,7 @@ block.
 """
 from __future__ import annotations
 
-from packages.schemas.enums import LegalCategory, ParserProfile
+from schemas.enums import LegalCategory, ParserProfile
 
 from .base import BaseParser
 

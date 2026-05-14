@@ -15,7 +15,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from packages.schemas.enums import BlockKind, EditorialStatus
+from schemas.enums import BlockKind, EditorialStatus
 
 
 class BlockVersionRead(BaseModel):
