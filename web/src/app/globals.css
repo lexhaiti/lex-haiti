@@ -194,6 +194,76 @@ button:focus-visible {
         @apply text-lg leading-[1.8] text-foreground/85;
     }
 
+    /* Rich-text article bodies (Tiptap output + Word/PDF paste).
+       Tailwind's preflight zeroes out the default <p> margins, which
+       makes the paragraphs visually run together when we drop HTML
+       through ``dangerouslySetInnerHTML``. Re-introduce the spacing
+       that Word's style hierarchy normally carries: a default ``after``
+       gap on every paragraph, a slightly bigger ``before`` on bolded
+       headings, plus paragraph-level indent classes ``.indent`` and
+       ``.legal-list`` (emitted by mammoth/our backend sanitizer
+       allowlist). Inline ``margin-left`` styles from the Tiptap
+       paragraph-indent extension still win over the class default. */
+    .article-html > p {
+        margin: 0 0 0.6em 0;
+    }
+    .article-html > p:last-child {
+        margin-bottom: 0;
+    }
+    .article-html > p.heading {
+        font-weight: 600;
+        margin-top: 1em;
+        margin-bottom: 0.35em;
+    }
+    .article-html > p.indent,
+    .article-html > p.legal-list {
+        margin-left: 1.75em;
+    }
+    .article-html > p.legal-list {
+        margin-bottom: 0.35em;
+    }
+    .article-html strong {
+        font-weight: 600;
+    }
+    .article-html em {
+        font-style: italic;
+    }
+    .article-html ul,
+    .article-html ol {
+        margin: 0 0 0.6em 1.5em;
+        padding-left: 1em;
+    }
+    .article-html li {
+        margin-bottom: 0.25em;
+    }
+    .article-html ul {
+        list-style: disc;
+    }
+    .article-html ol {
+        list-style: decimal;
+    }
+
+    /* Formal-block HTML (préambule / visas / considérants / enacting)
+       uses a similar but lighter scale — these blocks are typically
+       shorter than article bodies, so 0.5em paragraph spacing reads
+       better. */
+    .formal-block-html > p {
+        margin: 0 0 0.5em 0;
+    }
+    .formal-block-html > p:last-child {
+        margin-bottom: 0;
+    }
+    .formal-block-html > p.indent,
+    .formal-block-html > p.legal-list {
+        margin-left: 1.75em;
+    }
+    .formal-block-html strong {
+        font-weight: 600;
+    }
+    .formal-block-html em {
+        font-style: italic;
+    }
+
     /* Smooth scrolling */
     html {
         scroll-behavior: smooth;
