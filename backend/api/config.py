@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     api_prefix: str = "/api"
 
+    # ``development`` (default — keeps localhost in the CORS allowlist)
+    # or ``production`` (drops every non-https origin from the allowlist
+    # so a tight CORS policy is the default in prod). Set
+    # ``APP_ENV=production`` on the Container App env vars.
+    app_env: str = "development"
+
     # Database
     database_url: str = (
         "postgresql+psycopg2://lexhaiti:lexhaiti@localhost:5432/lexhaiti"
@@ -34,9 +40,13 @@ class Settings(BaseSettings):
     s3_bucket: str = "lexhaiti-dev"
     s3_region: str = "us-east-1"
 
-    # CORS — production-by-default. Override via ``ALLOWED_ORIGINS``
-    # env var (JSON list) when running on a non-default frontend
-    # surface, e.g. a Vercel preview branch with a generated subdomain.
+    # CORS — full list of origins the API is willing to talk to. The
+    # default carries both localhost (for dev) and the prod Vercel
+    # surfaces; ``cors_origins`` below filters this down at runtime
+    # based on ``app_env``, so production never echoes ``http://``
+    # back even if a stray localhost entry slipped in. Override via
+    # ``ALLOWED_ORIGINS`` env var (JSON list) when adding a Vercel
+    # preview branch or a partner subdomain.
     allowed_origins: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -48,6 +58,20 @@ class Settings(BaseSettings):
     # Public site URL — used to build canonical permalinks embedded in
     # exported PDF/DOCX (so a printed copy points back to the live page).
     public_site_url: str = "http://localhost:3000"
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Effective CORS allowlist, post-environment filtering.
+
+        Production strips out every ``http://`` origin (the cleartext
+        localhost entries) so a misconfigured env var can't accidentally
+        let a non-TLS frontend talk to the prod API. Dev gets the full
+        list so editors running `make web-dev` against `make dev`
+        keep working without ceremony.
+        """
+        if self.app_env.lower() in ("production", "prod"):
+            return [o for o in self.allowed_origins if o.startswith("https://")]
+        return list(self.allowed_origins)
 
 
 @lru_cache

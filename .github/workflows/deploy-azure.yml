@@ -65,18 +65,24 @@ jobs:
           cache-to: type=inline
 
       - name: Roll API to new revision
+        # ``--set-env-vars APP_ENV=production`` is idempotent — the
+        # backend reads this flag to drop ``http://localhost`` from
+        # the CORS allowlist, so it's worth re-asserting on every
+        # deploy in case the value gets cleared by a manual edit.
         run: |
           az containerapp update \
             --name "${{ secrets.AZURE_API_APP }}" \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ steps.tags.outputs.image_sha }}"
+            --image "${{ steps.tags.outputs.image_sha }}" \
+            --set-env-vars APP_ENV=production
 
       - name: Roll worker to new revision
         run: |
           az containerapp update \
             --name "${{ secrets.AZURE_WORKER_APP }}" \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ steps.tags.outputs.image_sha }}"
+            --image "${{ steps.tags.outputs.image_sha }}" \
+            --set-env-vars APP_ENV=production
 
       - name: Run Alembic migrations
         # One-off container job using the new image. Keeps migrations

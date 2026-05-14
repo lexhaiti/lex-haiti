@@ -114,7 +114,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        # ``cors_origins`` filters ``allowed_origins`` based on
+        # ``app_env`` — production drops every ``http://`` entry so a
+        # cleartext localhost can never preflight against the live API.
+        allow_origins=settings.cors_origins,
         allow_credentials=True,  # required so Auth.js cookies travel to the API
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
