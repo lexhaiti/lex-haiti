@@ -69,12 +69,19 @@ echo "→ Checking local connectivity"
 docker exec "$LH_LOCAL_DB_CONTAINER" pg_isready -U "$LH_LOCAL_DB_USER" -d "$LH_LOCAL_DB_NAME" >/dev/null
 
 echo "→ Checking prod connectivity"
-PGPASSWORD="$LH_DB_ADMIN_PWD" psql \
+docker exec -i -e PGPASSWORD="$LH_DB_ADMIN_PWD" "$LH_LOCAL_DB_CONTAINER" psql \
   "host=$PROD_HOST port=5432 user=$LH_DB_ADMIN_USER dbname=$LH_DB_NAME sslmode=require" \
   -c "SELECT 1;" >/dev/null
 
 echo "→ Dumping local public_corpus and piping into prod"
 
+# Both pg_dump and psql run inside the existing local Postgres
+# container — that's where the pg-client binaries live on a typical
+# Mac dev box (the host doesn't usually have psql on PATH). The
+# container has outbound network access, so it can reach the Azure
+# Flexible Server fine; the password is passed via -e so it never
+# lands on the shell command line of any other process.
+#
 # pg_dump flags:
 #   --schema=public_corpus    only the legal-graph schema
 #   --clean --if-exists       prefix the script with DROP IF EXISTS
@@ -88,14 +95,14 @@ docker exec "$LH_LOCAL_DB_CONTAINER" pg_dump \
   --clean --if-exists \
   --no-owner --no-privileges \
   --no-publications --no-subscriptions \
-| PGPASSWORD="$LH_DB_ADMIN_PWD" psql \
+| docker exec -i -e PGPASSWORD="$LH_DB_ADMIN_PWD" "$LH_LOCAL_DB_CONTAINER" psql \
     "host=$PROD_HOST port=5432 user=$LH_DB_ADMIN_USER dbname=$LH_DB_NAME sslmode=require" \
     --set=ON_ERROR_STOP=on \
     -v VERBOSITY=terse \
     -q
 
 echo "→ Sync complete. Sanity check:"
-PGPASSWORD="$LH_DB_ADMIN_PWD" psql \
+docker exec -i -e PGPASSWORD="$LH_DB_ADMIN_PWD" "$LH_LOCAL_DB_CONTAINER" psql \
   "host=$PROD_HOST port=5432 user=$LH_DB_ADMIN_USER dbname=$LH_DB_NAME sslmode=require" \
   -c "
     SELECT 'legal_texts'   AS table, COUNT(*) FROM public_corpus.legal_texts
