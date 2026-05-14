@@ -170,17 +170,19 @@ export function EditableFormalBlock({
   const showCompareChip = canVersion && (isEditor || versions.length >= 2)
   const canCompare = versions.length >= 2
 
-  const currentVersionPill = (() => {
+  // Current (live) version object — used both for the header pill and
+  // for the "Modifié par <X>" line shown inside the expanded body when
+  // the live version was introduced by an amending law.
+  const liveVersion = (() => {
     if (versions.length === 0) return null
-    // The "current" version is the latest published one; fall back to
-    // the most recent row when nothing is published yet.
-    const live =
-      versions.find((v) => v.editorial_status === 'published') ?? versions[0]
-    return {
-      number: live.version_number,
-      from: live.effective_from ?? null,
-    }
+    return versions.find((v) => v.editorial_status === 'published') ?? versions[0]
   })()
+  const currentVersionPill = liveVersion
+    ? {
+        number: liveVersion.version_number,
+        from: liveVersion.effective_from ?? null,
+      }
+    : null
 
   // Compact variant — unchanged from before; the redesign focuses on
   // the collapsible accordion.
@@ -368,6 +370,32 @@ export function EditableFormalBlock({
             className="overflow-hidden"
           >
             <div className="px-5 pb-5 pt-1">
+              {/* "Modifié par X · En vigueur depuis Y" line — shows
+                  whenever the live version was introduced by an
+                  amending law. Matches the article-viewer pattern. */}
+              {!editing && liveVersion?.source_amendment_slug && (
+                <p className="mb-3 text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                  <span>
+                    {isFr ? 'Modifié par ' : 'Modifye pa '}
+                    <a
+                      href={`/loi/${liveVersion.source_amendment_slug}`}
+                      className="font-semibold text-primary hover:underline underline-offset-2"
+                    >
+                      {liveVersion.source_amendment_title_fr ??
+                        (isFr ? 'la loi modifiante' : 'lwa modifikatè a')}
+                    </a>
+                  </span>
+                  {liveVersion.effective_from && (
+                    <>
+                      <span className="text-slate-300">·</span>
+                      <span className="italic">
+                        {isFr ? 'En vigueur depuis le ' : 'An vigè depi '}
+                        {liveVersion.effective_from}
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
               {/* Action row — sits between the header and the content
                   so affordances are obvious without scrolling. The
                   chip set adapts: public sees Versions/Comparer only

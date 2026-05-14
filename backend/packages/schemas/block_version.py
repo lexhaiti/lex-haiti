@@ -30,6 +30,12 @@ class BlockVersionRead(BaseModel):
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
     source_amendment_id: Optional[int] = None
+    # When source_amendment_id is populated, the service resolves the
+    # amending law's slug + title alongside it so the formal-block
+    # accordion can render a "Modifié par X" line inline without a
+    # second fetch.
+    source_amendment_slug: Optional[str] = None
+    source_amendment_title_fr: Optional[str] = None
     editorial_status: EditorialStatus
     created_at: datetime
     updated_at: datetime

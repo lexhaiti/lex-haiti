@@ -2088,6 +2088,10 @@ export interface components {
             effective_to?: string | null;
             /** Source Amendment Id */
             source_amendment_id?: number | null;
+            /** Source Amendment Slug */
+            source_amendment_slug?: string | null;
+            /** Source Amendment Title Fr */
+            source_amendment_title_fr?: string | null;
             editorial_status: components["schemas"]["EditorialStatus"];
             /**
              * Created At

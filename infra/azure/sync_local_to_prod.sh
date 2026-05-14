@@ -31,6 +31,12 @@ set -euo pipefail
 : "${LH_LOCAL_DB_CONTAINER:=lexhaiti-db}"
 : "${LH_LOCAL_DB_USER:=lexhaiti}"
 : "${LH_LOCAL_DB_NAME:=lexhaiti}"
+# Default to the current prod server. Azure appended a 6-char unique
+# suffix when the server was reprovisioned; override LH_DB_SERVER
+# from the caller's env if it ever changes again.
+: "${LH_DB_SERVER:=lex-haiti-db-785ece}"
+: "${LH_DB_NAME:=lexhaiti}"
+: "${LH_DB_ADMIN_USER:=lhadmin}"
 
 require() {
   if [ -z "${!1:-}" ]; then

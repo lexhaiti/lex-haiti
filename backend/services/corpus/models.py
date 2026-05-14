@@ -1280,6 +1280,14 @@ class LegalTextBlockVersion(Base):
             f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL"
         )
     )
+    # Read-only relationship for the API embed — mirrors the one on
+    # ArticleVersion. Bulk read paths opt-in via selectinload so the
+    # "Modifié par X" line on the formal-block accordion comes back
+    # without N+1.
+    source_amendment: Mapped[Optional["LegalText"]] = relationship(
+        "LegalText",
+        foreign_keys=[source_amendment_id],
+    )
     editorial_status: Mapped[EditorialStatus] = mapped_column(
         _enum(EditorialStatus, "editorial_status"),
         nullable=False,
@@ -1294,6 +1302,28 @@ class LegalTextBlockVersion(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    @property
+    def source_amendment_slug(self) -> Optional[str]:
+        """Convenience accessor used by ``BlockVersionRead`` so the
+        API embeds the amending law's slug without a separate lookup.
+        Returns ``None`` when ``source_amendment`` isn't eager-loaded
+        or no amending text is set."""
+        if self.source_amendment_id is None:
+            return None
+        try:
+            return self.source_amendment.slug if self.source_amendment else None
+        except Exception:
+            return None
+
+    @property
+    def source_amendment_title_fr(self) -> Optional[str]:
+        if self.source_amendment_id is None:
+            return None
+        try:
+            return self.source_amendment.title_fr if self.source_amendment else None
+        except Exception:
+            return None
 
 
 class LegalChange(Base):

@@ -567,6 +567,7 @@ export const fr = {
     hideHistory: "Masquer l'historique",
     amendedBy: 'Modifié par',
     inForceSince: 'En vigueur depuis le',
+    showAll: 'Tout afficher',
     sections: {
       modified: {
         title: 'Articles modifiés',

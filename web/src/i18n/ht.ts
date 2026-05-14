@@ -555,6 +555,7 @@ export const ht = {
     hideHistory: 'Kache istwa a',
     amendedBy: 'Modifye pa',
     inForceSince: 'An vigè depi',
+    showAll: 'Montre tout',
     sections: {
       modified: {
         title: 'Atik modifye yo',

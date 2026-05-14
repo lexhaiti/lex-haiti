@@ -342,22 +342,9 @@ export type FormalBlockKind =
   | 'considerant'
   | 'enacting_formula'
 
-/** One row of a formal block's version timeline. Mirrors the backend
- *  ``BlockVersionRead`` shape. */
-export type BlockVersionRead = {
-  id: number
-  legal_text_id: number
-  block_kind: FormalBlockKind
-  version_number: number
-  text_fr: string | null
-  text_ht: string | null
-  effective_from: string | null
-  effective_to: string | null
-  source_amendment_id: number | null
-  editorial_status: 'draft' | 'pending_review' | 'published' | 'rejected'
-  created_at: string
-  updated_at: string
-}
+/** One row of a formal block's version timeline. Derived from the
+ *  OpenAPI spec so backend additions flow through automatically. */
+export type BlockVersionRead = components['schemas']['BlockVersionRead']
 
 /** Version history for a formal block — newest first. */
 export async function listBlockVersions(slug: string, kind: FormalBlockKind) {

@@ -463,6 +463,7 @@ class CorpusService:
         """
         from packages.schemas.enums import BlockKind  # noqa: PLC0415
         from services.corpus.models import LegalTextBlockVersion  # noqa: PLC0415
+        from sqlalchemy.orm import selectinload  # noqa: PLC0415
 
         valid = {
             BlockKind.preamble,
@@ -479,6 +480,7 @@ class CorpusService:
             raise NotFound(f"LegalText not found: {slug}")
         rows = (
             self.session.query(LegalTextBlockVersion)
+            .options(selectinload(LegalTextBlockVersion.source_amendment))
             .filter(
                 LegalTextBlockVersion.legal_text_id == text.id,
                 LegalTextBlockVersion.block_kind == block_kind,

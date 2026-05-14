@@ -11,9 +11,11 @@
  * other editorial KPIs (drafts pending review, OCR queue depth, etc.).
  */
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   ArrowRight,
+  CalendarRange,
   FileText,
   Languages,
   Loader2,
@@ -27,9 +29,13 @@ import { useEditorMode } from '@/lib/hooks/useEditorMode'
 import { useT } from '@/i18n/useT'
 import {
   getTranslationStats,
+  listTexts,
   type TranslationStats,
 } from '@/lib/api/endpoints'
+import type { components } from '@/lib/api-types'
 import { cn } from '@/lib/utils'
+
+type LegalTextListItem = components['schemas']['LegalTextListItem']
 
 export default function EditorialDashboardPage() {
   const { isEditor, status } = useEditorMode()
@@ -38,6 +44,7 @@ export default function EditorialDashboardPage() {
 
   const [stats, setStats] = useState<TranslationStats | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [allLaws, setAllLaws] = useState<LegalTextListItem[] | null>(null)
 
   useEffect(() => {
     if (!isEditor) return
@@ -49,10 +56,43 @@ export default function EditorialDashboardPage() {
       .catch((e) => {
         if (!cancelled) setErr(e?.message ?? String(e))
       })
+    // Fetch the full corpus listing for the "Tous les textes par
+    // année" section. Default sort puts the newest publication_date
+    // first, which is exactly what an editor wants when scanning
+    // recent additions to the corpus.
+    listTexts({ limit: 500, sort: 'publication_date' })
+      .then((res) => {
+        if (!cancelled) setAllLaws(res.items ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setAllLaws([])
+      })
     return () => {
       cancelled = true
     }
   }, [isEditor])
+
+  // Group laws by their publication year. Texts without a date land
+  // in a trailing "(année inconnue)" bucket so the editor can spot
+  // and fix them rather than have them silently disappear.
+  const lawsByYear = useMemo(() => {
+    if (!allLaws) return null
+    const groups = new Map<string, LegalTextListItem[]>()
+    for (const law of allLaws) {
+      const year = law.publication_date
+        ? law.publication_date.slice(0, 4)
+        : '—'
+      const bucket = groups.get(year) ?? []
+      bucket.push(law)
+      groups.set(year, bucket)
+    }
+    return Array.from(groups.entries()).sort((a, b) => {
+      // Numeric years descending; unknown year always last.
+      if (a[0] === '—') return 1
+      if (b[0] === '—') return -1
+      return Number(b[0]) - Number(a[0])
+    })
+  }, [allLaws])
 
   if (status === 'loading') {
     return (
@@ -83,24 +123,44 @@ export default function EditorialDashboardPage() {
   }
 
   return (
-    <div className="container py-10 lg:py-12 space-y-8">
-      <Breadcrumb
-        variant="light"
-        items={[
-          { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
-          { label: isFr ? 'Éditorial' : 'Editoryal' },
-        ]}
-      />
+    <div className="min-h-screen bg-white">
+      {/* Navy hero band — matches the law-detail / amendements pages
+          so the editor dashboard reads as part of the same surface. */}
+      <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
+        </div>
+        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-12 lg:py-20 pt-28 lg:pt-36">
+          <Breadcrumb
+            className="mb-6"
+            items={[
+              { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
+              { label: isFr ? 'Éditorial' : 'Editoryal' },
+            ]}
+          />
+          <motion.h1
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
+          >
+            {isFr ? 'Pipeline éditorial' : 'Pipeline editoryal'}
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl"
+          >
+            {isFr
+              ? 'Tableau de bord pour la curation du corpus juridique haïtien — imports, traductions, et inventaire des textes.'
+              : 'Tablo pou kirate kòpis jiridik ayisyen — enpòtasyon, tradiksyon, ak envantè tèks yo.'}
+          </motion.p>
+        </div>
+      </div>
 
-      <header>
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
-          {isFr ? 'Tableau de bord' : 'Tablo'}
-        </p>
-        <h1 className="text-2xl lg:text-3xl font-black text-slate-900 leading-tight">
-          {isFr ? 'Pipeline éditorial' : 'Pipeline editoryal'}
-        </h1>
-      </header>
-
+      <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-10 lg:py-12 space-y-10">
       {/* Quick actions */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <DashboardCard
@@ -221,6 +281,66 @@ export default function EditorialDashboardPage() {
           </div>
         </section>
       )}
+
+      {/* All laws grouped by publication year — quick inventory for
+          editors. Each title links to its detail page. Year header is
+          sticky-ish via spacing so even with hundreds of texts the
+          page reads as scannable columns. */}
+      <section className="space-y-3">
+        <header className="flex items-center gap-2">
+          <CalendarRange className="w-4 h-4 text-slate-400" />
+          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+            {isFr ? 'Tous les textes par année' : 'Tout tèks pa ane'}
+          </h2>
+          {allLaws && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
+              {allLaws.length}
+            </span>
+          )}
+        </header>
+        {lawsByYear === null ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+            <Loader2 className="inline w-4 h-4 animate-spin mr-2" />
+            {isFr ? 'Chargement…' : 'Chaje…'}
+          </div>
+        ) : lawsByYear.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">
+            {isFr ? 'Aucun texte au corpus.' : 'Pa gen tèks nan kòpis la.'}
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {lawsByYear.map(([year, items]) => (
+              <div key={year}>
+                <div className="flex items-baseline gap-3 mb-2 pb-1.5 border-b border-slate-100">
+                  <span className="text-2xl font-black text-slate-300 tabular-nums leading-none">
+                    {year}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 tabular-nums">
+                    {items.length}{' '}
+                    {items.length === 1
+                      ? isFr ? 'texte' : 'tèks'
+                      : isFr ? 'textes' : 'tèks'}
+                  </span>
+                </div>
+                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
+                  {items.map((law) => (
+                    <li key={law.id} className="text-sm leading-relaxed">
+                      <Link
+                        href={`/loi/${law.slug}`}
+                        className="text-slate-700 hover:text-primary hover:underline underline-offset-2"
+                      >
+                        {(isFr ? law.title_fr : (law.title_ht || law.title_fr)) ||
+                          law.slug}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      </div>
     </div>
   )
 }

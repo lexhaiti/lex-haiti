@@ -176,6 +176,12 @@ export default function AmendementsPage() {
   >(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Section filter — null = show all three; otherwise isolate to one.
+  // Driven by the stat tiles in the hero (click to filter, click the
+  // active one again to clear).
+  const [filter, setFilter] = useState<
+    'modified' | 'added' | 'abrogated' | null
+  >(null)
 
   useEffect(() => {
     if (!slug) return
@@ -267,29 +273,52 @@ export default function AmendementsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl"
+              className="mt-8 space-y-3 max-w-3xl"
             >
-              <StatTile
-                count={modified.length}
-                labelKey="amendments.sections.modified.short"
-                color="emerald"
-                Icon={FileText}
-                t={t}
-              />
-              <StatTile
-                count={added.length}
-                labelKey="amendments.sections.added.short"
-                color="sky"
-                Icon={Plus}
-                t={t}
-              />
-              <StatTile
-                count={abrogated.length}
-                labelKey="amendments.sections.abrogated.short"
-                color="rose"
-                Icon={XCircle}
-                t={t}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <StatTile
+                  count={modified.length}
+                  labelKey="amendments.sections.modified.short"
+                  color="emerald"
+                  Icon={FileText}
+                  active={filter === 'modified'}
+                  onClick={() =>
+                    setFilter((f) => (f === 'modified' ? null : 'modified'))
+                  }
+                  t={t}
+                />
+                <StatTile
+                  count={added.length}
+                  labelKey="amendments.sections.added.short"
+                  color="sky"
+                  Icon={Plus}
+                  active={filter === 'added'}
+                  onClick={() =>
+                    setFilter((f) => (f === 'added' ? null : 'added'))
+                  }
+                  t={t}
+                />
+                <StatTile
+                  count={abrogated.length}
+                  labelKey="amendments.sections.abrogated.short"
+                  color="rose"
+                  Icon={XCircle}
+                  active={filter === 'abrogated'}
+                  onClick={() =>
+                    setFilter((f) => (f === 'abrogated' ? null : 'abrogated'))
+                  }
+                  t={t}
+                />
+              </div>
+              {filter !== null && (
+                <button
+                  type="button"
+                  onClick={() => setFilter(null)}
+                  className="text-[11px] font-semibold uppercase tracking-widest text-slate-300 hover:text-white transition-colors inline-flex items-center gap-1.5"
+                >
+                  ← {t('amendments.showAll')}
+                </button>
+              )}
             </motion.div>
           )}
         </div>
@@ -314,7 +343,10 @@ export default function AmendementsPage() {
           />
         )}
 
-        {!loading && !error && modified.length > 0 && (
+        {!loading &&
+          !error &&
+          modified.length > 0 &&
+          (filter === null || filter === 'modified') && (
           <Section
             id="modifies"
             title={t('amendments.sections.modified.title')}
@@ -342,7 +374,10 @@ export default function AmendementsPage() {
           </Section>
         )}
 
-        {!loading && !error && added.length > 0 && (
+        {!loading &&
+          !error &&
+          added.length > 0 &&
+          (filter === null || filter === 'added') && (
           <Section
             id="ajoutes"
             title={t('amendments.sections.added.title')}
@@ -359,7 +394,10 @@ export default function AmendementsPage() {
           </Section>
         )}
 
-        {!loading && !error && abrogated.length > 0 && (
+        {!loading &&
+          !error &&
+          abrogated.length > 0 &&
+          (filter === null || filter === 'abrogated') && (
           <Section
             id="abroges"
             title={t('amendments.sections.abrogated.title')}
@@ -396,21 +434,38 @@ function StatTile({
   labelKey,
   color,
   Icon,
+  active,
+  onClick,
   t,
 }: {
   count: number
   labelKey: string
   color: 'emerald' | 'sky' | 'rose'
   Icon: React.ComponentType<{ className?: string }>
+  active?: boolean
+  onClick?: () => void
   t: Tr
 }) {
   const colorCls = {
-    emerald: 'bg-emerald-500/10 border-emerald-300/30 text-emerald-200',
-    sky: 'bg-sky-500/10 border-sky-300/30 text-sky-200',
-    rose: 'bg-rose-500/10 border-rose-300/30 text-rose-200',
+    emerald: 'bg-emerald-500/10 border-emerald-300/30 text-emerald-200 hover:bg-emerald-500/15 hover:border-emerald-300/50',
+    sky: 'bg-sky-500/10 border-sky-300/30 text-sky-200 hover:bg-sky-500/15 hover:border-sky-300/50',
+    rose: 'bg-rose-500/10 border-rose-300/30 text-rose-200 hover:bg-rose-500/15 hover:border-rose-300/50',
+  }[color]
+  const activeColorCls = {
+    emerald: 'bg-emerald-500/25 border-emerald-300 text-white ring-2 ring-emerald-300/50',
+    sky: 'bg-sky-500/25 border-sky-300 text-white ring-2 ring-sky-300/50',
+    rose: 'bg-rose-500/25 border-rose-300 text-white ring-2 ring-rose-300/50',
   }[color]
   return (
-    <div className={cn('rounded-xl border px-4 py-3 flex items-center gap-3', colorCls)}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'rounded-xl border px-4 py-3 flex items-center gap-3 text-left transition-all',
+        active ? activeColorCls : colorCls,
+      )}
+    >
       <Icon className="w-5 h-5 flex-shrink-0" />
       <div className="min-w-0">
         <div className="text-2xl font-black text-white leading-none tabular-nums">
@@ -420,7 +475,7 @@ function StatTile({
           {t(labelKey)}
         </div>
       </div>
-    </div>
+    </button>
   )
 }
 
