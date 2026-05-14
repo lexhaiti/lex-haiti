@@ -23,12 +23,11 @@ const QUICK_STATS_BY_SUBCATEGORY: Partial<
   ],
 }
 
-const QUICK_STATS_BY_SLUG: Record<string, [LawStat, LawStat]> = {
-  'constitution-1987': [
-    { label: 'Année', value: 1987 },
-    { label: 'Version', value: 2024 },
-  ],
-}
+// Slug-pinned overrides for high-profile texts whose default stats
+// don't tell the right story. Empty for now — the Constitution used
+// to hard-code "Version: 2024" here, but the real legal_status pulled
+// from the row reads better ("Statut: En vigueur" via fallbackStats).
+const QUICK_STATS_BY_SLUG: Record<string, [LawStat, LawStat]> = {}
 
 function yearFromDate(d: string | null | undefined): string | number {
   if (!d) return '—'

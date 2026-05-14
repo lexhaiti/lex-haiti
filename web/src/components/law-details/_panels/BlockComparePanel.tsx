@@ -95,7 +95,7 @@ export function BlockComparePanel({ versions, isFr }: BlockComparePanelProps) {
   const isSameVersion = fromId === toId
 
   return (
-    <div className="mt-3 px-5 py-5 bg-slate-50/60 border border-slate-200 rounded-lg">
+    <div className="mt-4 pt-4 border-t border-slate-100">
       <p className="text-xs text-slate-500 mb-4">
         {isFr
           ? 'Sélectionnez deux versions pour comparer.'

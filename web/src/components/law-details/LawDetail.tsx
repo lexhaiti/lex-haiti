@@ -608,42 +608,14 @@ export default function LawDetail() {
                         {articleCounts.total}{' '}
                         {t('lawDetail.meta.articles')}
                       </span>
-                      {/* Inline breakdown so the math is readable
-                          without opening the tooltip:
-                            498 articles · 29 abrogés · 527 entrées
-                          Only renders when there are abrogations or
-                          bis insertions — simple laws stay clean. */}
-                      {(articleCounts.abrogated > 0 ||
-                        (articleCounts.highestNumber > 0 &&
-                          articleCounts.total + articleCounts.abrogated !==
-                            articleCounts.highestNumber)) && (
-                        <span className="ml-1 text-[11px] font-normal text-slate-400 normal-case tracking-normal">
-                          ·{' '}
-                          {articleCounts.abrogated > 0 && (
-                            <>
-                              {articleCounts.abrogated} abrogé
-                              {articleCounts.abrogated > 1 ? 's' : ''}{' '}
-                              ·{' '}
-                            </>
-                          )}
-                          {articleCounts.total + articleCounts.abrogated}{' '}
-                          entrées au total
-                        </span>
-                      )}
-                      {/* Info tooltip — surfaced when the total count
-                          differs from the highest visible article
-                          number (dash-suffixed insertions like 35-1
-                          push the number up without renumbering) or
-                          when abrogated articles are excluded from the
-                          headline total. Stays hidden on simple laws
-                          where neither caveat applies. */}
+                      {/* Click-revealed breakdown — combines what used
+                          to be inline-text + hover-tooltip into a
+                          single click target. Works on touch devices
+                          (Radix Tooltip does not). Surfaces only when
+                          there's actually something to explain: either
+                          abrogated articles excluded from the headline
+                          or bis-style insertions inflating the count. */}
                       {(() => {
-                        // Raw count = every article row, abrogated
-                        // included. Compared against the highest visible
-                        // article number to detect bis-style insertions
-                        // ("35-1", "35-2"…). Abrogated exclusion is
-                        // tracked separately so the two reasons don't
-                        // get tangled.
                         const rawCount =
                           articleCounts.total + articleCounts.abrogated
                         const numberingMismatch =
@@ -652,94 +624,114 @@ export default function LawDetail() {
                         const hasAbrogated = articleCounts.abrogated > 0
                         if (!numberingMismatch && !hasAbrogated) return null
                         return (
-                          <TooltipProvider delayDuration={150}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  type="button"
-                                  aria-label={
-                                    currentLang === 'fr'
-                                      ? 'Pourquoi ce nombre ?'
-                                      : 'Poukisa nimewo sa ?'
-                                  }
-                                  className="text-slate-400 hover:text-white transition-colors"
-                                >
-                                  <Info className="w-3.5 h-3.5" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="bottom"
-                                className="max-w-xs text-left"
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={
+                                  currentLang === 'fr'
+                                    ? 'Détails du décompte'
+                                    : 'Detay konte a'
+                                }
+                                className="ml-0.5 text-slate-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-full"
                               >
-                                <div className="text-xs leading-relaxed space-y-2">
-                                  {numberingMismatch &&
-                                    (currentLang === 'fr' ? (
-                                      <p>
-                                        Le dernier article est numéroté{' '}
-                                        <span className="font-bold">
-                                          {articleCounts.highestNumber}
-                                        </span>
-                                        , mais le texte contient{' '}
-                                        <span className="font-bold">
-                                          {rawCount}
-                                        </span>{' '}
-                                        entrées : les amendements
-                                        insèrent des articles « bis »
-                                        (35-1, 35-2…) sans renuméroter
-                                        ce qui suit.
-                                      </p>
-                                    ) : (
-                                      <p>
-                                        Dènye atik la nimewote{' '}
-                                        <span className="font-bold">
-                                          {articleCounts.highestNumber}
-                                        </span>
-                                        , men tèks la gen{' '}
-                                        <span className="font-bold">
-                                          {rawCount}
-                                        </span>{' '}
-                                        antre : amannman yo mete atik «
-                                        bis » (35-1, 35-2…) san
-                                        renimewote sa ki vini apre.
-                                      </p>
-                                    ))}
-                                  {hasAbrogated &&
-                                    (currentLang === 'fr' ? (
-                                      <p>
-                                        <span className="font-bold">
-                                          {articleCounts.abrogated}
-                                        </span>{' '}
-                                        article
-                                        {articleCounts.abrogated > 1
-                                          ? 's'
-                                          : ''}{' '}
-                                        abrogé
-                                        {articleCounts.abrogated > 1
-                                          ? 's'
-                                          : ''}{' '}
-                                        du texte d’origine
-                                        {articleCounts.abrogated > 1
-                                          ? ' ne sont '
-                                          : " n’est "}
-                                        pas compté
-                                        {articleCounts.abrogated > 1
-                                          ? 's'
-                                          : ''}{' '}
-                                        dans ce total.
-                                      </p>
-                                    ) : (
-                                      <p>
-                                        <span className="font-bold">
-                                          {articleCounts.abrogated}
-                                        </span>{' '}
-                                        atik abwoje nan tèks orijinal la
-                                        pa konte nan total sa a.
-                                      </p>
-                                    ))}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="start"
+                              sideOffset={8}
+                              className="max-w-sm p-4 space-y-3"
+                            >
+                              {/* Headline triple — primary fact on top. */}
+                              <div className="flex flex-wrap gap-3 pb-3 border-b border-slate-100">
+                                <span className="flex flex-col">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                    {currentLang === 'fr' ? 'En vigueur' : 'An vigè'}
+                                  </span>
+                                  <span className="text-lg font-black text-slate-900 tabular-nums">
+                                    {articleCounts.total}
+                                  </span>
+                                </span>
+                                {hasAbrogated && (
+                                  <span className="flex flex-col">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-rose-700">
+                                      {currentLang === 'fr' ? 'Abrogés' : 'Abwoje'}
+                                    </span>
+                                    <span className="text-lg font-black text-slate-900 tabular-nums">
+                                      {articleCounts.abrogated}
+                                    </span>
+                                  </span>
+                                )}
+                                <span className="flex flex-col">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                    {currentLang === 'fr' ? 'Total' : 'Total'}
+                                  </span>
+                                  <span className="text-lg font-black text-slate-900 tabular-nums">
+                                    {rawCount}
+                                  </span>
+                                </span>
+                              </div>
+                              {/* Explanations — same copy, click-driven
+                                  panel instead of hover-tooltip. */}
+                              <div className="text-xs leading-relaxed space-y-2 text-slate-600">
+                                {numberingMismatch &&
+                                  (currentLang === 'fr' ? (
+                                    <p>
+                                      Le dernier article est numéroté{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {articleCounts.highestNumber}
+                                      </span>
+                                      , mais le texte contient{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {rawCount}
+                                      </span>{' '}
+                                      entrées : les amendements insèrent des
+                                      articles « bis » (35-1, 35-2…) sans
+                                      renuméroter ce qui suit.
+                                    </p>
+                                  ) : (
+                                    <p>
+                                      Dènye atik la nimewote{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {articleCounts.highestNumber}
+                                      </span>
+                                      , men tèks la gen{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {rawCount}
+                                      </span>{' '}
+                                      antre : amannman yo mete atik « bis »
+                                      (35-1, 35-2…) san renimewote sa ki
+                                      vini apre.
+                                    </p>
+                                  ))}
+                                {hasAbrogated &&
+                                  (currentLang === 'fr' ? (
+                                    <p>
+                                      Les{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {articleCounts.abrogated}
+                                      </span>{' '}
+                                      article{articleCounts.abrogated > 1 ? 's' : ''}{' '}
+                                      abrogé{articleCounts.abrogated > 1 ? 's' : ''}{' '}
+                                      ne sont pas comptés dans le total en
+                                      vigueur, mais restent consultables
+                                      dans le texte avec leur statut.
+                                    </p>
+                                  ) : (
+                                    <p>
+                                      Yo pa konte{' '}
+                                      <span className="font-bold text-slate-900">
+                                        {articleCounts.abrogated}
+                                      </span>{' '}
+                                      atik abwoje nan total ki an vigè a,
+                                      men yo rete disponib pou konsiltasyon
+                                      nan tèks la ak estati yo.
+                                    </p>
+                                  ))}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )
                       })()}
                     </p>

@@ -25,7 +25,7 @@
  *   - Public viewers get Versions + Comparer when there's actually
  *     history to show (``versions.length >= 2``).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlignCenter,
@@ -139,6 +139,35 @@ export function EditableFormalBlock({
   const [versionsExpanded, setVersionsExpanded] = useState(false)
   const [compareExpanded, setCompareExpanded] = useState(false)
   const [addVersionOpen, setAddVersionOpen] = useState(false)
+
+  // Refs for scroll-into-view when the secondary panels open. Without
+  // this, clicking Versions or Comparer on a block whose header sits
+  // near the top of a long page silently appends the panel below the
+  // viewport — the user clicks and nothing visible happens.
+  const versionsPanelRef = useRef<HTMLDivElement>(null)
+  const comparePanelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!versionsExpanded) return
+    // Slight delay so the AnimatePresence expand has at least rendered
+    // the wrapper before the scroll math kicks in.
+    const t = window.setTimeout(() => {
+      versionsPanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }, 100)
+    return () => window.clearTimeout(t)
+  }, [versionsExpanded])
+  useEffect(() => {
+    if (!compareExpanded) return
+    const t = window.setTimeout(() => {
+      comparePanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }, 100)
+    return () => window.clearTimeout(t)
+  }, [compareExpanded])
 
   function refetchVersions() {
     if (!canVersion || !lawSlug || !blockKind) return
@@ -509,13 +538,19 @@ export function EditableFormalBlock({
                   </div>
                 </div>
               ) : hasContent ? (
+                // Content sits flush in the outer card with no inner
+                // border — previously this was a card-inside-a-card
+                // (outer block + inner slate-bordered panel) which
+                // doubled the visual frame for the same data. Now
+                // the action-chip row above is the only divider; the
+                // content reads as the primary body of the block.
                 looksLikeHtml(value) ? (
                   <div
-                    className="px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed formal-block-html"
+                    className="text-sm text-slate-700 leading-relaxed formal-block-html"
                     dangerouslySetInnerHTML={{ __html: value ?? '' }}
                   />
                 ) : (
-                  <div className="px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {value}
                   </div>
                 )
@@ -535,15 +570,19 @@ export function EditableFormalBlock({
               ) : null}
 
               {/* Versions timeline — visible to anyone when toggled and
-                  there's data to show. */}
+                  there's data to show. Ref drives scrollIntoView so
+                  toggling on a long page brings the panel into the
+                  viewport. */}
               {versionsExpanded && (
-                <BlockVersionsTimeline versions={versions} isFr={isFr} />
+                <div ref={versionsPanelRef}>
+                  <BlockVersionsTimeline versions={versions} isFr={isFr} />
+                </div>
               )}
-              {/* Compare panel — same. Disabled state is handled inside
-                  the panel (it shows a "one version" message rather
-                  than rendering empty diffs). */}
+              {/* Compare panel — same. */}
               {compareExpanded && (
-                <BlockComparePanel versions={versions} isFr={isFr} />
+                <div ref={comparePanelRef}>
+                  <BlockComparePanel versions={versions} isFr={isFr} />
+                </div>
               )}
             </div>
           </motion.div>
@@ -660,7 +699,7 @@ function BlockVersionsTimeline({
   const liveId = (currentIdx >= 0 ? versions[currentIdx] : versions[0]).id
 
   return (
-    <ol className="relative pl-7 mt-3 px-5 py-4 bg-slate-50/60 border border-slate-200 rounded-lg">
+    <ol className="relative pl-7 mt-4 pt-4 border-t border-slate-100">
       <div className="absolute left-6 top-5 bottom-5 w-px bg-slate-200" />
       {versions.map((v, idx) => {
         const isCurrent = v.id === liveId
