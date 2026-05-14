@@ -646,6 +646,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editorial/articles/{article_id}/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete one version of an article (history cleanup)
+         * @description Remove a single ``article_versions`` row from an article's
+         *     timeline.
+         *
+         *     Rejects deletion of the only remaining version (use
+         *     ``DELETE /articles/{id}`` for that). If the deleted row was the
+         *     current version, the highest-numbered remaining version is
+         *     promoted to current so the article stays readable.
+         *
+         *     Use case: an editor created a v2 by mistake (e.g. typed ``abrogé``
+         *     as the new content for an article that should have stayed at v1
+         *     with just a status flip) — this lets them remove it without
+         *     nuking the whole article.
+         */
+        delete: operations["delete_article_version_api_v1_editorial_articles__article_id__versions__version_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/editorial/headings/{heading_id}": {
         parameters: {
             query?: never;
@@ -5203,6 +5234,36 @@ export interface operations {
             header?: never;
             path: {
                 article_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_article_version_api_v1_editorial_articles__article_id__versions__version_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: number;
+                version_id: number;
             };
             cookie?: never;
         };

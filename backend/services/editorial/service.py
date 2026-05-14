@@ -1237,6 +1237,79 @@ class EditorialService:
         self.session.delete(article)
         self.session.flush()
 
+    def delete_article_version(
+        self,
+        article_id: int,
+        version_id: int,
+        *,
+        actor: User,
+    ) -> None:
+        """Delete a single version of an article.
+
+        Guards:
+        - The article must have at least one version remaining after the
+          delete. Removing the only version is a destructive operation
+          on the article itself and should go through ``delete_article``
+          instead — we 409 if there's only one version to start with.
+        - If the deleted version is the current one, fall back to the
+          highest-numbered remaining version as the new ``current_version_id``.
+        - Any ``legal_changes`` rows that point at this version get their
+          ``new_version_id`` nulled (FK ON DELETE SET NULL handles this
+          automatically; we surface the count in the audit diff).
+
+        Used for editor-side cleanup of erroneous version inserts —
+        e.g. an "abrogé"-as-content v2 written by an old workflow that
+        we'd rather remove than leave in the timeline.
+        """
+        from services.corpus.models import (  # noqa: PLC0415
+            ArticleVersion,
+        )
+
+        article = self.repo.get_article(article_id)
+        if article is None:
+            raise NotFound(f"Article not found: {article_id}")
+        if len(article.versions) <= 1:
+            raise InvalidInput(
+                "Cannot delete the only remaining version — "
+                "use delete-article instead.",
+            )
+        version = self.session.get(ArticleVersion, version_id)
+        if version is None or version.article_id != article.id:
+            raise NotFound(
+                f"Version {version_id} not found on article {article_id}",
+            )
+
+        was_current = article.current_version_id == version.id
+        # Pick the fallback before delete so the SELECT sees the row.
+        remaining = sorted(
+            (v for v in article.versions if v.id != version.id),
+            key=lambda v: v.version_number,
+        )
+        new_current = remaining[-1]  # highest version_number among the rest
+
+        diff = {
+            "version_number": {"before": version.version_number, "after": None},
+            "was_current": {"before": was_current, "after": False},
+            "new_current_version_number": {
+                "before": None,
+                "after": new_current.version_number,
+            },
+        }
+
+        if was_current:
+            article.current_version_id = new_current.id
+            self.session.flush()
+        _audit(
+            self.session,
+            actor=actor,
+            action="delete_article_version",
+            target_type="article_version",
+            target_id=version.id,
+            diff=diff,
+        )
+        self.session.delete(version)
+        self.session.flush()
+
     def insert_heading(
         self,
         slug: str,

@@ -316,6 +316,19 @@ export async function deleteArticle(articleId: number): Promise<void> {
   return apiDelete(`/editorial/articles/${articleId}`)
 }
 
+/** Delete one version of an article's timeline. Rejects deletion of
+ *  the only remaining version (use ``deleteArticle`` for that). If
+ *  the deleted version was the current one, the highest-numbered
+ *  remaining version is promoted server-side. */
+export async function deleteArticleVersion(
+  articleId: number,
+  versionId: number,
+): Promise<void> {
+  return apiDelete(
+    `/editorial/articles/${articleId}/versions/${versionId}`,
+  )
+}
+
 /** Delete a TOC heading (Titre / Chapitre / Section / …).
  *  When ``reparent_children=true``, the heading's articles +
  *  sub-headings are lifted to its parent before deletion; when

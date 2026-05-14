@@ -45,6 +45,7 @@ import {
   citationsFromArticle,
   citationsToArticle,
   deleteArticle,
+  deleteArticleVersion,
   listArticleVersions,
   resolveArticles,
   updateArticleContent,
@@ -542,6 +543,7 @@ export default function ArticleViewer({
       return sortedAsc.length - 1
     })()
     return sortedAsc.map<VersionEntry>((v, i) => ({
+      id: v.id,
       version: v.version_number,
       status:
         i === currentIdx
@@ -874,62 +876,77 @@ export default function ArticleViewer({
           </div>
         </div>
 
-        {/* Compact sub-line: effective date · version · modified-by.
-            Shows up only when there's at least one fact to surface
-            (skipped entirely for plain v1-with-no-effective-date
-            articles, which are most). */}
-        {(effectiveSince ||
-          (article.version_number ?? 0) > 1 ||
-          article.source_amendment_slug) && (
-          <p className="text-xs text-slate-500 mb-3 flex items-center gap-2 flex-wrap">
-            {effectiveSince && <span>{effectiveSince}</span>}
-            {(article.version_number ?? 0) > 1 && (
-              <>
-                {effectiveSince && <span className="text-slate-300">·</span>}
-                <span className="font-medium text-slate-500">
-                  v{article.version_number}
-                </span>
-              </>
-            )}
-            {article.source_amendment_slug && (() => {
-              // Verb depends on what the amending law actually did to
-              // this article:
-              //   - status=abrogated         → "Abrogé par X"  (the
-              //     amending law struck it out)
-              //   - v1 + source_amendment_id → "Ajouté par X"  (the
-              //     article was inserted by the amendment)
-              //   - v2+                      → "Modifié par X"  (the
-              //     amendment replaced an existing article's content)
-              const verbFr =
-                article.status === 'abrogated'
-                  ? 'Abrogé par '
-                  : (article.version_number ?? 1) === 1
-                    ? 'Ajouté par '
-                    : 'Modifié par '
-              const verbHt =
-                article.status === 'abrogated'
-                  ? 'Abwoje pa '
-                  : (article.version_number ?? 1) === 1
-                    ? 'Ajoute pa '
-                    : 'Modifye pa '
-              return (
+        {/* Compact sub-line. For abrogated articles, the "En vigueur
+            depuis" / version-number facts are misleading (the article
+            is no longer in force, the current version is a frozen
+            historical record) — so we suppress them and surface only
+            the "Abrogé par X" line. For in-force articles we still
+            show effective date + version when relevant. */}
+        {(() => {
+          const isAbrogated = article.status === 'abrogated'
+          const showEffective = !isAbrogated && !!effectiveSince
+          const showVersionBadge =
+            !isAbrogated && (article.version_number ?? 0) > 1
+          const showAmendingLink = !!article.source_amendment_slug
+          if (!showEffective && !showVersionBadge && !showAmendingLink) {
+            return null
+          }
+          return (
+            <p className="text-xs text-slate-500 mb-3 flex items-center gap-2 flex-wrap">
+              {showEffective && <span>{effectiveSince}</span>}
+              {showVersionBadge && (
                 <>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-500">
-                    {currentLang === 'fr' ? verbFr : verbHt}
-                    <a
-                      href={`/loi/${article.source_amendment_slug}`}
-                      className="font-semibold text-primary hover:underline underline-offset-2"
-                    >
-                      {article.source_amendment_title_fr ??
-                        (currentLang === 'fr' ? 'la loi modifiante' : 'lwa modifikatè a')}
-                    </a>
+                  {showEffective && <span className="text-slate-300">·</span>}
+                  <span className="font-medium text-slate-500">
+                    v{article.version_number}
                   </span>
                 </>
-              )
-            })()}
-          </p>
-        )}
+              )}
+              {showAmendingLink &&
+                (() => {
+                  // Verb depends on what the amending law actually did
+                  // to this article:
+                  //   - status=abrogated         → "Abrogé par X"
+                  //   - v1 + source_amendment_id → "Ajouté par X"
+                  //   - v2+                      → "Modifié par X"
+                  const verbFr =
+                    article.status === 'abrogated'
+                      ? 'Abrogé par '
+                      : (article.version_number ?? 1) === 1
+                        ? 'Ajouté par '
+                        : 'Modifié par '
+                  const verbHt =
+                    article.status === 'abrogated'
+                      ? 'Abwoje pa '
+                      : (article.version_number ?? 1) === 1
+                        ? 'Ajoute pa '
+                        : 'Modifye pa '
+                  // No leading separator when the verb line is the
+                  // only thing on the row (abrogated case).
+                  const needsSep = showEffective || showVersionBadge
+                  return (
+                    <>
+                      {needsSep && (
+                        <span className="text-slate-300">·</span>
+                      )}
+                      <span className="text-slate-500">
+                        {currentLang === 'fr' ? verbFr : verbHt}
+                        <a
+                          href={`/loi/${article.source_amendment_slug}`}
+                          className="font-semibold text-primary hover:underline underline-offset-2"
+                        >
+                          {article.source_amendment_title_fr ??
+                            (currentLang === 'fr'
+                              ? 'la loi modifiante'
+                              : 'lwa modifikatè a')}
+                        </a>
+                      </span>
+                    </>
+                  )
+                })()}
+            </p>
+          )
+        })()}
 
         {/* Visual treatment for abrogated articles — title + body get a
             strike-through with muted text so a reader can see at a glance
@@ -1342,6 +1359,36 @@ export default function ArticleViewer({
                     versions={versionEntries}
                     currentLang={currentLang}
                     defaultFromDate={lawPublicationDate}
+                    isEditor={isEditor}
+                    onDeleteVersion={
+                      isEditor && article
+                        ? async (versionId: number) => {
+                            try {
+                              await deleteArticleVersion(article.id, versionId)
+                              toast(
+                                currentLang === 'fr'
+                                  ? 'Version supprimée'
+                                  : 'Vèsyon efase',
+                              )
+                              // Refetch versions + the law so the current-
+                              // version reassignment (if the deleted row
+                              // was current) is reflected in the article
+                              // body too.
+                              const rows = await listArticleVersions(article.id)
+                              setVersions([...rows].reverse())
+                              onArticleSaved?.()
+                            } catch (e) {
+                              const msg =
+                                e instanceof Error ? e.message : String(e)
+                              toast(
+                                (currentLang === 'fr'
+                                  ? 'Échec : '
+                                  : 'Echèk : ') + msg,
+                              )
+                            }
+                          }
+                        : undefined
+                    }
                   />
                 </motion.div>
               )}

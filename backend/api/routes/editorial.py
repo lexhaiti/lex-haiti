@@ -550,6 +550,36 @@ def delete_article(
 
 
 @router.delete(
+    "/articles/{article_id}/versions/{version_id}",
+    status_code=204,
+    summary="Delete one version of an article (history cleanup)",
+)
+def delete_article_version(
+    article_id: int,
+    version_id: int,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Remove a single ``article_versions`` row from an article's
+    timeline.
+
+    Rejects deletion of the only remaining version (use
+    ``DELETE /articles/{id}`` for that). If the deleted row was the
+    current version, the highest-numbered remaining version is
+    promoted to current so the article stays readable.
+
+    Use case: an editor created a v2 by mistake (e.g. typed ``abrogé``
+    as the new content for an article that should have stayed at v1
+    with just a status flip) — this lets them remove it without
+    nuking the whole article.
+    """
+    service.delete_article_version(article_id, version_id, actor=user)
+    db.commit()
+    return None
+
+
+@router.delete(
     "/headings/{heading_id}",
     status_code=204,
     summary="Delete a TOC node (Titre / Chapitre / Section / …)",
