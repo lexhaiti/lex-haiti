@@ -899,6 +899,12 @@ export default function ArticleViewer({
           </p>
         )}
 
+        {/* Visual treatment for abrogated articles — title + body get a
+            strike-through with muted text so a reader can see at a glance
+            that the article is no longer in force without losing access
+            to its historical wording. Matches the convention on
+            Légifrance / EUR-Lex. We don't apply this in edit mode so the
+            editor can still see clean text while typing. */}
         {isCurrentEdit ? (
           isBilingualEdit ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -953,7 +959,14 @@ export default function ArticleViewer({
           )
         ) : (
           title && (
-            <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-3 leading-tight tracking-tight">
+            <h3
+              className={cn(
+                'text-2xl lg:text-3xl font-bold mb-3 leading-tight tracking-tight',
+                status === 'abrogated'
+                  ? 'text-slate-400 line-through decoration-slate-400/70'
+                  : 'text-gray-900',
+              )}
+            >
               {title}
             </h3>
           )
@@ -1079,7 +1092,14 @@ export default function ArticleViewer({
                 </div>
               </div>
             ) : (
-              <div className="max-w-none text-gray-800 text-base lg:text-lg leading-relaxed legal-article">
+              <div
+                className={cn(
+                  'max-w-none text-base lg:text-lg leading-relaxed legal-article',
+                  status === 'abrogated'
+                    ? 'text-slate-400 line-through decoration-slate-400/70'
+                    : 'text-gray-800',
+                )}
+              >
                 {renderArticleBody(content || '', currentLang)}
               </div>
             )}

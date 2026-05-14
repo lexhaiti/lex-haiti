@@ -224,16 +224,19 @@ export function SignataireBlock({
               }
             />
           ) : signers.length > 0 ? (
-            <div className="flex flex-wrap gap-x-8 gap-y-4">
+            /* Fixed-column grid so every column lines up vertically.
+               Previously this used ``flex flex-wrap`` and the first row
+               only fit 3 of the Constituante's longer names while the
+               rest of the rows packed 4 — looked like a misaligned
+               table. Mirrors the editor view's column count (1 → 2 → 3
+               → 4) so public/editor renders stay visually consistent. */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
               {signers.map((signer) => (
-                <div
-                  key={signer.id}
-                  className="flex flex-col gap-0.5 min-w-0"
-                >
-                  <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
+                <div key={signer.id} className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-sm font-bold text-slate-900 truncate">
                     {signer.name}
                   </span>
-                  <span className="text-xs text-slate-500 whitespace-nowrap">
+                  <span className="text-xs text-slate-500 truncate">
                     {lang === 'ht' && signer.function_ht
                       ? signer.function_ht
                       : signer.function_fr}

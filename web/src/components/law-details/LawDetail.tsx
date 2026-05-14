@@ -161,10 +161,11 @@ export default function LawDetail() {
 
   const articleCounts = useMemo(() => {
     if (!law?.articles || law.articles.length === 0) {
-      return { total: 0, topLevel: 0, highestNumber: 0 }
+      return { total: 0, topLevel: 0, highestNumber: 0, abrogated: 0 }
     }
     const seenTopLevel = new Set<string>()
     let highest = 0
+    let abrogated = 0
     for (const a of law.articles) {
       const num = String(a.number ?? '').trim().toLowerCase()
       // Top-level = bare integer or "premier" (no dash suffix).
@@ -176,11 +177,18 @@ export default function LawDetail() {
         const n = parseInt(m[1], 10)
         if (n > highest) highest = n
       }
+      if (a.status === 'abrogated') abrogated += 1
     }
     return {
-      total: law.articles.length,
+      // Abrogated articles aren't part of the active text — exclude them
+      // from the headline "X articles" count so a reader sees the
+      // current size of the corpus, not the historical one. The
+      // abrogated count is surfaced separately in the info tooltip
+      // below.
+      total: law.articles.length - abrogated,
       topLevel: seenTopLevel.size,
       highestNumber: highest,
+      abrogated,
     }
   }, [law?.articles])
 
@@ -600,17 +608,28 @@ export default function LawDetail() {
                         {articleCounts.total}{' '}
                         {t('lawDetail.meta.articles')}
                       </span>
-                      {/* Info tooltip — only surfaced when the total
-                          count and the highest visible article number
-                          legitimately disagree (e.g. constitution:
-                          last article is 298 but total is 499 because
-                          of dash-suffixed insertions "35-1", "35-2"…).
-                          Stays hidden on simple laws where total ==
-                          highest number, so the bit of icon noise only
-                          appears where it's actually needed. */}
-                      {articleCounts.highestNumber > 0 &&
-                        articleCounts.total !==
-                          articleCounts.highestNumber && (
+                      {/* Info tooltip — surfaced when the total count
+                          differs from the highest visible article
+                          number (dash-suffixed insertions like 35-1
+                          push the number up without renumbering) or
+                          when abrogated articles are excluded from the
+                          headline total. Stays hidden on simple laws
+                          where neither caveat applies. */}
+                      {(() => {
+                        // Raw count = every article row, abrogated
+                        // included. Compared against the highest visible
+                        // article number to detect bis-style insertions
+                        // ("35-1", "35-2"…). Abrogated exclusion is
+                        // tracked separately so the two reasons don't
+                        // get tangled.
+                        const rawCount =
+                          articleCounts.total + articleCounts.abrogated
+                        const numberingMismatch =
+                          articleCounts.highestNumber > 0 &&
+                          rawCount !== articleCounts.highestNumber
+                        const hasAbrogated = articleCounts.abrogated > 0
+                        if (!numberingMismatch && !hasAbrogated) return null
+                        return (
                           <TooltipProvider delayDuration={150}>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -630,39 +649,77 @@ export default function LawDetail() {
                                 side="bottom"
                                 className="max-w-xs text-left"
                               >
-                                {currentLang === 'fr' ? (
-                                  <p className="text-xs leading-relaxed">
-                                    Le dernier article est numéroté{' '}
-                                    <span className="font-bold">
-                                      {articleCounts.highestNumber}
-                                    </span>
-                                    , mais le total atteint{' '}
-                                    <span className="font-bold">
-                                      {articleCounts.total}
-                                    </span>{' '}
-                                    : les amendements insèrent des
-                                    articles « bis » (35-1, 35-2…) sans
-                                    renuméroter ce qui suit.
-                                  </p>
-                                ) : (
-                                  <p className="text-xs leading-relaxed">
-                                    Dènye atik la nimewote{' '}
-                                    <span className="font-bold">
-                                      {articleCounts.highestNumber}
-                                    </span>
-                                    , men total la rive{' '}
-                                    <span className="font-bold">
-                                      {articleCounts.total}
-                                    </span>{' '}
-                                    : amannman yo mete atik « bis »
-                                    (35-1, 35-2…) san renimewote sa ki
-                                    vini apre.
-                                  </p>
-                                )}
+                                <div className="text-xs leading-relaxed space-y-2">
+                                  {numberingMismatch &&
+                                    (currentLang === 'fr' ? (
+                                      <p>
+                                        Le dernier article est numéroté{' '}
+                                        <span className="font-bold">
+                                          {articleCounts.highestNumber}
+                                        </span>
+                                        , mais le texte contient{' '}
+                                        <span className="font-bold">
+                                          {rawCount}
+                                        </span>{' '}
+                                        entrées : les amendements
+                                        insèrent des articles « bis »
+                                        (35-1, 35-2…) sans renuméroter
+                                        ce qui suit.
+                                      </p>
+                                    ) : (
+                                      <p>
+                                        Dènye atik la nimewote{' '}
+                                        <span className="font-bold">
+                                          {articleCounts.highestNumber}
+                                        </span>
+                                        , men tèks la gen{' '}
+                                        <span className="font-bold">
+                                          {rawCount}
+                                        </span>{' '}
+                                        antre : amannman yo mete atik «
+                                        bis » (35-1, 35-2…) san
+                                        renimewote sa ki vini apre.
+                                      </p>
+                                    ))}
+                                  {hasAbrogated &&
+                                    (currentLang === 'fr' ? (
+                                      <p>
+                                        <span className="font-bold">
+                                          {articleCounts.abrogated}
+                                        </span>{' '}
+                                        article
+                                        {articleCounts.abrogated > 1
+                                          ? 's'
+                                          : ''}{' '}
+                                        abrogé
+                                        {articleCounts.abrogated > 1
+                                          ? 's'
+                                          : ''}{' '}
+                                        du texte d’origine
+                                        {articleCounts.abrogated > 1
+                                          ? ' ne sont '
+                                          : " n’est "}
+                                        pas compté
+                                        {articleCounts.abrogated > 1
+                                          ? 's'
+                                          : ''}{' '}
+                                        dans ce total.
+                                      </p>
+                                    ) : (
+                                      <p>
+                                        <span className="font-bold">
+                                          {articleCounts.abrogated}
+                                        </span>{' '}
+                                        atik abwoje nan tèks orijinal la
+                                        pa konte nan total sa a.
+                                      </p>
+                                    ))}
+                                </div>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        )}
+                        )
+                      })()}
                     </p>
                   </div>
                 </div>
