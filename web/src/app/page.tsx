@@ -1,5 +1,4 @@
 import HeroSection from '@/components/home/HeroSection'
-import CorpusStatsStrip from '@/components/home/CorpusStatsStrip'
 import ExplorerSection from '@/components/home/ExplorerSection'
 import MoniteurRecentSection from '@/components/home/MoniteurRecentSection'
 import FeaturesSection from '@/components/home/FeaturesSection'
@@ -12,7 +11,6 @@ export default function Page() {
   return (
     <div className="bg-white min-h-screen">
       <HeroSection />
-      <CorpusStatsStrip />
       <ExplorerSection />
       <MoniteurRecentSection />
       <FeaturesSection />

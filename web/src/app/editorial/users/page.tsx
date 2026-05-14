@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { signIn } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -132,18 +133,35 @@ export default function AdminUsersPage() {
 
   async function submitInvite(e: React.FormEvent) {
     e.preventDefault()
-    if (!inviteEmail.trim()) return
+    const email = inviteEmail.trim()
+    if (!email) return
     setBusy(true)
     try {
       await createAdminUser({
-        email: inviteEmail.trim(),
+        email,
         role: inviteRole,
         name: inviteName.trim() || null,
       })
+      // Kick the standard magic-link send so the invited user gets a
+      // branded "Sign in to LexHaïti" email immediately. ``redirect:
+      // false`` keeps us on the dashboard — Auth.js otherwise
+      // navigates us to /sign-in/check-email which would log us out.
+      // Failures here are non-fatal: the user row exists, the admin
+      // can resend by typing the email on /sign-in themselves.
+      let emailSent = true
+      try {
+        await signIn('nodemailer', { email, redirect: false })
+      } catch {
+        emailSent = false
+      }
       toast(
-        isFr
-          ? `${inviteEmail} ajouté — peut désormais se connecter.`
-          : `${inviteEmail} ajoute — kapab konekte kounye a.`,
+        emailSent
+          ? isFr
+            ? `${email} ajouté — e-mail d'invitation envoyé.`
+            : `${email} ajoute — imèl envitasyon voye.`
+          : isFr
+            ? `${email} ajouté — l'envoi de l'e-mail a échoué, l'utilisateur peut se connecter manuellement.`
+            : `${email} ajoute — voye imèl la echwe, itilizatè a ka konekte manyèlman.`,
       )
       setInviteEmail('')
       setInviteName('')
@@ -372,8 +390,8 @@ export default function AdminUsersPage() {
             <p className="text-xs text-slate-500 flex items-start gap-2">
               <Mail className="w-3.5 h-3.5 mt-0.5 text-slate-400 flex-shrink-0" />
               {isFr
-                ? "Aucun e-mail n'est envoyé à l'invitation. L'utilisateur peut se connecter dès maintenant via le lien magique sur /sign-in."
-                : "Pa gen imèl voye nan envitasyon an. Itilizatè a ka konekte kounye a nan /sign-in."}
+                ? "Un e-mail d'invitation avec un lien de connexion (10 min) est envoyé immédiatement après l'ajout."
+                : "Yon imèl envitasyon ak yon lyen koneksyon (10 minit) voye tout swit apre ajoute a."}
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
