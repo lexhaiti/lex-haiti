@@ -41,19 +41,34 @@ from services.corpus.models import Article, LegalText
 from services.corpus.repository import CorpusRepository
 
 
-def article_to_embed(article: Article) -> ArticleEmbed:
+def article_to_embed(
+    article: Article,
+    *,
+    abrogated_by_map: Optional[dict[int, tuple[int, str, str]]] = None,
+) -> ArticleEmbed:
     """Flatten an Article + its current_version into the embed shape.
 
-    When the current version's ``source_amendment`` relationship has
-    been eager-loaded, surface its slug + title on the embed so the
-    article viewer can render a "Modifié par …" link directly. We
-    treat lazy-load failures as "no amendment metadata" rather than
-    crashing — callers that need the metadata should opt-in to eager
-    loading via ``selectinload(ArticleVersion.source_amendment)``.
+    Two paths to the "amending law" metadata on the embed:
+
+    1. **Current version has source_amendment_id** — fast path. The
+       version was created by an amendment (replace / add). We surface
+       the amending law's slug + title via the eager-loaded
+       ``ArticleVersion.source_amendment`` relationship.
+
+    2. **Article is abrogated without a content change** — many
+       Constitution articles were abrogated by the 2011 amendment via
+       a simple status flip; the current version still points to its
+       original ingestion (source_amendment_id null). Caller passes
+       ``abrogated_by_map`` (article_id → (legal_text_id, slug, title))
+       built from a single batched ``legal_changes`` query so the
+       embed still surfaces "Abrogé par X" without an N+1 lookup.
     """
     cv = article.current_version
+    source_amendment_id: Optional[int] = cv.source_amendment_id if cv else None
     source_amendment_slug: Optional[str] = None
     source_amendment_title_fr: Optional[str] = None
+
+    # Path 1: source_amendment_id on the current version.
     if cv is not None and cv.source_amendment_id is not None:
         try:
             srcamd = cv.source_amendment
@@ -62,6 +77,22 @@ def article_to_embed(article: Article) -> ArticleEmbed:
         if srcamd is not None:
             source_amendment_slug = srcamd.slug
             source_amendment_title_fr = srcamd.title_fr
+
+    # Path 2: status=abrogated with no source_amendment on the version
+    # — look up the abrogating law from the prebuilt map.
+    if (
+        source_amendment_slug is None
+        and cv is not None
+        and cv.status == ArticleStatus.abrogated
+        and abrogated_by_map is not None
+    ):
+        entry = abrogated_by_map.get(article.id)
+        if entry is not None:
+            amend_id, slug, title = entry
+            source_amendment_id = amend_id
+            source_amendment_slug = slug
+            source_amendment_title_fr = title
+
     return ArticleEmbed(
         id=article.id,
         legal_text_id=article.legal_text_id,
@@ -79,10 +110,62 @@ def article_to_embed(article: Article) -> ArticleEmbed:
         effective_to=cv.effective_to if cv else None,
         transferred_to_article_id=cv.transferred_to_article_id if cv else None,
         version_number=cv.version_number if cv else None,
-        source_amendment_id=cv.source_amendment_id if cv else None,
+        source_amendment_id=source_amendment_id,
         source_amendment_slug=source_amendment_slug,
         source_amendment_title_fr=source_amendment_title_fr,
     )
+
+
+def _resolve_abrogating_amendments(
+    session, article_ids: list[int]
+) -> dict[int, tuple[int, str, str]]:
+    """For each article id, find the most recent ``legal_changes`` row
+    with ``change_kind=abrogate`` and return the amending law's
+    (id, slug, title_fr). Skips articles that have no such row.
+
+    Used by the bulk article-embed path so the viewer can render
+    "Abrogé par <law>" on articles that were abrogated via a simple
+    status flip (no new article_versions row, so
+    ``current_version.source_amendment_id`` is null).
+    """
+    if not article_ids:
+        return {}
+    from sqlalchemy import select  # noqa: PLC0415
+    from services.corpus.models import LegalChange, LegalText  # noqa: PLC0415
+
+    # ``DISTINCT ON (amended_article_id)`` would be Postgres-specific;
+    # using ROW_NUMBER() over a window keeps it portable + selects
+    # the latest abrogation per article. Sorted by created_at DESC so
+    # we pick the abrogation that actually applies (handles theoretical
+    # re-abrogations).
+    from sqlalchemy import func  # noqa: PLC0415
+
+    sub = (
+        select(
+            LegalChange.amended_article_id.label("aid"),
+            LegalChange.amending_text_id.label("amend_id"),
+            func.row_number()
+            .over(
+                partition_by=LegalChange.amended_article_id,
+                order_by=LegalChange.created_at.desc(),
+            )
+            .label("rn"),
+        )
+        .where(
+            LegalChange.change_kind == "abrogate",
+            LegalChange.amended_article_id.in_(article_ids),
+        )
+        .subquery()
+    )
+    stmt = (
+        select(sub.c.aid, sub.c.amend_id, LegalText.slug, LegalText.title_fr)
+        .join(LegalText, LegalText.id == sub.c.amend_id)
+        .where(sub.c.rn == 1)
+    )
+    out: dict[int, tuple[int, str, str]] = {}
+    for aid, amend_id, slug, title in session.execute(stmt).all():
+        out[int(aid)] = (int(amend_id), slug, title)
+    return out
 
 
 def text_to_read(
@@ -346,10 +429,27 @@ class CorpusService:
         ]
 
         if include == "all":
+            # Build the abrogated-by lookup once for every abrogated
+            # article in this text — the embed builder uses it to fill
+            # in "Abrogé par X" when source_amendment_id on the version
+            # is null (the common case for status-flipped abrogations).
+            abrogated_ids = [
+                a.id
+                for a in text.articles
+                if a.current_version
+                and a.current_version.status == ArticleStatus.abrogated
+                and a.current_version.source_amendment_id is None
+            ]
+            abrogated_by_map = _resolve_abrogating_amendments(
+                self.session, abrogated_ids
+            )
             return text_to_read(
                 text,
                 headings=[LegalHeadingRead.model_validate(h) for h in text.headings],
-                articles=[article_to_embed(a) for a in text.articles],
+                articles=[
+                    article_to_embed(a, abrogated_by_map=abrogated_by_map)
+                    for a in text.articles
+                ],
                 signers=[LegalSignerRead.model_validate(s) for s in text.signers],
                 theme_tags=theme_tags,
             )

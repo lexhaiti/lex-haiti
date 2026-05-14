@@ -910,21 +910,43 @@ export default function ArticleViewer({
                 </span>
               </>
             )}
-            {article.source_amendment_slug && (
-              <>
-                <span className="text-slate-300">·</span>
-                <span className="text-slate-500">
-                  {currentLang === 'fr' ? 'Modifié par ' : 'Modifye pa '}
-                  <a
-                    href={`/loi/${article.source_amendment_slug}`}
-                    className="font-semibold text-primary hover:underline underline-offset-2"
-                  >
-                    {article.source_amendment_title_fr ??
-                      (currentLang === 'fr' ? 'la loi modifiante' : 'lwa modifikatè a')}
-                  </a>
-                </span>
-              </>
-            )}
+            {article.source_amendment_slug && (() => {
+              // Verb depends on what the amending law actually did to
+              // this article:
+              //   - status=abrogated         → "Abrogé par X"  (the
+              //     amending law struck it out)
+              //   - v1 + source_amendment_id → "Ajouté par X"  (the
+              //     article was inserted by the amendment)
+              //   - v2+                      → "Modifié par X"  (the
+              //     amendment replaced an existing article's content)
+              const verbFr =
+                article.status === 'abrogated'
+                  ? 'Abrogé par '
+                  : (article.version_number ?? 1) === 1
+                    ? 'Ajouté par '
+                    : 'Modifié par '
+              const verbHt =
+                article.status === 'abrogated'
+                  ? 'Abwoje pa '
+                  : (article.version_number ?? 1) === 1
+                    ? 'Ajoute pa '
+                    : 'Modifye pa '
+              return (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-500">
+                    {currentLang === 'fr' ? verbFr : verbHt}
+                    <a
+                      href={`/loi/${article.source_amendment_slug}`}
+                      className="font-semibold text-primary hover:underline underline-offset-2"
+                    >
+                      {article.source_amendment_title_fr ??
+                        (currentLang === 'fr' ? 'la loi modifiante' : 'lwa modifikatè a')}
+                    </a>
+                  </span>
+                </>
+              )
+            })()}
           </p>
         )}
 
