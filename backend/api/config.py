@@ -34,10 +34,15 @@ class Settings(BaseSettings):
     s3_bucket: str = "lexhaiti-dev"
     s3_region: str = "us-east-1"
 
-    # CORS
+    # CORS — production-by-default. Override via ``ALLOWED_ORIGINS``
+    # env var (JSON list) when running on a non-default frontend
+    # surface, e.g. a Vercel preview branch with a generated subdomain.
     allowed_origins: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://lexhaiti.org",
+        "https://www.lexhaiti.org",
+        "https://lex-haiti.vercel.app",
     ]
 
     # Public site URL — used to build canonical permalinks embedded in
