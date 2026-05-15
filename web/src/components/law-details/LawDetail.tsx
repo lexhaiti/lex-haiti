@@ -335,6 +335,33 @@ export default function LawDetail() {
       : law.description_fr
   const category = categoryLabels[law.category] || categoryLabels.loi
 
+  // Bilingual picker for the formal blocks (preamble, visas, considerants,
+  // enacting formula). When the page is in Kreyòl and a Kreyòl version
+  // exists, show it; otherwise fall back to French. Returns the value to
+  // display plus a flag the renderer uses to surface a "displayed in
+  // French because no Kreyòl translation yet" tooltip.
+  function pickBilingual(
+    fr: string | null | undefined,
+    ht: string | null | undefined,
+  ): { value: string | null; fallback: boolean } {
+    if (currentLang === 'ht') {
+      if (ht && ht.trim()) return { value: ht, fallback: false }
+      if (fr && fr.trim()) return { value: fr, fallback: true }
+      return { value: null, fallback: false }
+    }
+    return { value: fr ?? null, fallback: false }
+  }
+  const preambleDisplay = pickBilingual(law.preamble_fr, law.preamble_ht)
+  const visasDisplay = pickBilingual(law.visas_fr, law.visas_ht)
+  const considerantsDisplay = pickBilingual(
+    law.considerants_fr,
+    law.considerants_ht,
+  )
+  const enactingDisplay = pickBilingual(
+    law.enacting_formula_fr,
+    law.enacting_formula_ht,
+  )
+
   const handleArticleSelect = (article: any) => {
     setSelectedArticle(article)
     // Scroll the article viewer into view
@@ -1355,8 +1382,9 @@ export default function LawDetail() {
                     isFr={currentLang === 'fr'}
                     isEditor={isEditor}
                     title={currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
-                    value={law.preamble_fr ?? null}
+                    value={preambleDisplay.value}
                     valueHt={law.preamble_ht ?? null}
+                    fallbackToFr={preambleDisplay.fallback}
                     lawSlug={law.slug}
                     lawId={law.id}
                     blockKind="preamble"
@@ -1373,8 +1401,9 @@ export default function LawDetail() {
                     isEditor={isEditor}
                     title="Visas"
                     hint={currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
-                    value={law.visas_fr ?? null}
+                    value={visasDisplay.value}
                     valueHt={law.visas_ht ?? null}
+                    fallbackToFr={visasDisplay.fallback}
                     lawSlug={law.slug}
                     lawId={law.id}
                     blockKind="visa"
@@ -1391,8 +1420,9 @@ export default function LawDetail() {
                     isEditor={isEditor}
                     title={currentLang === 'fr' ? 'Considérants' : 'Konsideran'}
                     hint={currentLang === 'fr' ? 'Considérant que...' : 'Konsidere ke...'}
-                    value={law.considerants_fr ?? null}
+                    value={considerantsDisplay.value}
                     valueHt={law.considerants_ht ?? null}
+                    fallbackToFr={considerantsDisplay.fallback}
                     lawSlug={law.slug}
                     lawId={law.id}
                     blockKind="considerant"
@@ -1408,8 +1438,9 @@ export default function LawDetail() {
                   isEditor={isEditor}
                   variant="compact"
                   title={currentLang === 'fr' ? "Formule d'adoption" : "Fòmil adopsyon"}
-                  value={law.enacting_formula_fr ?? null}
+                  value={enactingDisplay.value}
                   valueHt={law.enacting_formula_ht ?? null}
+                  fallbackToFr={enactingDisplay.fallback}
                   lawSlug={law.slug}
                   lawId={law.id}
                   blockKind="enacting_formula"

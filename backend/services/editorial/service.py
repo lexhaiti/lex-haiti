@@ -678,19 +678,27 @@ class EditorialService:
         updates: dict[str, Any],
         comment: Optional[str] = None,
     ) -> ArticleEmbed:
-        """Edit the bilingual content of an article.
+        """Edit the bilingual content of an article — always in place.
 
-        Versioning policy ("versioning is on the article" — see CLAUDE.md):
+        Versioning policy (CLAUDE.md "versioning is on the article"):
+        a new ``article_versions`` row is created **only** when an
+        amending law introduces a new version, via
+        :py:meth:`add_article_version`. Editorial edits — typo fixes,
+        Kreyòl translations being filled in or cleaned up, HTML
+        re-formatting after OCR ingestion — always mutate the
+        article's current version in place, regardless of whether
+        that version is draft or published.
 
-        - If the current version is *draft*, the edit mutates that version in
-          place. The article-level current_version pointer doesn't move.
-        - If the current version is *published*, we create a NEW draft version
-          (next version_number) carrying the edits, and re-point the article
-          at it. The previously published version stays intact in history.
+        The previous behaviour (supersede published versions with a
+        new draft) generated phantom versions identical in date and
+        status to the version they superseded, polluting the version
+        timeline. The amendment count and the version count diverged
+        as soon as anyone cleaned up a Kreyòl OCR pass.
 
-        `updates` is the partial dict of editable fields (title_fr, title_ht,
-        text_fr, text_ht). Empty/whitespace-only text_fr is rejected — every
-        version must have a French body (text_fr is non-nullable in the model).
+        ``updates`` is the partial dict of editable fields (title_fr,
+        title_ht, text_fr, text_ht). Empty/whitespace-only text_fr is
+        rejected — every version must have a French body (text_fr is
+        non-nullable in the model).
         """
         article = self.repo.get_article(article_id)
         if article is None:
@@ -738,31 +746,16 @@ class EditorialService:
         if not diff:
             return article_to_embed(article)
 
-        if current.editorial_status == EditorialStatus.draft:
-            # Mutate the existing draft version in place — no version bump.
-            for field, change in diff.items():
-                setattr(current, field, change["after"])
-            target_version = current
-            action = "update_article_draft"
-        else:
-            # Supersede the published version with a new draft. Carry forward
-            # any fields the editor didn't touch from the previous version.
-            target_version = ArticleVersion(
-                article_id=article.id,
-                version_number=current.version_number + 1,
-                title_fr=normalized.get("title_fr", current.title_fr),
-                title_ht=normalized.get("title_ht", current.title_ht),
-                text_fr=normalized.get("text_fr", current.text_fr),
-                text_ht=normalized.get("text_ht", current.text_ht),
-                effective_from=current.effective_from,
-                effective_to=current.effective_to,
-                status=current.status,
-                editorial_status=EditorialStatus.draft,
-            )
-            self.session.add(target_version)
-            self.session.flush()  # need the new version's id for current_version_id
-            article.current_version_id = target_version.id
-            action = "amend_article"
+        # Always mutate the current version in place — no version bump
+        # for editorial edits. Amendments use add_article_version().
+        for field, change in diff.items():
+            setattr(current, field, change["after"])
+        target_version = current
+        action = (
+            "update_article_draft"
+            if current.editorial_status == EditorialStatus.draft
+            else "update_article_published"
+        )
 
         _audit(
             self.session,

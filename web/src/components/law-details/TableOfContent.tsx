@@ -561,6 +561,17 @@ export default function TableOfContents({
                       }`}
                     >
                       {headingLabel}
+                      {/* Page is Kreyòl but this heading only has a
+                          French title → flag the fallback so editors
+                          and readers know it isn't translated yet. */}
+                      {currentLang === 'ht' && !heading.title_ht && heading.title_fr && (
+                        <span
+                          className="ml-1.5 inline-flex align-middle text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1 py-0 cursor-help"
+                          title="Poko tradwi an kreyòl"
+                        >
+                          FR
+                        </span>
+                      )}
                     </span>
                   ) : isEditor ? (
                     /* Editor sees a placeholder for missing title so

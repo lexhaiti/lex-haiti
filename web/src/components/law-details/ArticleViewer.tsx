@@ -355,6 +355,19 @@ export default function ArticleViewer({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Per-article language override. When set, this article displays in
+  // the chosen language regardless of the page-level ``currentLang``.
+  // Powers the "Voir en kreyòl / français" toggle in the action row —
+  // a reader in French mode can still inspect the Kreyòl rendering of a
+  // single article (and vice-versa) without changing the whole page.
+  // Reset to ``null`` whenever the article changes so the override
+  // doesn't leak across navigations.
+  const [langOverride, setLangOverride] = useState<'fr' | 'ht' | null>(null)
+  useEffect(() => {
+    setLangOverride(null)
+  }, [article?.id])
+  const displayLang: 'fr' | 'ht' = langOverride ?? currentLang
+
   // Inline edit state — keyed by article.id so switching to a different
   // article cancels any in-flight edit instead of carrying drafts across.
   // `mode='mono'` edits the visible language only; `mode='bilingual'`
@@ -575,14 +588,17 @@ export default function ArticleViewer({
     )
   }
 
-  const title =
-    currentLang === 'ht' && article.title_ht
-      ? article.title_ht
-      : article.title_fr
+  // Pick the body language: ``displayLang`` honours any per-article
+  // override; falls back to French when the requested language is empty
+  // (e.g. reading in Kreyòl on an article whose translation hasn't been
+  // entered yet). The fallback flag drives the small "FR" pill the
+  // header surfaces to make the substitution explicit.
+  const wantHt = displayLang === 'ht'
+  const titleFallback = wantHt && !article.title_ht && !!article.title_fr
+  const contentFallback = wantHt && !article.content_ht && !!article.content_fr
+  const title = wantHt && article.title_ht ? article.title_ht : article.title_fr
   const content =
-    currentLang === 'ht' && article.content_ht
-      ? article.content_ht
-      : article.content_fr
+    wantHt && article.content_ht ? article.content_ht : article.content_fr
 
   // Effective status: an article cannot be more "in force" than its parent law.
   // If the law is abrogated/obsolete, every article is at least that — even if
@@ -733,6 +749,29 @@ export default function ArticleViewer({
                 ? 'Édition bilingue (FR + HT)'
                 : 'Edisyon bilang (FR + HT)',
             onClick: () => startEdit('bilingual'),
+          },
+        ]
+      : []),
+    // Per-article language toggle. Shown only when the article actually
+    // *has* the other-language body — there's no point offering "Voir
+    // en kreyòl" on an article whose ht slot is empty. Reading-only:
+    // doesn't mutate any data, just flips ``langOverride`` which the
+    // title/content picker above respects.
+    ...((displayLang === 'fr' && !!article.content_ht) ||
+    (displayLang === 'ht' && !!article.content_fr)
+      ? [
+          {
+            icon: Languages,
+            label:
+              displayLang === 'fr'
+                ? currentLang === 'fr'
+                  ? 'Voir en créole'
+                  : 'Wè an kreyòl'
+                : currentLang === 'fr'
+                  ? 'Voir en français'
+                  : 'Wè an franse',
+            onClick: () =>
+              setLangOverride(displayLang === 'fr' ? 'ht' : 'fr'),
           },
         ]
       : []),
@@ -1149,8 +1188,35 @@ export default function ArticleViewer({
                     : 'text-gray-800',
                 )}
               >
-                {renderArticleBody(content || '', currentLang)}
+                {renderArticleBody(content || '', displayLang)}
               </div>
+            )}
+            {/* Fallback notice — surfaces only when the reader asked for
+                Kreyòl (page language or per-article override) but the
+                article has no Kreyòl body yet, so we showed French
+                instead. Keeps the substitution honest. */}
+            {contentFallback && (
+              <p className="mt-3 text-xs italic text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5 inline-flex items-center gap-1.5">
+                <Languages className="w-3.5 h-3.5" />
+                {currentLang === 'fr'
+                  ? "Affiché en français — version créole pas encore disponible."
+                  : "Afiche an franse — vèsyon kreyòl la poko disponib."}
+              </p>
+            )}
+            {/* Per-article override pill — when the user toggled this
+                article into a different language than the page-level
+                ``currentLang``, show a small reset chip. */}
+            {langOverride && langOverride !== currentLang && (
+              <button
+                type="button"
+                onClick={() => setLangOverride(null)}
+                className="mt-3 ml-3 text-xs italic text-slate-500 hover:text-primary border border-slate-200 rounded-md px-3 py-1.5 inline-flex items-center gap-1.5 transition-colors"
+              >
+                <Languages className="w-3.5 h-3.5" />
+                {currentLang === 'fr'
+                  ? `Article affiché en ${langOverride === 'ht' ? 'créole' : 'français'} · revenir à la langue de la page`
+                  : `Atik afiche an ${langOverride === 'ht' ? 'kreyòl' : 'franse'} · tounen nan lang paj la`}
+              </button>
             )}
           </div>
         </article>

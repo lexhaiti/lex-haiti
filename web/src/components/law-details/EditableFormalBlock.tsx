@@ -42,6 +42,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { formatLongDate } from '@/lib/format/date'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   listBlockVersions,
   type BlockVersionRead,
@@ -83,6 +84,11 @@ export interface EditableFormalBlockProps {
    *  to pre-fill; ``value`` is whatever the page shows in the active
    *  language. */
   valueHt?: string | null
+  /** True when the page is in Kreyòl but the Kreyòl variant is empty,
+   *  so ``value`` is the French fallback. The header surfaces a small
+   *  "Non traduit" pill explaining the substitution. Ignored when the
+   *  page is in French. */
+  fallbackToFr?: boolean
   /** Alignment for the compact display variant ('left' or 'center'). */
   align?: 'left' | 'center'
   /** Save handler for the alignment toggle. Editor-only. */
@@ -121,6 +127,7 @@ export function EditableFormalBlock({
   lawId,
   blockKind,
   valueHt,
+  fallbackToFr = false,
   align = 'left',
   onAlignChange,
 }: EditableFormalBlockProps) {
@@ -359,6 +366,24 @@ export function EditableFormalBlock({
         <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 flex-shrink-0">
           {title}
         </span>
+        {/* "Pa tradwi" pill — shown when the page is in Kreyòl but
+            this block only has a French value, so we're displaying
+            the French as fallback. Mirrors the same affordance on
+            article-level fallback (ArticleViewer). */}
+        {fallbackToFr && hasContent && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 flex-shrink-0 cursor-help">
+                {isFr ? 'FR' : 'FR'}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={4}>
+              {isFr
+                ? "Pas encore traduit en créole. Texte affiché en français."
+                : "Poko tradwi an kreyòl. Tèks la afiche an franse."}
+            </TooltipContent>
+          </Tooltip>
+        )}
         {/* Inline preview snippet — only when there's actual content
             and we're not currently expanded. Helps the reader scan the
             page without expanding each block individually. */}
