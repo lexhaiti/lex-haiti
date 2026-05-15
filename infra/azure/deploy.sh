@@ -172,7 +172,38 @@ az containerapp create \
   --only-show-errors >/dev/null
 ok "deployed (placeholder image)"
 
-# ─── 9. Grant Container Apps managed identity AcrPull on the registry
+# ─── 9. Migration Job ───────────────────────────────────────────────
+# One-shot Container Apps Job that runs ``alembic upgrade head`` via
+# scripts/run_migrations.py. Triggered from the GH Actions workflow
+# BEFORE the API/worker revisions roll, so new code never races a
+# schema it expects.
+#
+# The job is created with the helloworld placeholder image — the
+# workflow overrides --image-name on every ``job start`` so the job
+# always runs the same SHA that's about to roll on the API.
+bold "Migration Job: lex-haiti-migrate"
+az containerapp job create \
+  --name "lex-haiti-migrate" \
+  --resource-group "$LH_RG" \
+  --environment "$LH_CAE" \
+  --trigger-type Manual \
+  --replica-timeout 600 \
+  --replica-retry-limit 1 \
+  --parallelism 1 \
+  --replica-completion-count 1 \
+  --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest \
+  --command "python" "scripts/run_migrations.py" \
+  --secrets \
+    database-url="$DB_URL" \
+  --env-vars \
+    DATABASE_URL=secretref:database-url \
+  --mi-system-assigned \
+  --registry-server "$LH_REGISTRY.azurecr.io" \
+  --registry-identity system \
+  --only-show-errors >/dev/null
+ok "migration job created"
+
+# ─── 10. Grant Container Apps managed identity AcrPull on the registry
 bold "Granting ACR pull to Container Apps"
 ACR_ID=$(az acr show --name "$LH_REGISTRY" --query id -o tsv)
 for app in "$LH_API_APP" "$LH_WORKER_APP"; do
@@ -185,6 +216,18 @@ for app in "$LH_API_APP" "$LH_WORKER_APP"; do
     --scope "$ACR_ID" \
     --only-show-errors >/dev/null 2>&1 || true
 done
+# Same AcrPull grant for the migration job's identity so it can pull
+# the backend image we just pushed.
+JOB_PRINCIPAL=$(az containerapp job identity show \
+  --name "lex-haiti-migrate" --resource-group "$LH_RG" \
+  --query principalId -o tsv 2>/dev/null || true)
+if [ -n "$JOB_PRINCIPAL" ]; then
+  az role assignment create \
+    --assignee "$JOB_PRINCIPAL" \
+    --role AcrPull \
+    --scope "$ACR_ID" \
+    --only-show-errors >/dev/null 2>&1 || true
+fi
 ok "role assigned"
 
 # ─── 10. Service principal for GitHub Actions ──────────────────────
@@ -225,16 +268,19 @@ cat <<EOF
      AZURE_WORKER_APP          $LH_WORKER_APP
 
 2. Push to main — the workflow builds the backend image, pushes to
-   ACR, and rolls both Container Apps to the new revision.
+   ACR, runs the lex-haiti-migrate job (alembic upgrade head against
+   prod), and only then rolls both Container Apps to the new
+   revision. No manual ``alembic upgrade`` step needed anymore.
 
-3. Once the API is healthy, run Alembic from Cloud Shell:
-     az containerapp exec -n $LH_API_APP -g $LH_RG \\
-        --command "/bin/bash -c 'cd /app/backend && alembic upgrade head'"
-
-4. Hook up the custom domain (api.lexhaiti.org) and TLS via the portal:
+3. Hook up the custom domain (api.lexhaiti.org) and TLS via the portal:
      Container Apps → $LH_API_APP → Custom domains → Add custom domain
 
-5. Update Vercel env: NEXT_PUBLIC_API_URL=https://$API_FQDN
+4. Update Vercel env: NEXT_PUBLIC_API_URL=https://$API_FQDN
    (replace with https://api.lexhaiti.org once the custom domain is live)
+
+To bypass migrations for a hotfix deploy (rare), set
+``SKIP_MIGRATIONS=1`` on the lex-haiti-migrate job:
+     az containerapp job update -n lex-haiti-migrate -g $LH_RG \\
+       --set-env-vars SKIP_MIGRATIONS=1
 
 EOF

@@ -64,6 +64,52 @@ jobs:
           cache-from: type=registry,ref=${{ steps.tags.outputs.image_latest }}
           cache-to: type=inline
 
+      - name: Run Alembic migrations
+        # One-off Container Apps Job that runs scripts/run_migrations.py
+        # against prod using the freshly built image. Migrations run
+        # BEFORE the API/worker revisions roll, so new code never sees
+        # the old schema. Job is started + waited on; a non-zero exit
+        # fails the deploy and the API/worker stay on the previous
+        # revision.
+        #
+        # Idempotent: alembic upgrade head is a no-op when the DB is
+        # already at head, so re-running the workflow is safe.
+        run: |
+          set -euo pipefail
+          EXECUTION=$(az containerapp job start \
+            --name "lex-haiti-migrate" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ steps.tags.outputs.image_sha }}" \
+            --query "id" -o tsv)
+          if [ -z "$EXECUTION" ]; then
+            echo "::error::Failed to start the migration job. Has lex-haiti-migrate been created? See infra/azure/deploy.sh."
+            exit 1
+          fi
+          # Poll the execution status until it succeeds or fails.
+          # Container Apps Jobs end in either Succeeded, Failed, or
+          # Stopped. Anything other than Succeeded means we abort
+          # before rolling the API.
+          EXEC_NAME="${EXECUTION##*/}"
+          echo "Migration job execution: $EXEC_NAME"
+          for i in {1..60}; do
+            STATUS=$(az containerapp job execution show \
+              --name "lex-haiti-migrate" \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --job-execution-name "$EXEC_NAME" \
+              --query "properties.status" -o tsv 2>/dev/null || echo "Unknown")
+            echo "  [$i/60] status=$STATUS"
+            case "$STATUS" in
+              Succeeded) echo "Migration succeeded."; exit 0 ;;
+              Failed|Stopped|Degraded)
+                echo "::error::Migration $STATUS — aborting deploy. See logs:"
+                echo "  az containerapp job execution show -n lex-haiti-migrate -g ${{ secrets.AZURE_RESOURCE_GROUP }} --job-execution-name $EXEC_NAME"
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Migration job timed out after 10 minutes."
+          exit 1
+
       - name: Roll API to new revision
         # ``--set-env-vars APP_ENV=production`` is idempotent — the
         # backend reads this flag to drop ``http://localhost`` from
@@ -83,15 +129,3 @@ jobs:
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --image "${{ steps.tags.outputs.image_sha }}" \
             --set-env-vars APP_ENV=production
-
-      - name: Run Alembic migrations
-        # One-off container job using the new image. Keeps migrations
-        # off the request path (no auto-migrate on container start) so
-        # parallel revision replicas don't race each other.
-        run: |
-          az containerapp job start \
-            --name "lex-haiti-migrate" \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --image-name "${{ steps.tags.outputs.image_sha }}" \
-            2>/dev/null || \
-          echo "⚠ Migration job not yet created — run \`alembic upgrade head\` once from Cloud Shell, then create the job per infra/azure/deploy.sh"
