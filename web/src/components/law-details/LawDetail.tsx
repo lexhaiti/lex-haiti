@@ -1399,7 +1399,7 @@ export default function LawDetail() {
             {/* Devise nationale — always shown; issuing authority only when set */}
             <div className="my-6 lg:my-8 flex justify-center">
               <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
-                <DeviseBanner />
+                <DeviseBanner lang={currentLang} />
                 {law.issuing_authority && (
                   <IssuingAuthorityHeader value={law.issuing_authority} />
                 )}
@@ -1440,7 +1440,8 @@ export default function LawDetail() {
                     lawId={law.id}
                     blockKind="preamble"
                     onSave={async (v) => {
-                      await updateLegalTextMetadata(law.slug, { preamble_fr: v })
+                      const field = currentLang === 'ht' ? 'preamble_ht' : 'preamble_fr'
+                      await updateLegalTextMetadata(law.slug, { [field]: v })
                       refetch()
                     }}
                   />
@@ -1459,7 +1460,8 @@ export default function LawDetail() {
                     lawId={law.id}
                     blockKind="visa"
                     onSave={async (v) => {
-                      await updateLegalTextMetadata(law.slug, { visas_fr: v })
+                      const field = currentLang === 'ht' ? 'visas_ht' : 'visas_fr'
+                      await updateLegalTextMetadata(law.slug, { [field]: v })
                       refetch()
                     }}
                   />
@@ -1478,7 +1480,8 @@ export default function LawDetail() {
                     lawId={law.id}
                     blockKind="considerant"
                     onSave={async (v) => {
-                      await updateLegalTextMetadata(law.slug, { considerants_fr: v })
+                      const field = currentLang === 'ht' ? 'considerants_ht' : 'considerants_fr'
+                      await updateLegalTextMetadata(law.slug, { [field]: v })
                       refetch()
                     }}
                   />
@@ -1508,7 +1511,8 @@ export default function LawDetail() {
                     refetch()
                   }}
                   onSave={async (v) => {
-                    await updateLegalTextMetadata(law.slug, { enacting_formula_fr: v })
+                    const field = currentLang === 'ht' ? 'enacting_formula_ht' : 'enacting_formula_fr'
+                    await updateLegalTextMetadata(law.slug, { [field]: v })
                     refetch()
                   }}
                 />

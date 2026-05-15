@@ -74,12 +74,25 @@ jobs:
         #
         # Idempotent: alembic upgrade head is a no-op when the DB is
         # already at head, so re-running the workflow is safe.
+        #
+        # We ``job update`` the image first, then ``job start`` with no
+        # overrides. Passing ``--image`` (or ``--command``) directly to
+        # ``job start`` builds an inline container override that drops
+        # the Job's configured ``command`` and env vars — so the Job
+        # falls back to the image's default CMD (``uvicorn ...``),
+        # runs the API for 10 min instead of migrating, and fails.
+        # Updating the Job first preserves the configured command and
+        # the DATABASE_URL secretref.
         run: |
           set -euo pipefail
-          EXECUTION=$(az containerapp job start \
+          az containerapp job update \
             --name "lex-haiti-migrate" \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --image "${{ steps.tags.outputs.image_sha }}" \
+            --output none
+          EXECUTION=$(az containerapp job start \
+            --name "lex-haiti-migrate" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --query "id" -o tsv)
           if [ -z "$EXECUTION" ]; then
             echo "::error::Failed to start the migration job. Has lex-haiti-migrate been created? See infra/azure/deploy.sh."

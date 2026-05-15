@@ -21,14 +21,26 @@ interface DeviseBannerProps {
   /** Visual size variant. `default` for the law-detail body identity
    *  preamble; `compact` for inline / contextual placements. */
   size?: 'default' | 'compact'
+  /** Page language. FR shows the canonical motto; HT renders the
+   *  Kreyòl orthography (Libète • Egalite • Fratènite — Repiblik
+   *  Ayiti). The official Constitution doesn't legislate the Kreyòl
+   *  spelling, but these are the spellings used by the Académie
+   *  Créole Haïtienne and the Moniteur's own Kreyòl edition. */
+  lang?: 'fr' | 'ht'
   className?: string
 }
 
 export function DeviseBanner({
   size = 'default',
+  lang = 'fr',
   className,
 }: DeviseBannerProps) {
   const isCompact = size === 'compact'
+  const motto =
+    lang === 'ht'
+      ? (['Libète', 'Egalite', 'Fratènite'] as const)
+      : (['Liberté', 'Égalité', 'Fraternité'] as const)
+  const designation = lang === 'ht' ? 'Repiblik Ayiti' : "République d'Haïti"
   return (
     <div
       className={cn(
@@ -36,7 +48,7 @@ export function DeviseBanner({
         isCompact ? 'gap-1' : 'gap-3 lg:gap-4',
         className,
       )}
-      aria-label="République d'Haïti — Liberté Égalité Fraternité"
+      aria-label={`${designation} — ${motto.join(' ')}`}
     >
       {/* Ornamental glyph — three asterisks (asterism, U+2042) signal
           a decorative break in formal typography. Mirrors the small
@@ -60,7 +72,7 @@ export function DeviseBanner({
             : 'text-[11px] sm:text-xs tracking-[0.42em]',
         )}
       >
-        Liberté
+        {motto[0]}
         <span
           className={cn(
             'opacity-40',
@@ -71,7 +83,7 @@ export function DeviseBanner({
         >
           •
         </span>
-        Égalité
+        {motto[1]}
         <span
           className={cn(
             'opacity-40',
@@ -80,7 +92,7 @@ export function DeviseBanner({
         >
           •
         </span>
-        Fraternité
+        {motto[2]}
       </p>
 
       <p
@@ -89,7 +101,7 @@ export function DeviseBanner({
           isCompact ? 'text-xs' : 'text-base lg:text-lg',
         )}
       >
-        République d&apos;Haïti
+        {designation}
       </p>
     </div>
   )
