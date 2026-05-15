@@ -48,9 +48,36 @@ import {
   type BlockVersionRead,
   type FormalBlockKind,
 } from '@/lib/api/endpoints'
-import { AddBlockVersionDialog } from './_panels/AddBlockVersionDialog'
-import { BlockComparePanel } from './_panels/BlockComparePanel'
-import { RichArticleEditor } from './_editor/RichArticleEditor'
+import dynamic from 'next/dynamic'
+// Lazy-load the editor + dialog bundles — same rationale as
+// ArticleViewer: public readers shouldn't pay for the Tiptap editor
+// or the version-creation dialog until they click an action chip.
+const AddBlockVersionDialog = dynamic(
+  () =>
+    import('./_panels/AddBlockVersionDialog').then((m) => ({
+      default: m.AddBlockVersionDialog,
+    })),
+  { ssr: false },
+)
+const BlockComparePanel = dynamic(
+  () =>
+    import('./_panels/BlockComparePanel').then((m) => ({
+      default: m.BlockComparePanel,
+    })),
+  { ssr: false },
+)
+const RichArticleEditor = dynamic(
+  () =>
+    import('./_editor/RichArticleEditor').then((m) => ({
+      default: m.RichArticleEditor,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full min-h-[120px] rounded-md border border-slate-200 bg-slate-50/60 animate-pulse" />
+    ),
+  },
+)
 import { isHtmlEffectivelyEmpty, looksLikeHtml } from './_editor/utils'
 
 export interface EditableFormalBlockProps {

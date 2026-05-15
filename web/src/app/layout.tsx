@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from 'next'
 import NextTopLoader from 'nextjs-toploader'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import SiteShell from '@/components/layout/SiteShell'
 import Providers from './providers'
@@ -74,6 +75,12 @@ export default async function RootLayout({
         <Providers initialLanguage={language}>
           <SiteShell>{children}</SiteShell>
         </Providers>
+        {/* Vercel Speed Insights — Core Web Vitals (LCP, CLS, INP,
+            FCP, TTFB) sampled in production only, no PII. The script
+            is lazy-loaded by Vercel after the page is interactive
+            so it doesn't compete with first paint. Free tier covers
+            10k events/month, plenty for our current traffic. */}
+        <SpeedInsights />
       </body>
     </html>
   )

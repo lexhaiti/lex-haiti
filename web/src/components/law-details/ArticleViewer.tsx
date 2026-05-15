@@ -62,13 +62,46 @@ import {
   type CitationRow,
   type SiblingArticle,
 } from './citation-mapping'
+import dynamic from 'next/dynamic'
 import { VersionsPanel, type VersionEntry } from './_panels/VersionsPanel'
 import { ComparePanel } from './_panels/ComparePanel'
 import { CitationColumn } from './_panels/CitationColumn'
-import { AddVersionDialog } from './_panels/AddVersionDialog'
-import { AddArticleDialog } from './_panels/AddArticleDialog'
-import { RichArticleEditor } from './_editor/RichArticleEditor'
+// Heavy editor + dialog bundles are pulled in only when an editor
+// actually opens them — so public readers (the 99% case) never pay
+// the Tiptap (~150KB gzip) + dialog cost on first paint. ``ssr: false``
+// because all three components rely on browser-only APIs (Tiptap's
+// editor instance, ``document``-bound focus traps) and trying to SSR
+// them throws hydration warnings.
+const RichArticleEditor = dynamic(
+  () =>
+    import('./_editor/RichArticleEditor').then((m) => ({
+      default: m.RichArticleEditor,
+    })),
+  { ssr: false, loading: () => <EditorLoadingShim /> },
+)
+const AddVersionDialog = dynamic(
+  () =>
+    import('./_panels/AddVersionDialog').then((m) => ({
+      default: m.AddVersionDialog,
+    })),
+  { ssr: false },
+)
+const AddArticleDialog = dynamic(
+  () =>
+    import('./_panels/AddArticleDialog').then((m) => ({
+      default: m.AddArticleDialog,
+    })),
+  { ssr: false },
+)
 import { isHtmlEffectivelyEmpty, looksLikeHtml } from './_editor/utils'
+
+// Skeleton shown while the editor chunk fetches. Mirrors the
+// dimensions of the real editor so the layout doesn't jump.
+function EditorLoadingShim() {
+  return (
+    <div className="w-full min-h-[160px] rounded-md border border-slate-200 bg-slate-50/60 animate-pulse" />
+  )
+}
 
 /** One step in the breadcrumb path from the LegalText down to this article. */
 export interface BreadcrumbNode {
