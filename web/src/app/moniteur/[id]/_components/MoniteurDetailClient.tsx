@@ -78,6 +78,9 @@ const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, stri
   promulgation:   { fr: ['Promulgation', 'Promulgations'],     ht: ['Pwomilgasyon', 'Pwomilgasyon yo'] },
   // "Errata" is invariable in both languages.
   errata:         { fr: ['Errata', 'Errata'],                  ht: ['Errata', 'Errata'] },
+  // Editorial annotation attached to a sommaire row (translator note,
+  // transcription gap, deviation from the printed source).
+  note:           { fr: ['Note', 'Notes'],                     ht: ['Nòt', 'Nòt yo'] },
   autre:          { fr: ['Autre', 'Autres'],                   ht: ['Lòt', 'Lòt yo'] },
 }
 
@@ -183,6 +186,16 @@ const CATEGORY_META: Record<
     badge: 'bg-red-50 text-red-700 border-red-200',
     bar: 'bg-red-500',
     icon: 'text-red-600',
+  },
+  note: {
+    // Editorial note attached to a sommaire row. Sky palette keeps it
+    // distinct from the warning-toned errata and the official-toned
+    // promulgation/communique rows.
+    label: 'Note',
+    plural: 'Notes',
+    badge: 'bg-sky-50 text-sky-800 border-sky-200',
+    bar: 'bg-sky-500',
+    icon: 'text-sky-600',
   },
   autre: {
     label: 'Autre',

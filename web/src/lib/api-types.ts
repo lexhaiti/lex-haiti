@@ -3377,7 +3377,7 @@ export interface components {
          *     errata, etc.) but should not pollute the corpus-level category enum.
          * @enum {string}
          */
-        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "correspondance" | "promulgation" | "errata" | "autre";
+        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "correspondance" | "promulgation" | "errata" | "note" | "autre";
         /**
          * MoniteurEntryParserProfileUpdate
          * @description Editor override for which parser profile runs on this entry.

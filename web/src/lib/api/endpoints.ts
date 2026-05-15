@@ -475,6 +475,7 @@ export type MoniteurEntryRead = {
     | 'correspondance'
     | 'promulgation'
     | 'errata'
+    | 'note'
     | 'autre'
     | null
   detected_title: string | null

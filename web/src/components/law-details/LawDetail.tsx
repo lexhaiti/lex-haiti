@@ -1418,7 +1418,7 @@ export default function LawDetail() {
                   <EditableFormalBlock
                     isFr={currentLang === 'fr'}
                     isEditor={isEditor}
-                    title={currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}
+                    title={currentLang === 'fr' ? 'Préambule' : 'Premye koze'}
                     value={preambleDisplay.value}
                     valueHt={law.preamble_ht ?? null}
                     fallbackToFr={preambleDisplay.fallback}

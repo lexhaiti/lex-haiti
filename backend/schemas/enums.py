@@ -139,6 +139,13 @@ class MoniteurDocumentType(str, Enum):
     correspondance = "correspondance"
     promulgation = "promulgation"
     errata = "errata"
+    # Editor-set short annotation or footnote attached to a primary
+    # entry (translator's note, transcription gap, deviation from the
+    # printed source, etc.). Distinct from ``communique`` (official
+    # public notice) and ``correspondance`` (private letter); ``note``
+    # is internal editorial commentary that still belongs in the
+    # sommaire so readers see why a section reads the way it does.
+    note = "note"
     autre = "autre"
 
 
