@@ -117,11 +117,29 @@ class MoniteurIssueRead(MoniteurIssueBase):
         # here rather than stored on the row — slugs are deterministic
         # functions of (publication_date, number) and don't need their
         # own column.
+        #
+        # When the issue number is purely numeric ("36", "112") the slug
+        # is just the date — preserves the URLs that have been linked
+        # since Phase 0. When the number carries a letter suffix
+        # ("36-A", "112-bis") we append the lowercased, dash-normalised
+        # number so paired regular + special issues on the same day
+        # don't collide (e.g. N° 36 vs N° 36-A, both 28 avril 1987).
         pd = getattr(obj, "publication_date", None)
         if pd is not None:
             month_fr = _MONTHS_FR_INVERSE.get(pd.month)
             if month_fr:
-                result.slug = f"{pd.day}-{month_fr}-{pd.year}"
+                base = f"{pd.day}-{month_fr}-{pd.year}"
+                number = getattr(obj, "number", None) or ""
+                if number and not number.isdigit():
+                    safe = (
+                        number.lower()
+                        .replace(" ", "-")
+                        .replace("/", "-")
+                        .replace(".", "-")
+                    )
+                    result.slug = f"{base}-no-{safe}"
+                else:
+                    result.slug = base
         return result
 
 
@@ -194,6 +212,15 @@ class MoniteurEntryRead(BaseModel):
     translation_summary_ht: Optional[str] = None
     companion_documents: Optional[List[CompanionDocument]] = None
 
+    # Language this entry is published in — derived from whether this
+    # entry's parent issue matches the promoted legal text's
+    # ``moniteur_issue_id`` (fr) or ``moniteur_issue_id_ht`` (ht).
+    # NULL when the entry isn't promoted or the parent issue isn't
+    # marked as either side. Drives the per-language linking from the
+    # Moniteur detail page ("Voir le texte structuré" → /loi/X vs
+    # /loi/X?lang=ht).
+    lang: Optional[str] = None
+
     created_at: datetime
     updated_at: datetime
 
@@ -208,6 +235,17 @@ class MoniteurEntryRead(BaseModel):
             result.promoted_legal_text_title_fr = getattr(
                 promoted, "title_fr", None
             )
+            # Pick the entry's language from the promoted text's
+            # bilingual Moniteur pointers. Eagerly-loaded by the
+            # repository's selectinload on promoted_legal_text.
+            issue_id = getattr(obj, "issue_id", None)
+            if issue_id is not None:
+                fr_issue = getattr(promoted, "moniteur_issue_id", None)
+                ht_issue = getattr(promoted, "moniteur_issue_id_ht", None)
+                if issue_id == ht_issue:
+                    result.lang = "ht"
+                elif issue_id == fr_issue:
+                    result.lang = "fr"
         # The translation_issue relationship is loaded if eager-loaded by
         # the repository; surface its number/year for the UI.
         trans = getattr(obj, "translation_issue", None)

@@ -286,17 +286,20 @@ class MoniteurRepository:
     def get_issue_by_slug_with_entries(
         self, slug: str
     ) -> Optional[MoniteurIssue]:
-        """Resolve a date-based slug (e.g. ``28-avril-1987``) to its
-        MoniteurIssue. Returns the issue with eager-loaded entries, the
-        same shape ``get_issue_with_entries`` returns by ID.
+        """Resolve a date-based slug to its MoniteurIssue. Returns the
+        issue with eager-loaded entries.
 
-        Slug grammar: ``{day}-{month_fr}-{year}``. Parsing is lenient
-        on case + extra trailing parts (the route allows future
-        ``28-avril-1987-extraordinaire``-style disambiguators without
-        breaking older links). When multiple issues share the same
-        publication_date — rare but possible for paired regular +
-        special issues — returns the first by ascending ``id``.
-        Returns None on parse failure or no match.
+        Slug grammars:
+          * ``{day}-{month_fr}-{year}``                — purely numeric
+            issue numbers; first issue on that date by ``id`` ascending.
+          * ``{day}-{month_fr}-{year}-no-{number}``    — used when the
+            number carries a letter suffix (``36-A``, ``112-bis``) so
+            paired regular + special issues on the same date don't
+            collide. Resolved by matching ``(publication_date, number)``
+            exactly.
+
+        Backwards-compat with older URLs: the bare ``{day}-{month}-{year}``
+        slug still works for legacy numeric issues.
         """
         from datetime import date as _date
 
@@ -316,6 +319,14 @@ class MoniteurRepository:
             target_date = _date(year, month, day)
         except ValueError:
             return None
+
+        # Recover the issue-number suffix when the slug carries one
+        # (``…-no-36-a`` → ``"36-a"``). Compared case-insensitively
+        # against ``moniteur_issues.number``.
+        number_filter: Optional[str] = None
+        if len(parts) >= 5 and parts[3] == "no":
+            number_filter = "-".join(parts[4:])
+
         stmt = (
             select(MoniteurIssue)
             .where(MoniteurIssue.publication_date == target_date)
@@ -326,6 +337,8 @@ class MoniteurRepository:
                 )
             )
         )
+        if number_filter:
+            stmt = stmt.where(func.lower(MoniteurIssue.number) == number_filter)
         return self.session.execute(stmt).scalars().first()
 
     def get_entry(self, entry_id: int) -> Optional[MoniteurEntry]:

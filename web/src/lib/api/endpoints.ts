@@ -518,6 +518,11 @@ export type MoniteurEntryRead = {
     pages?: string | null
     note?: string | null
   }> | null
+  /** Publication language of THIS entry — derived server-side from
+   *  whether the entry's issue matches the promoted legal text's
+   *  ``moniteur_issue_id`` (fr) or ``moniteur_issue_id_ht`` (ht). NULL
+   *  when the entry isn't promoted to a legal text. */
+  lang?: 'fr' | 'ht' | null
   created_at: string
   updated_at: string
 }
@@ -580,11 +585,13 @@ export function moniteurIssueSlug(issue: {
   id: number
   publication_date?: string | null
   slug?: string | null
+  number?: string | null
 }): string {
   if (issue.slug) return issue.slug
   if (!issue.publication_date) return String(issue.id)
   // Reconstruct on the client when the backend response predates the
-  // slug-emitting Pydantic update. Same format the backend uses.
+  // slug-emitting Pydantic update. Same format the backend uses
+  // (see backend/schemas/moniteur.py MoniteurIssueRead.model_validate).
   const [y, m, d] = issue.publication_date.split('-')
   const months = [
     'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
@@ -592,7 +599,19 @@ export function moniteurIssueSlug(issue: {
   ]
   const idx = parseInt(m, 10) - 1
   if (idx < 0 || idx > 11) return String(issue.id)
-  return `${parseInt(d, 10)}-${months[idx]}-${y}`
+  const base = `${parseInt(d, 10)}-${months[idx]}-${y}`
+  // Append the lowercased number suffix when the issue number isn't
+  // purely numeric — disambiguates paired regular + special issues on
+  // the same date (e.g. N° 36 vs N° 36-A, both 28 avril 1987).
+  const num = (issue.number ?? '').trim()
+  if (num && !/^\d+$/.test(num)) {
+    const safe = num
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[/.]/g, '-')
+    return `${base}-no-${safe}`
+  }
+  return base
 }
 
 export async function createMoniteurIssue(payload: {

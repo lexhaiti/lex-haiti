@@ -98,10 +98,25 @@ const categoryLabels: Record<
 
 
 export default function LawDetail() {
-  const { language } = useLanguage()
+  const { language, setLanguage } = useLanguage()
   const { t } = useT()
   const { toast } = useToast()
   const currentLang = language as 'fr' | 'ht'
+
+  // ``?lang=ht`` (or ``?lang=fr``) on the URL is a one-shot "open this
+  // page in that language" hint — used by Moniteur entries that point
+  // at the Kreyòl supplement so clicking the constitution from N° 36-A
+  // lands in Kreyòl while reading from N° 36 stays in French. We
+  // promote the param into the global language state once on mount so
+  // the rest of the app (header, footer, future navigation) stays in
+  // sync. Re-runs are guarded by the current ``language`` value so we
+  // don't bounce the user back to FR when they manually switch.
+  const langParam = useSearchParams()?.get('lang')
+  useEffect(() => {
+    if (langParam === 'ht' && language !== 'ht') setLanguage('ht')
+    else if (langParam === 'fr' && language !== 'fr') setLanguage('fr')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [langParam])
   const [selectedArticle, setSelectedArticle] = useState<any>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   // Add-heading modal state. ``anchor`` selects the insertion mode:
@@ -869,12 +884,14 @@ export default function LawDetail() {
                     const slugFr = moniteurIssueSlug({
                       id: law.moniteur_issue_id,
                       publication_date: law.moniteur_issue_publication_date ?? null,
+                      number: law.moniteur_issue_number ?? null,
                     })
                     const slugHt = law.moniteur_issue_id_ht
                       ? moniteurIssueSlug({
                           id: law.moniteur_issue_id_ht,
                           publication_date:
                             law.moniteur_issue_publication_date_ht ?? null,
+                          number: law.moniteur_issue_number_ht ?? null,
                         })
                       : null
                     return (

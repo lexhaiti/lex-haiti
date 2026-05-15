@@ -3441,6 +3441,8 @@ export interface components {
             translation_summary_ht?: string | null;
             /** Companion Documents */
             companion_documents?: components["schemas"]["CompanionDocument"][] | null;
+            /** Lang */
+            lang?: string | null;
             /**
              * Created At
              * Format: date-time

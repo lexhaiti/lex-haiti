@@ -248,7 +248,11 @@ function SommaireCard({
             {/* Title */}
             {isPromoted ? (
               <Link
-                href={`/loi/${candidate.promoted_legal_text_slug}`}
+                href={
+                  candidate.lang === 'ht'
+                    ? `/loi/${candidate.promoted_legal_text_slug}?lang=ht`
+                    : `/loi/${candidate.promoted_legal_text_slug}`
+                }
                 className="block text-base sm:text-lg font-bold text-slate-900 hover:text-primary transition-colors leading-snug"
               >
                 {title}
@@ -301,7 +305,11 @@ function SommaireCard({
             {/* CTA for promoted texts */}
             {isPromoted && (
               <Link
-                href={`/loi/${candidate.promoted_legal_text_slug}`}
+                href={
+                  candidate.lang === 'ht'
+                    ? `/loi/${candidate.promoted_legal_text_slug}?lang=ht`
+                    : `/loi/${candidate.promoted_legal_text_slug}`
+                }
                 className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-primary hover:gap-2 transition-all"
               >
                 Voir le texte structuré
