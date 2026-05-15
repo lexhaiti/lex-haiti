@@ -1222,6 +1222,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moniteur/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Entry
+         * @description Hard-delete a single moniteur entry. Used by the editor to drop
+         *     promulgation / companion rows that don't belong, or to detach an
+         *     over-eager parser candidate. Does NOT cascade to the promoted
+         *     ``legal_text`` — that text continues to exist independently; only
+         *     the bridge row in this issue's sommaire is removed.
+         *
+         *     Returns 204 No Content on success, 404 if the entry doesn't exist.
+         */
+        delete: operations["delete_entry_api_v1_moniteur_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/moniteur/issues/{issue_id}/upload": {
         parameters: {
             query?: never;
@@ -6174,6 +6200,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MoniteurIssueRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_entry_api_v1_moniteur_entries__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

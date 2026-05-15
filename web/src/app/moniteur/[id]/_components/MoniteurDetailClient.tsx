@@ -14,14 +14,17 @@ import {
   Loader2,
   Newspaper,
   Pencil,
+  Trash2,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  deleteMoniteurEntry,
   getMoniteurIssue,
   getMoniteurIssueBySlug,
   type MoniteurIssueWithEntries,
   type MoniteurEntryRead,
 } from '@/lib/api/endpoints'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { formatLongDate as formatLongDateBilingual } from '@/lib/format/date'
@@ -161,10 +164,14 @@ function SommaireCard({
   candidate,
   index,
   children: childCandidates,
+  isEditor,
+  onDelete,
 }: {
   candidate: MoniteurEntryRead
   index: number
   children: MoniteurEntryRead[]
+  isEditor: boolean
+  onDelete: (entryId: number) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
   const isPromoted = !!candidate.promoted_legal_text_slug
@@ -188,7 +195,11 @@ function SommaireCard({
         transition={{ delay: index * 0.04 }}
         className="rounded-lg border border-slate-200/60 bg-slate-50/40 px-3 py-1"
       >
-        <CompanionRow candidate={candidate} />
+        <CompanionRow
+          candidate={candidate}
+          isEditor={isEditor}
+          onDelete={onDelete}
+        />
       </motion.div>
     )
   }
@@ -345,7 +356,12 @@ function SommaireCard({
       {childCandidates.length > 0 && (
         <div className="px-5 sm:px-6 pb-5 border-t border-slate-100 pt-3">
           {childCandidates.map((child) => (
-            <CompanionRow key={child.id} candidate={child} />
+            <CompanionRow
+              key={child.id}
+              candidate={child}
+              isEditor={isEditor}
+              onDelete={onDelete}
+            />
           ))}
         </div>
       )}
@@ -366,8 +382,18 @@ function SommaireCard({
  * a communiqué attached to an arrêté reads as "Communiqué", not as
  * a promulgation.
  */
-function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
+function CompanionRow({
+  candidate,
+  isEditor = false,
+  onDelete,
+}: {
+  candidate: MoniteurEntryRead
+  isEditor?: boolean
+  onDelete?: (entryId: number) => Promise<void>
+}) {
   const [expanded, setExpanded] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const hasRawText = !!candidate.raw_text
   const meta = candidate.detected_category
     ? CATEGORY_META[candidate.detected_category]
@@ -383,14 +409,17 @@ function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
   // two distinct rows instead of two anonymous ones.
   const subtitle = candidate.display_title || candidate.detected_title || null
 
+  const canDelete = isEditor && !!onDelete
+
   return (
-    <div className="-mx-1">
+    <div className="-mx-1 group/companion">
+      <div className="flex items-start gap-1">
       <button
         type="button"
         onClick={() => hasRawText && setExpanded((v) => !v)}
         disabled={!hasRawText}
         className={cn(
-          'w-full flex items-start justify-between gap-3 px-2 py-2 text-left rounded-md',
+          'flex-1 flex items-start justify-between gap-3 px-2 py-2 text-left rounded-md',
           hasRawText
             ? 'hover:bg-slate-50 cursor-pointer'
             : 'cursor-default',
@@ -438,6 +467,21 @@ function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
           </span>
         )}
       </button>
+      {/* Editor-only delete affordance — only fades in on row hover so
+          the public reader sees a clean list. Confirms via dialog so
+          a mis-click doesn't quietly remove the row. */}
+      {canDelete && (
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          aria-label="Supprimer cette entrée"
+          title="Supprimer cette entrée"
+          className="opacity-0 group-hover/companion:opacity-100 focus:opacity-100 transition-opacity mt-2 mr-1 p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+      </div>
 
       <AnimatePresence>
         {hasRawText && expanded && (
@@ -456,6 +500,34 @@ function CompanionRow({ candidate }: { candidate: MoniteurEntryRead }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setConfirmDelete(false)
+        }}
+        onConfirm={async () => {
+          if (!onDelete) return
+          setDeleting(true)
+          try {
+            await onDelete(candidate.id)
+            setConfirmDelete(false)
+          } finally {
+            setDeleting(false)
+          }
+        }}
+        title="Supprimer cette entrée ?"
+        description={
+          <span>
+            {`L'entrée « ${label}${subtitle ? ` — ${subtitle}` : ''} » sera retirée du sommaire. `}
+            Le texte légal lié (s'il existe) reste intact ; seule la ligne dans ce numéro disparaît.
+          </span>
+        }
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        destructive
+        loading={deleting}
+      />
     </div>
   )
 }
@@ -818,6 +890,21 @@ export default function MoniteurDetailClient() {
                   candidate={candidate}
                   index={i}
                   children={childrenByParent.get(candidate.id) ?? []}
+                  isEditor={isEditor}
+                  onDelete={async (entryId) => {
+                    await deleteMoniteurEntry(entryId)
+                    // Refetch the issue so the deleted row disappears
+                    // and any siblings re-order naturally. Keeps the
+                    // delete UX consistent with what /editorial/moniteur
+                    // does after an edit.
+                    const rawParam = String(params.id ?? '')
+                    if (!rawParam) return
+                    const isNumeric = /^\d+$/.test(rawParam)
+                    const fresh = await (isNumeric
+                      ? getMoniteurIssue(Number(rawParam))
+                      : getMoniteurIssueBySlug(rawParam))
+                    setIssue(fresh)
+                  }}
                 />
               ))}
             </div>

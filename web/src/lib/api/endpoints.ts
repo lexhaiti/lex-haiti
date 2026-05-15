@@ -762,6 +762,14 @@ export async function deleteMoniteurIssue(id: number) {
   }
 }
 
+/** Hard-delete a single Moniteur entry (e.g. a promulgation companion
+ *  row that doesn't belong, or an over-eager parser candidate). Does
+ *  NOT cascade to the promoted legal_text — only the sommaire row in
+ *  this issue is removed. Editor-only on the backend. */
+export async function deleteMoniteurEntry(id: number): Promise<void> {
+  return apiDelete(`/moniteur/entries/${id}`)
+}
+
 export async function reviewMoniteurEntry(
   id: number,
   payload: {

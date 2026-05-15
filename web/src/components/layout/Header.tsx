@@ -12,7 +12,12 @@ import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 import { MENU_DATA } from '@/components/layout/menu'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
-import { AddTextButton, UserMenu } from '@/components/layout/UserMenu'
+import {
+  AddTextButton,
+  MobileUserSection,
+  UserMenu,
+} from '@/components/layout/UserMenu'
+import { useSession } from 'next-auth/react'
 
 // --- Utility: Check Active State ---
 // Active when (a) the pathname matches, and (b) every query param the link
@@ -78,6 +83,10 @@ function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null)
+  // Used by the mobile drawer to hide the "Connexion éditoriale" link
+  // when the user is already signed in — that link only makes sense
+  // for visitors; signed-in editors get the new MobileUserSection.
+  const { status: authStatus } = useSession()
   const [scrolled, setScrolled] = useState(false)
 
   const pathname = usePathname()
@@ -336,6 +345,16 @@ export default function Header() {
               </div>
 
               <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                {/* Editor-only quick actions (profile, console,
+                    imports, sign-out). Hidden for signed-out
+                    visitors — they still get the
+                    "Connexion éditoriale" link below. Fixes the gap
+                    where mobile users had no way to log out or hit
+                    the import shortcuts that the desktop "+" /
+                    avatar buttons provide. */}
+                <MobileUserSection
+                  onItemClick={() => setMobileOpen(false)}
+                />
                 {MENU_DATA.map((item, index) => (
                   <MobileMenuItem
                     key={index}
@@ -356,13 +375,15 @@ export default function Header() {
                   >
                     {t('nav.advancedSearch')}
                   </Link>
-                  <Link
-                    href="/sign-in"
-                    onClick={() => setMobileOpen(false)}
-                    className="block rounded-lg px-4 py-3 text-base font-bold text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors"
-                  >
-                    {t('nav.editorSignIn')}
-                  </Link>
+                  {authStatus !== 'authenticated' && (
+                    <Link
+                      href="/sign-in"
+                      onClick={() => setMobileOpen(false)}
+                      className="block rounded-lg px-4 py-3 text-base font-bold text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                    >
+                      {t('nav.editorSignIn')}
+                    </Link>
+                  )}
                 </div>
               </div>
 

@@ -471,6 +471,29 @@ def delete_issue(
     return None
 
 
+@router.delete("/entries/{entry_id}", status_code=204)
+def delete_entry(
+    entry_id: int,
+    db: DbSession,
+    user: EditorialUser,  # noqa: ARG001 — gate behind editor session
+):
+    """Hard-delete a single moniteur entry. Used by the editor to drop
+    promulgation / companion rows that don't belong, or to detach an
+    over-eager parser candidate. Does NOT cascade to the promoted
+    ``legal_text`` — that text continues to exist independently; only
+    the bridge row in this issue's sommaire is removed.
+
+    Returns 204 No Content on success, 404 if the entry doesn't exist.
+    """
+    repo = MoniteurRepository(db)
+    entry = repo.get_entry(entry_id)
+    if not entry:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur entry not found")
+    db.delete(entry)
+    db.commit()
+    return None
+
+
 @router.post(
     "/issues/{issue_id}/upload",
     response_model=MoniteurIssueRead,
