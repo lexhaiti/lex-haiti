@@ -32,6 +32,7 @@ import { smartIssueNumber } from '@/lib/format/moniteur'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
+import { useT } from '@/i18n/useT'
 import { MoniteurIssueEditorPanel } from './MoniteurIssueEditorPanel'
 
 // ---------------------------------------------------------------------------
@@ -57,6 +58,42 @@ function moniteurAnnee(year: number): number {
 }
 
 type DocType = NonNullable<MoniteurEntryRead['detected_category']>
+
+/** Per-language label pair for each category. Visual styling
+ *  (badge/bar/icon palette) is independent of language. Kept as a
+ *  separate object so callers can pick the right label by the page's
+ *  current language without changing the colour palette. */
+const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, string] }> = {
+  // [singular, plural]
+  constitution:   { fr: ['Constitution', 'Constitutions'],     ht: ['Konstitisyon', 'Konstitisyon yo'] },
+  code:           { fr: ['Code', 'Codes'],                     ht: ['Kòd', 'Kòd yo'] },
+  loi:            { fr: ['Loi', 'Lois'],                       ht: ['Lwa', 'Lwa yo'] },
+  decret:         { fr: ['Décret', 'Décrets'],                 ht: ['Dekrè', 'Dekrè yo'] },
+  arrete:         { fr: ['Arrêté', 'Arrêtés'],                 ht: ['Arete', 'Arete yo'] },
+  circulaire:     { fr: ['Circulaire', 'Circulaires'],         ht: ['Sikilè', 'Sikilè yo'] },
+  convention:     { fr: ['Convention', 'Conventions'],         ht: ['Konvansyon', 'Konvansyon yo'] },
+  ordonnance:     { fr: ['Ordonnance', 'Ordonnances'],         ht: ['Òdonans', 'Òdonans yo'] },
+  communique:     { fr: ['Communiqué', 'Communiqués'],         ht: ['Kominike', 'Kominike yo'] },
+  correspondance: { fr: ['Correspondance', 'Correspondances'], ht: ['Korespondans', 'Korespondans yo'] },
+  promulgation:   { fr: ['Promulgation', 'Promulgations'],     ht: ['Pwomilgasyon', 'Pwomilgasyon yo'] },
+  // "Errata" is invariable in both languages.
+  errata:         { fr: ['Errata', 'Errata'],                  ht: ['Errata', 'Errata'] },
+  autre:          { fr: ['Autre', 'Autres'],                   ht: ['Lòt', 'Lòt yo'] },
+}
+
+/** Resolve the singular/plural label for a category in the active
+ *  language. Falls back to the raw category code if the table doesn't
+ *  carry it (defensive — keeps a future enum value from breaking the
+ *  page even before the labels are added). */
+function categoryLabel(
+  cat: DocType,
+  lang: 'fr' | 'ht',
+  opts: { plural?: boolean } = {},
+): string {
+  const pair = CATEGORY_LABELS[cat]
+  if (!pair) return cat
+  return pair[lang][opts.plural ? 1 : 0]
+}
 
 const CATEGORY_META: Record<
   DocType,
@@ -174,12 +211,21 @@ function SommaireCard({
   onDelete: (entryId: number) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
+  const { language } = useT()
+  const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   const isPromoted = !!candidate.promoted_legal_text_slug
   const isPromulgation = candidate.detected_category === 'promulgation'
   const hasRawText = !!candidate.raw_text && !isPromoted
   const meta = candidate.detected_category
     ? CATEGORY_META[candidate.detected_category]
     : null
+  // Localised category label (e.g. "Promulgation" / "Pwomilgasyon",
+  // "Constitution" / "Konstitisyon") — sits on top of the same colour
+  // palette as ``meta`` so badges stay visually identical across
+  // languages.
+  const label = candidate.detected_category
+    ? categoryLabel(candidate.detected_category, lang)
+    : 'Document'
 
   // Promulgations don't carry their own titles — they're accompanying
   // letters, not standalone documents. Render with the dedicated
@@ -238,7 +284,7 @@ function SommaireCard({
                     meta.badge,
                   )}
                 >
-                  {meta.label}
+                  {label}
                 </span>
               )}
             </div>
@@ -394,6 +440,8 @@ function CompanionRow({
   const [expanded, setExpanded] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const { language } = useT()
+  const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   const hasRawText = !!candidate.raw_text
   const meta = candidate.detected_category
     ? CATEGORY_META[candidate.detected_category]
@@ -401,7 +449,9 @@ function CompanionRow({
   // Fallback to the raw category code if our label table doesn't carry
   // it — better than a blank chip. ``autre`` and any future enum value
   // get the slate styling below.
-  const label = meta?.label ?? candidate.detected_category ?? 'Document'
+  const label = candidate.detected_category
+    ? categoryLabel(candidate.detected_category, lang)
+    : 'Document'
   // Title doubles as the editor-typed free-form name for ``autre``
   // entries (per the c9aea41 commit). For other companion kinds it's
   // an optional subtitle the parser may have detected. Either way,
@@ -540,6 +590,8 @@ export default function MoniteurDetailClient() {
   const params = useParams()
   const searchParams = useSearchParams()
   const { isEditor } = useEditorMode()
+  const { language } = useT()
+  const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   // Route param is named "id" for backwards compatibility but accepts
   // either a numeric ID (``/moniteur/11`` — legacy permalink) or a
   // date slug (``/moniteur/28-avril-1987`` — preferred public form).
@@ -852,7 +904,7 @@ export default function MoniteurDetailClient() {
             </span>
             {sortedCategoryEntries.map(([cat, n]) => {
               const meta = CATEGORY_META[cat]
-              const word = n === 1 ? meta.label : meta.plural
+              const word = categoryLabel(cat, lang, { plural: n !== 1 })
               return (
                 <span
                   key={cat}

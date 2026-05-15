@@ -130,6 +130,38 @@ function formatHeadingNumber(
   return `${lbl[lang]} ${num}`
 }
 
+/** Render the per-language article-number label for a row in the TOC
+ *  or the breadcrumb / reader header.
+ *
+ *  French legal tradition stores the first article as the literal
+ *  string ``"premier"`` (and its alinéas as ``premier-1``,
+ *  ``premier-2`` …). That spelling has no direct equivalent in Kreyòl:
+ *  N° 36-A writes ``Atik 1`` / ``1-1`` in Arabic numerals. We map
+ *  the FR canonical number to its HT counterpart here so the TOC,
+ *  the reader header, and any breadcrumb stay consistent without
+ *  needing per-article ``number_ht`` columns in the DB.
+ *
+ *  Pre-numbered legacy strings starting with "article" are returned
+ *  verbatim — the parser produced them whole and we shouldn't
+ *  double-prefix.
+ */
+function formatArticleNumber(
+  rawNumber: string,
+  lang: 'fr' | 'ht',
+): string {
+  const num = rawNumber.trim()
+  if (!num) return ''
+  if (num.toLowerCase().startsWith('article')) return num
+  const prefix = lang === 'ht' ? 'Atik' : 'Art.'
+  // "premier" → "1" (HT only). Sub-articles ``premier-N`` → ``1-N``.
+  const ht = num === 'premier'
+    ? '1'
+    : num.startsWith('premier-')
+      ? `1-${num.slice('premier-'.length)}`
+      : num
+  return `${prefix} ${lang === 'ht' ? ht : num}`
+}
+
 /** TOC build result. ``roots`` is the heading tree (each node carries
  *  its attached articles + sub-nodes). ``orphans`` is the flat list
  *  of articles with no ``heading_id`` — they render at the very top
@@ -715,9 +747,7 @@ export default function TableOfContents({
                             isSelected ? '' : 'text-gray-900'
                           }`}
                         >
-                          {article.number.toLowerCase().startsWith('article')
-                            ? article.number
-                            : `Art. ${article.number}`}
+                          {formatArticleNumber(article.number, currentLang)}
                         </span>
                         {title && (
                           <span className="text-xs text-gray-500 truncate min-w-0">
@@ -801,7 +831,11 @@ export default function TableOfContents({
               className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:text-red-600 transition-colors mb-1"
             >
               <ChevronRight className="w-4 h-4 text-red-600 flex-shrink-0" />
-              <span>{currentLang === 'fr' ? 'Préambule' : 'Preanmbil'}</span>
+              {/* Kreyòl: "Premye koze" is the canonical translation
+                  used in N° 36-A — keep them aligned. The previous
+                  "Preanmbil" was a literal anglicisation that doesn't
+                  match the Konstitisyon's own wording. */}
+              <span>{currentLang === 'fr' ? 'Préambule' : 'Premye koze'}</span>
             </button>
           )}
           {hasVisas && onVisasClick && (
@@ -810,7 +844,9 @@ export default function TableOfContents({
               className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-slate-600 hover:text-red-600 transition-colors mb-1 ml-3"
             >
               <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <span>{currentLang === 'fr' ? 'Visas' : 'Visa'}</span>
+              {/* Kreyòl uses "Viza" (z, not s) — matches the
+                  Konstitisyon's own orthography. */}
+              <span>{currentLang === 'fr' ? 'Visas' : 'Viza'}</span>
             </button>
           )}
           {hasConsiderants && onConsiderantsClick && (
@@ -859,9 +895,7 @@ export default function TableOfContents({
                         isSelected ? '' : 'text-gray-900'
                       }`}
                     >
-                      {article.number.toLowerCase().startsWith('article')
-                        ? article.number
-                        : `Art. ${article.number}`}
+                      {formatArticleNumber(article.number, currentLang)}
                     </span>
                     {title && (
                       <span className="text-xs text-gray-500 truncate min-w-0">

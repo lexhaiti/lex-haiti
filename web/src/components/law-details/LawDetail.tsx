@@ -257,7 +257,18 @@ export default function LawDetail() {
       const numStr = String(article.number ?? '')
       const numLabel = numStr.toLowerCase().startsWith('article')
         ? numStr
-        : `Art. ${numStr}`
+        : currentLang === 'ht'
+          // Kreyòl uses "Atik" + Arabic numerals ("Atik 1", "Atik 1-1");
+          // FR keeps "Art. premier" / "Art. premier-N" for legal-tradition
+          // accuracy.
+          ? `Atik ${
+              numStr === 'premier'
+                ? '1'
+                : numStr.startsWith('premier-')
+                  ? `1-${numStr.slice('premier-'.length)}`
+                  : numStr
+            }`
+          : `Art. ${numStr}`
       const crosses = article.heading_id !== currentHeadingId
       if (!crosses || !article.heading_id) return numLabel
       const h = headingsById.get(article.heading_id)
@@ -1425,7 +1436,7 @@ export default function LawDetail() {
                   <EditableFormalBlock
                     isFr={currentLang === 'fr'}
                     isEditor={isEditor}
-                    title="Visas"
+                    title={currentLang === 'fr' ? 'Visas' : 'Viza'}
                     hint={currentLang === 'fr' ? 'Vu les articles...' : 'Wi atik yo...'}
                     value={visasDisplay.value}
                     valueHt={law.visas_ht ?? null}

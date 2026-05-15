@@ -873,9 +873,24 @@ export default function ArticleViewer({
               <ChevronRight className="w-3 h-3 text-gray-300" />
             )}
             <h2 className="font-bold text-slate-900 tracking-tight text-sm m-0">
-              {article.number.toLowerCase().startsWith('article')
-                ? article.number
-                : `Article ${article.number}`}
+              {(() => {
+                // Same FR/HT-aware article-number rendering as the TOC:
+                // FR keeps the canonical ``Article premier``; HT renders
+                // ``Atik 1`` / ``Atik 1-1`` to match how N° 36-A writes
+                // article identifiers.
+                const num = String(article.number ?? '')
+                if (num.toLowerCase().startsWith('article')) return num
+                if (currentLang === 'ht') {
+                  const htNum =
+                    num === 'premier'
+                      ? '1'
+                      : num.startsWith('premier-')
+                        ? `1-${num.slice('premier-'.length)}`
+                        : num
+                  return `Atik ${htNum}`
+                }
+                return `Article ${num}`
+              })()}
             </h2>
           </nav>
 
