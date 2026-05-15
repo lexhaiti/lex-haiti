@@ -828,33 +828,64 @@ export default function LawDetail() {
                 {(() => {
                   // Structured Moniteur link (from the ingestion pipeline)
                   // takes precedence over the legacy free-text field.
+                  // When a Kreyòl supplement issue is also linked (e.g.
+                  // constitution-1987 → N° 36-A), we render a second
+                  // smaller chip line so both source issues are reachable
+                  // without crowding the primary "Le Moniteur N° 36 du 28
+                  // avril 1987" line.
                   if (law.moniteur_issue_id) {
                     const pubDate = law.moniteur_issue_publication_date
                     const formatted = formatLongDate(pubDate, 'fr')
                     const dateStr = formatted ? `du ${formatted}` : ''
+                    const prettyNum = (n: string | null | undefined) =>
+                      /^[0-9]/.test(n ?? '') ? `N° ${n}` : (n ?? '')
+                    const slugFr = moniteurIssueSlug({
+                      id: law.moniteur_issue_id,
+                      publication_date: law.moniteur_issue_publication_date ?? null,
+                    })
+                    const slugHt = law.moniteur_issue_id_ht
+                      ? moniteurIssueSlug({
+                          id: law.moniteur_issue_id_ht,
+                          publication_date:
+                            law.moniteur_issue_publication_date_ht ?? null,
+                        })
+                      : null
                     return (
-                      <Link
-                        href={`/moniteur/${moniteurIssueSlug({
-                          id: law.moniteur_issue_id,
-                          publication_date: law.moniteur_issue_publication_date ?? null,
-                        })}`}
-                        className="flex items-center gap-4 min-w-0 max-w-full group/moniteur"
-                      >
-                        <div className="p-3 bg-white/5 rounded-full border border-white/10 group-hover/moniteur:bg-white/10 transition-colors">
+                      <div className="flex items-center gap-4 min-w-0 max-w-full">
+                        <div className="p-3 bg-white/5 rounded-full border border-white/10">
                           <Newspaper className="w-5 h-5 text-slate-400" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
                             {currentLang === 'fr' ? 'Publié dans' : 'Pibliye nan'}
                           </p>
-                          <p className="text-white font-medium truncate max-w-[24rem] group-hover/moniteur:underline">
-                            <em className="italic font-semibold">Le Moniteur</em>{' '}
-                            <span className="font-normal text-slate-200">
-                              {/^[0-9]/.test(law.moniteur_issue_number ?? '') ? `N° ${law.moniteur_issue_number}` : law.moniteur_issue_number} {dateStr}
-                            </span>
+                          <p className="text-white font-medium truncate max-w-[24rem]">
+                            <Link
+                              href={`/moniteur/${slugFr}`}
+                              className="hover:underline"
+                            >
+                              <em className="italic font-semibold">Le Moniteur</em>{' '}
+                              <span className="font-normal text-slate-200">
+                                {prettyNum(law.moniteur_issue_number)} {dateStr}
+                              </span>
+                            </Link>
                           </p>
+                          {slugHt && (
+                            <Link
+                              href={`/moniteur/${slugHt}`}
+                              className="block mt-0.5 text-[11px] text-slate-400 hover:text-slate-200 hover:underline"
+                            >
+                              {prettyNum(law.moniteur_issue_number_ht)}{' '}
+                              <span className="text-slate-500">
+                                ·{' '}
+                                {currentLang === 'fr'
+                                  ? 'version créole'
+                                  : 'vèsyon kreyòl'}
+                              </span>
+                            </Link>
+                          )}
                         </div>
-                      </Link>
+                      </div>
                     )
                   }
                   // Fallback: legacy free-text moniteur_ref field.
@@ -885,6 +916,77 @@ export default function LawDetail() {
                     </div>
                   )
                 })()}
+
+                {/* Amendée par — surfaces the laws that touched any
+                    article of this text (derived server-side from
+                    article_versions.source_amendment_id, distinct).
+                    Hidden when nothing has amended this text. The list
+                    can be long for the Constitution, so we render a
+                    count + dropdown rather than inline titles. */}
+                {law.amended_by && law.amended_by.length > 0 && (
+                  <div className="flex items-center gap-4 min-w-0 max-w-full">
+                    <div className="p-3 bg-white/5 rounded-full border border-white/10">
+                      <PenLine className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
+                        {currentLang === 'fr' ? 'Amendée par' : 'Modifye pa'}
+                      </p>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-white font-bold inline-flex items-center gap-1.5 hover:underline focus:outline-none"
+                          >
+                            <span>
+                              {law.amended_by.length}{' '}
+                              {currentLang === 'fr'
+                                ? law.amended_by.length > 1
+                                  ? 'lois'
+                                  : 'loi'
+                                : law.amended_by.length > 1
+                                  ? 'lwa'
+                                  : 'lwa'}
+                            </span>
+                            <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="start"
+                          sideOffset={8}
+                          className="max-w-md"
+                        >
+                          {law.amended_by.map((a) => {
+                            const title =
+                              currentLang === 'ht' && a.title_ht
+                                ? a.title_ht
+                                : a.title_fr
+                            return (
+                              <DropdownMenuItem key={a.id} asChild>
+                                <Link
+                                  href={`/loi/${a.slug}`}
+                                  className="flex flex-col items-start gap-0.5 py-2"
+                                >
+                                  <span className="text-sm font-medium text-slate-900 line-clamp-2">
+                                    {title}
+                                  </span>
+                                  {a.publication_date && (
+                                    <span className="text-[11px] text-slate-500">
+                                      {formatLongDate(
+                                        a.publication_date,
+                                        currentLang,
+                                      )}
+                                    </span>
+                                  )}
+                                </Link>
+                              </DropdownMenuItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <DownloadDropdown slug={slug} language={language} />

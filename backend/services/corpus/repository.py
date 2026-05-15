@@ -491,6 +491,24 @@ class CorpusRepository:
         )
         return list(self.session.execute(stmt).scalars().all())
 
+    def get_amended_by(self, text_id: int) -> List[LegalText]:
+        """Return the distinct laws that amended any article of this text.
+
+        Derived from ``article_versions.source_amendment_id`` — the FK set
+        when a new version row is created from an amending law. Results are
+        ordered by publication date so the "Amendée par" list reads
+        chronologically."""
+        stmt = (
+            select(LegalText)
+            .join(ArticleVersion, ArticleVersion.source_amendment_id == LegalText.id)
+            .join(Article, Article.id == ArticleVersion.article_id)
+            .where(Article.legal_text_id == text_id)
+            .where(ArticleVersion.source_amendment_id.is_not(None))
+            .distinct()
+            .order_by(LegalText.publication_date.asc().nullslast())
+        )
+        return list(self.session.execute(stmt).scalars().all())
+
     def get_theme_tags_for_texts(
         self, text_ids: List[int]
     ) -> dict[int, List[LegalThemeTag]]:

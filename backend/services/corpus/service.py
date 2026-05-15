@@ -33,7 +33,7 @@ from schemas.enums import (
     ThemeSource,
 )
 from schemas.heading import LegalHeadingRead, TocNode
-from schemas.legal_text import LegalTextListItem, LegalTextRead, MatchSnippet
+from schemas.legal_text import AmendedByRef, LegalTextListItem, LegalTextRead, MatchSnippet
 from schemas.signer import LegalSignerRead
 from schemas.theme import LegalThemeTagRead
 from services.corpus.exceptions import NotFound
@@ -175,6 +175,7 @@ def text_to_read(
     articles: list[ArticleEmbed],
     signers: list[LegalSignerRead],
     theme_tags: Optional[list[LegalThemeTagRead]] = None,
+    amended_by: Optional[list[AmendedByRef]] = None,
 ) -> LegalTextRead:
     """Build a LegalTextRead from an ORM row + already-converted children.
 
@@ -183,6 +184,8 @@ def text_to_read(
     ORM's `text.articles` is a list of Article rows and Pydantic can't coerce
     those automatically.
     """
+    mi = getattr(text, "moniteur_issue", None)
+    mi_ht = getattr(text, "moniteur_issue_ht", None)
     return LegalTextRead(
         id=text.id,
         slug=text.slug,
@@ -216,9 +219,13 @@ def text_to_read(
         articles=articles,
         signers=signers,
         theme_tags=theme_tags or [],
-        moniteur_issue_id=getattr(mi, "id", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
-        moniteur_issue_number=getattr(mi, "number", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
-        moniteur_issue_publication_date=getattr(mi, "publication_date", None) if (mi := getattr(text, "moniteur_issue", None)) else None,
+        moniteur_issue_id=mi.id if mi else None,
+        moniteur_issue_number=mi.number if mi else None,
+        moniteur_issue_publication_date=mi.publication_date if mi else None,
+        moniteur_issue_id_ht=mi_ht.id if mi_ht else None,
+        moniteur_issue_number_ht=mi_ht.number if mi_ht else None,
+        moniteur_issue_publication_date_ht=mi_ht.publication_date if mi_ht else None,
+        amended_by=amended_by or [],
     )
 
 QuickAccessKey = Union[LegalCategory, CodeSubcategory]
@@ -421,11 +428,14 @@ class CorpusService:
         if not text:
             raise NotFound(f"LegalText not found: {slug}")
 
-        # Always include theme chips on the detail view — they're a primary
-        # navigational signal on the law page.
+        # Always include theme chips and amended_by on the detail view.
         theme_tags = [
             LegalThemeTagRead.model_validate(t)
             for t in self.repo.get_theme_tags_for_text(text.id)
+        ]
+        amended_by = [
+            AmendedByRef.model_validate(t)
+            for t in self.repo.get_amended_by(text.id)
         ]
 
         if include == "all":
@@ -452,6 +462,7 @@ class CorpusService:
                 ],
                 signers=[LegalSignerRead.model_validate(s) for s in text.signers],
                 theme_tags=theme_tags,
+                amended_by=amended_by,
             )
         if include == "toc":
             return text_to_read(
@@ -460,10 +471,16 @@ class CorpusService:
                 articles=[],
                 signers=[],
                 theme_tags=theme_tags,
+                amended_by=amended_by,
             )
         # default: metadata only
         return text_to_read(
-            text, headings=[], articles=[], signers=[], theme_tags=theme_tags
+            text,
+            headings=[],
+            articles=[],
+            signers=[],
+            theme_tags=theme_tags,
+            amended_by=amended_by,
         )
 
     def get_toc_by_slug(self, slug: str) -> List[TocNode]:

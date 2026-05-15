@@ -1791,6 +1791,23 @@ export interface components {
             offset: number;
         };
         /**
+         * AmendedByRef
+         * @description Minimal reference to a law that has amended one or more articles of
+         *     the parent text. Surfaced as metadata on the law detail page.
+         */
+        AmendedByRef: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title Fr */
+            title_fr: string;
+            /** Title Ht */
+            title_ht?: string | null;
+            /** Publication Date */
+            publication_date?: string | null;
+        };
+        /**
          * ArticleContentUpdate
          * @description Partial update of the editable content fields of an article version.
          *
@@ -3254,6 +3271,17 @@ export interface components {
             moniteur_issue_number?: string | null;
             /** Moniteur Issue Publication Date */
             moniteur_issue_publication_date?: string | null;
+            /** Moniteur Issue Id Ht */
+            moniteur_issue_id_ht?: number | null;
+            /** Moniteur Issue Number Ht */
+            moniteur_issue_number_ht?: string | null;
+            /** Moniteur Issue Publication Date Ht */
+            moniteur_issue_publication_date_ht?: string | null;
+            /**
+             * Amended By
+             * @default []
+             */
+            amended_by: components["schemas"]["AmendedByRef"][];
         };
         /**
          * LegalTheme

@@ -318,6 +318,22 @@ class LegalText(Base):
         lazy="joined",
     )
 
+    # FK to the Kreyòl supplement issue (e.g. N° 36-A for the Constitution).
+    # NULL for most laws; set only when an official Kreyòl version was
+    # published in a distinct Moniteur issue.
+    moniteur_issue_id_ht: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_issues.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_legal_texts_moniteur_issue_ht",
+        )
+    )
+    moniteur_issue_ht: Mapped[Optional["MoniteurIssue"]] = relationship(
+        foreign_keys=[moniteur_issue_id_ht],
+        lazy="joined",
+    )
+
 
 class LegalThemeTag(Base):
     """Many-to-many tag mapping a `LegalText` to a `LegalTheme`.
