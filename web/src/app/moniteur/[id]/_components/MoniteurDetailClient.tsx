@@ -851,24 +851,29 @@ export default function MoniteurDetailClient() {
           </div>
 
           {/* Bottom action row — secondary actions only. The primary
-              download moved into the sidebar above. */}
-          {((issue.file_url && issue.file_url.startsWith('http')) ||
-            isEditor) && (
+              download moved into the sidebar above. The "Scan original"
+              button now shows whenever ``file_url`` is set (regardless
+              of http vs filesystem path) and links to the typed
+              ``/moniteur/issues/{id}/scan`` endpoint, which streams the
+              local PDF or 302s to the CDN depending on the stored value.
+              Lets the editor (and any public reader) grab the source
+              scan that was OCR'd to produce the structured text below. */}
+          {(issue.file_url || isEditor) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               className="mt-10 flex flex-wrap items-center gap-3"
             >
-              {issue.file_url && issue.file_url.startsWith('http') && (
+              {issue.file_url && (
                 <a
-                  href={issue.file_url}
+                  href={`/api/v1/moniteur/issues/${issue.id}/scan`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
                 >
                   <Download className="w-4 h-4" />
-                  Scan original
+                  Scan original (PDF)
                 </a>
               )}
               {/* Editor-only toggle. Flips the body below for the

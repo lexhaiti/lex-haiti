@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
@@ -73,6 +73,36 @@ def _file_storage_root() -> Path:
     root = Path(raw) if raw else Path.cwd() / "var" / "moniteur"
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def _is_within(child: Path, parent: Path) -> bool:
+    """True iff ``child`` resolves to a path inside ``parent``. Both
+    paths must already be ``.resolve()``-d by the caller. Used as the
+    path-traversal guard on the scan-download endpoint."""
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _static_scans_root() -> Path:
+    """Where committed historical Moniteur scans live.
+
+    Distinct from ``_file_storage_root()`` (which is ephemeral and
+    holds editor-uploaded files) — this is the path the Docker image
+    bakes-in for archival historical PDFs (e.g. N° 36 / N° 36-A
+    Constitution scans). Resolves to ``backend/data/scans/`` at the
+    repo root locally, and to ``/app/data/scans/`` inside the
+    container. Override with the ``STATIC_SCANS_DIR`` env var when
+    pointing at a mounted volume or future Blob mount.
+    """
+    raw = os.environ.get("STATIC_SCANS_DIR")
+    if raw:
+        return Path(raw)
+    # ``api/routes/moniteur.py`` → repo backend root is parent.parent.parent
+    here = Path(__file__).resolve()
+    return here.parent.parent.parent / "data" / "scans"
 
 
 def _safe_filename(year: int, number: str, suffix: str = ".pdf") -> str:
@@ -492,6 +522,70 @@ def delete_entry(
     db.delete(entry)
     db.commit()
     return None
+
+
+@router.get("/issues/{issue_id}/scan")
+def download_issue_scan(issue_id: int, db: DbSession):
+    """Stream the original scanned PDF for this Moniteur issue.
+
+    Public endpoint — anyone can download the source document of a
+    published issue. ``moniteur_issues.file_url`` can be one of:
+      * a full ``http(s)://…`` URL — we 302 to it so the caller hits
+        the CDN / Azure Blob directly without proxying the bytes.
+      * an absolute filesystem path — we serve it via ``FileResponse``.
+        Only paths that resolve inside ``MONITEUR_PDF_DIR`` are accepted
+        (defence against ``../`` traversal if someone ever pokes the
+        column manually).
+      * NULL — 404.
+
+    Filename in the ``Content-Disposition`` header is
+    ``lexhaiti-moniteur-{number}-{year}.pdf`` so readers' Downloads
+    folder reads cleanly. Same shape used by the structured PDF
+    export elsewhere.
+    """
+    repo = MoniteurRepository(db)
+    issue = repo.get_issue(issue_id)
+    if not issue:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Moniteur issue not found")
+    if not issue.file_url:
+        raise HTTPException(HTTP_404_NOT_FOUND, "No scan attached to this issue.")
+
+    # Remote URL → redirect. Keeps the proxy off the request path
+    # when the PDF lives in Azure Blob / B2 / a CDN.
+    if issue.file_url.startswith(("http://", "https://")):
+        return Response(
+            status_code=302,
+            headers={"Location": issue.file_url},
+        )
+
+    allowed_roots = [
+        _file_storage_root().resolve(),
+        _static_scans_root().resolve(),
+    ]
+    target = Path(issue.file_url).resolve()
+    # Path-traversal guard: the resolved file must live inside one of
+    # the configured roots. Lets the editor-upload directory and the
+    # baked-in historical-scans directory both serve, while blocking
+    # any ``../`` poking if someone ever sets ``file_url`` by hand.
+    if not any(_is_within(target, root) for root in allowed_roots):
+        raise HTTPException(
+            500,
+            "Stored file_url points outside the configured scan roots. "
+            "Re-upload via the editor or fix the path manually.",
+        )
+    if not target.exists():
+        raise HTTPException(
+            HTTP_404_NOT_FOUND,
+            f"Scan file is missing on disk: {target.name}",
+        )
+
+    safe_number = re.sub(r"[^\w-]+", "-", issue.number).strip("-") or "issue"
+    download_name = f"lexhaiti-moniteur-{safe_number}-{issue.year}.pdf"
+    return FileResponse(
+        path=target,
+        media_type="application/pdf",
+        filename=download_name,
+    )
 
 
 @router.post(
