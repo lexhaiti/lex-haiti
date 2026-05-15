@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -67,12 +68,22 @@ export default function HeroSection() {
           inside the visible viewport instead of partly hiding behind the
           fixed header. */}
       <div className="absolute top-20 inset-x-0 bottom-0 z-0 select-none pointer-events-none">
-        <img
+        {/* ``next/image`` with ``fill`` so it inherits the parent's
+            absolute box. Next.js then serves WebP/AVIF on demand
+            (huge win vs the 1.88 MB raw PNG it replaced), generates
+            a width-targeted srcset, and adds the priority preload
+            hint so this image becomes the LCP candidate. ``sizes``
+            tells the loader which width to fetch per viewport so we
+            don't ship the 1920px source to a phone. */}
+        <Image
           src="/hero.png"
           alt=""
           aria-hidden="true"
+          fill
+          priority
+          sizes="100vw"
           className={cn(
-            'absolute inset-0 w-full h-full object-cover object-center',
+            'object-cover object-center',
             // Mobile: slight scale-up so the image crops a bit top + bottom
             // (cinematic letterbox feel) while the palm stays centered.
             'scale-[1.08] origin-center',

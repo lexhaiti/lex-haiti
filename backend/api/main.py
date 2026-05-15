@@ -120,7 +120,18 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=True,  # required so Auth.js cookies travel to the API
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["*"],
+        # Explicit allowlist instead of "*" — wildcard combined with
+        # allow_credentials echoes every request header back as allowed,
+        # which weakens CSRF posture even though our request middleware
+        # also checks X-Requested-With. The list below matches every
+        # header the typed API client and Auth.js cookie flow send.
+        allow_headers=[
+            "Accept",
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "X-CSRF-Token",
+        ],
     )
 
     # Domain exception → HTTP error mapping (Issues 4 + 10)

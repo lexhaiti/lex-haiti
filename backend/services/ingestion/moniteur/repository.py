@@ -275,12 +275,23 @@ class MoniteurRepository:
         return self.session.execute(stmt).scalar_one_or_none()
 
     # Inverse French-month map for slug parsing. Mirrors the one in
-    # ``schemas.moniteur`` so slugs round-trip cleanly.
+    # ``schemas.moniteur`` so slugs round-trip cleanly. Both accent-free
+    # and accented spellings of "février" are accepted because the URL
+    # generator emits the accent-free form ("28-fevrier-1987") while
+    # editors sometimes paste the accented one back in.
     _SLUG_MONTHS = {
-        "janvier": 1, "fevrier": 2, "fevrier": 2, "mars": 3,
-        "avril": 4, "mai": 5, "juin": 6, "juillet": 7,
-        "aout": 8, "septembre": 9, "octobre": 10,
-        "novembre": 11, "decembre": 12,
+        "janvier": 1,
+        "fevrier": 2, "février": 2,
+        "mars": 3,
+        "avril": 4,
+        "mai": 5,
+        "juin": 6,
+        "juillet": 7,
+        "aout": 8, "août": 8,
+        "septembre": 9,
+        "octobre": 10,
+        "novembre": 11,
+        "decembre": 12, "décembre": 12,
     }
 
     def get_issue_by_slug_with_entries(

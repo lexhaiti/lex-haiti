@@ -4,6 +4,7 @@
 // nuance was barely visible on a 4-card row anyway).
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { SectionHeading } from '@/components/shared/SectionHeading'
 import { getT } from '@/i18n/server'
@@ -65,12 +66,19 @@ export default async function ExplorerSection() {
                     zoom-in (scale-110) so the subject reads with presence
                     even when the card is narrow (e.g. 4-col xl layout). */}
                 <div className="relative h-48 sm:h-56 lg:h-60 xl:h-56 w-full overflow-hidden bg-primary">
-                  <img
+                  {/* ``next/image`` swap: serves WebP/AVIF + width-
+                      targeted srcset, so we ship the right pixel size
+                      per viewport instead of the same 1-6 MB PNG. The
+                      ``sizes`` value mirrors the card grid breakpoints
+                      (4-col xl, 2-col md, 1-col mobile). */}
+                  <Image
                     src={card.image}
                     alt=""
                     aria-hidden="true"
+                    fill
+                    sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 100vw"
                     className={cn(
-                      'absolute inset-0 w-full h-full object-cover object-center origin-center',
+                      'object-cover object-center origin-center',
                       // Baseline zoom keeps the focal subject prominent when
                       // the image is squeezed into a narrow card.
                       'scale-110 group-hover:scale-[1.18]',
