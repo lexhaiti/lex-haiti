@@ -1,11 +1,27 @@
 // app/layout.tsx
 import type { Metadata } from 'next'
+import { DM_Sans, Source_Serif_4 } from 'next/font/google'
 import NextTopLoader from 'nextjs-toploader'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import SiteShell from '@/components/layout/SiteShell'
 import Providers from './providers'
 import { getServerLanguage } from '@/i18n/server'
+
+// next/font self-hosts these so the browser never blocks on a
+// Google Fonts CSS request. ``swap`` shows a fallback immediately,
+// preventing the FOIT. ``--font-*`` variables are read by the Tailwind
+// fontFamily config (tailwind.config.ts:fontFamily.sans/serif).
+const dmSans = DM_Sans({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-dm-sans',
+})
+const sourceSerif4 = Source_Serif_4({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-source-serif-4',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +49,11 @@ export default async function RootLayout({
 }) {
   const language = await getServerLanguage()
   return (
-    <html lang={language} suppressHydrationWarning>
+    <html
+      lang={language}
+      suppressHydrationWarning
+      className={`${dmSans.variable} ${sourceSerif4.variable}`}
+    >
       {/* Route-transition progress bar. Pinned EXACTLY on top of the
           red gradient line at the bottom of the fixed nav header
           (Header.tsx:125 — a h-0.5 = 2px gradient at the bottom of the

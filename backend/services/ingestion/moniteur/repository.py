@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import cast, desc, func, or_, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, defer, selectinload
 from sqlalchemy.types import String
 
 from schemas.enums import (
@@ -104,14 +104,25 @@ class MoniteurRepository:
             ).scalar_one()
         )
 
+        # The list response only needs each entry's sommaire fields —
+        # detected_category / detected_number / detected_title (or the
+        # editor-typed display_title) / promoted_legal_text.slug. The
+        # heavy columns ``raw_text`` and ``content_ast`` (OCR output +
+        # parser AST, easily >1 MB per entry on long laws) used to
+        # ship to the client on every list refresh. Deferring them
+        # here cuts the row payload by ~95% without touching the
+        # consumer code — they load lazily if a downstream caller
+        # ever asks.
         stmt = (
             stmt.order_by(
                 desc(MoniteurIssue.publication_date),
                 desc(MoniteurIssue.id),
             )
             .options(
-                selectinload(MoniteurIssue.entries).selectinload(
-                    MoniteurEntry.promoted_legal_text
+                selectinload(MoniteurIssue.entries).options(
+                    selectinload(MoniteurEntry.promoted_legal_text),
+                    defer(MoniteurEntry.raw_text),
+                    defer(MoniteurEntry.content_ast),
                 )
             )
             .offset(offset)

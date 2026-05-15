@@ -93,8 +93,18 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
-        serif: ['Source Serif 4', 'Georgia', 'serif'],
+        // CSS variables set by next/font in app/layout.tsx — see
+        // ``dmSans`` and ``sourceSerif4`` declarations there. Falls
+        // back to the literal family names so the previous
+        // ``@import url(...)`` path still works during transition or
+        // if a future build skips the next/font wrap.
+        sans: ['var(--font-dm-sans)', 'DM Sans', 'system-ui', 'sans-serif'],
+        serif: [
+          'var(--font-source-serif-4)',
+          'Source Serif 4',
+          'Georgia',
+          'serif',
+        ],
       },
       keyframes: {
         'accordion-down': {

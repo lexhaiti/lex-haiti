@@ -988,11 +988,19 @@ def promote_entry(
     from sqlalchemy import select
     from services.corpus.models import LegalText
 
-    counter = 0
+    # Single round-trip lookup for every slug that starts with the
+    # candidate base — used to be one ``SELECT`` per collision in a
+    # loop, which is a write-path foot-gun on busy hours. The set is
+    # tiny (always < a dozen for real input), so building it in Python
+    # is cheaper than a chatty round-trip per attempt.
+    existing_slugs = set(
+        db.execute(
+            select(LegalText.slug).where(LegalText.slug.like(f"{slug}%"))
+        ).scalars().all()
+    )
     entry_slug = slug
-    while db.execute(
-        select(LegalText.id).where(LegalText.slug == entry_slug)
-    ).first():
+    counter = 0
+    while entry_slug in existing_slugs:
         counter += 1
         entry_slug = f"{slug}-{counter}"
 

@@ -53,6 +53,7 @@ import {
   moniteurIssueSlug,
   updateHeadingTitle,
   updateLegalTextMetadata,
+  type ArticleEmbed,
 } from '@/lib/api/endpoints'
 import { SignataireBlock } from '@/components/law-details/SignataireBlock'
 import { ChangesMadePanel } from '@/components/law-details/_panels/ChangesMadePanel'
@@ -117,7 +118,30 @@ export default function LawDetail() {
     else if (langParam === 'fr' && language !== 'fr') setLanguage('fr')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [langParam])
-  const [selectedArticle, setSelectedArticle] = useState<any>(null)
+  // ``SelectedArticle`` is whatever ``law.articles[i]`` is —
+  // ArticleEmbed from the OpenAPI types. Centralising the type here
+  // keeps the navigation + breadcrumb + selection callbacks honest
+  // instead of leaking ``any``.
+  type SelectedArticle = ArticleEmbed
+  // The TOC component carries a structurally narrower ``Heading``
+  // (no ``legal_text_id``, all fields except id/key optional) and
+  // that's what its callbacks emit. Keep the anchor's ``heading``
+  // field aligned with the TOC's shape so the onAddSiblingHeading +
+  // onEditHeading callbacks pass without casts. ``LegalHeadingRead``
+  // (which has ``legal_text_id`` + non-optional ``number``) is the
+  // wider read type; we don't need its extra fields here.
+  type HeadingAnchorRow = {
+    id: number
+    key: string
+    parent_id?: number | null
+    level?: string | null
+    number?: string | null
+    title_fr?: string | null
+    title_ht?: string | null
+    position?: number
+  }
+  const [selectedArticle, setSelectedArticle] =
+    useState<SelectedArticle | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   // Add-heading modal state. ``anchor`` selects the insertion mode:
   // - { kind: 'after', heading } slots after that heading at the same
@@ -125,11 +149,12 @@ export default function LawDetail() {
   // - { kind: 'child', heading } appends under that heading (rare;
   //   reserved for a future "+ child" affordance)
   // - { kind: 'root' } creates a top-level heading (TOC header +)
-  const [addHeadingAnchor, setAddHeadingAnchor] = useState<
-    | { kind: 'after'; heading: any }
-    | { kind: 'child'; heading: any }
+  type HeadingAnchor =
+    | { kind: 'after'; heading: HeadingAnchorRow }
+    | { kind: 'child'; heading: HeadingAnchorRow }
     | { kind: 'root' }
-    | null
+  const [addHeadingAnchor, setAddHeadingAnchor] = useState<
+    HeadingAnchor | null
   >(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   // V2 page-level search (replaces TOC's internal search input)
@@ -215,24 +240,33 @@ export default function LawDetail() {
     }
   }, [law?.articles])
 
+  // Heading id → row lookup. Hoisted out of articleBreadcrumb (which
+  // ran on every selection) and blocHints (which ran on every article
+  // index change) — both used to rebuild this Map per fire. Keying on
+  // ``law?.headings`` only means the Map is rebuilt at most once per
+  // refetch instead of dozens of times per session.
+  const headingsById = useMemo(() => {
+    const headings = law?.headings ?? []
+    return new Map<number, (typeof headings)[number]>(
+      headings.map((h) => [h.id, h]),
+    )
+  }, [law?.headings])
+
   // Walk the heading tree from the selected article up to the LegalText root.
   // Used for the in-article breadcrumb (Titre → Chapitre → Art.).
   const articleBreadcrumb = useMemo(() => {
     if (!selectedArticle?.heading_id || !law?.headings) return []
-    const byId = new Map<number, (typeof law.headings)[number]>(
-      law.headings.map((h) => [h.id, h]),
-    )
     const path: typeof law.headings = []
-    let current: (typeof law.headings)[number] | undefined = byId.get(
+    let current: (typeof law.headings)[number] | undefined = headingsById.get(
       selectedArticle.heading_id,
     )
     let safety = 10 // belt-and-braces against accidental cycles
     while (current && safety-- > 0) {
       path.unshift(current)
-      current = current.parent_id ? byId.get(current.parent_id) : undefined
+      current = current.parent_id ? headingsById.get(current.parent_id) : undefined
     }
     return path
-  }, [selectedArticle, law?.headings])
+  }, [selectedArticle, law?.headings, headingsById])
 
   // Bloc-style nav hints (Légifrance-flavored). When the prev/next article
   // sits under a different heading than the current one, append the heading
@@ -249,7 +283,8 @@ export default function LawDetail() {
       section: { fr: 'Section', ht: 'Seksyon' },
       subsection: { fr: 'Sous-section', ht: 'Sou-seksyon' },
     }
-    const headingsById = new Map(law.headings.map((h) => [h.id, h]))
+    // headingsById comes from the hoisted useMemo above; no need to
+    // rebuild it inside this hook (rebuilt on every navigation hop).
     const currentHeadingId = selectedArticle?.heading_id ?? null
 
     const hint = (article: any | undefined): string | null => {
@@ -282,7 +317,7 @@ export default function LawDetail() {
       prev: hint(law.articles[currentArticleIndex - 1]),
       next: hint(law.articles[currentArticleIndex + 1]),
     }
-  }, [law?.articles, law?.headings, currentArticleIndex, selectedArticle?.heading_id, currentLang])
+  }, [law?.articles, law?.headings, currentArticleIndex, selectedArticle?.heading_id, currentLang, headingsById])
 
   // Auto-select an article on mount.
   // Priority: ?article=N from the URL (deep-link from search snippets) →

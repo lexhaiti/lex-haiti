@@ -68,10 +68,19 @@ def _build_q_clause(q: str, q_field: str, q_mode: str):
                          qualifies the parent text.
 
     `q_mode` controls how the words combine:
-      - "all"     : every word must match somewhere
+      - "all"     : every word must match somewhere (ILIKE per word)
       - "exact"   : the whole phrase as a single substring
-      - "any"     : at least one word matches
+      - "any"     : at least one word matches (ILIKE per word)
       - "exclude" : none of the words match (each word is NOT'd)
+      - "fts"     : ``plainto_tsquery`` against the GIN-indexed
+                    ``search_vector_fr`` / ``search_vector_ht`` columns
+                    on ``article_versions`` (and the parent
+                    ``search_vector_fr`` on ``legal_texts``). Much
+                    faster than ILIKE on large corpora; less forgiving
+                    on stems + accents, but unaccent+lower-case is
+                    folded into the tsvector via the trigger generator
+                    in migration 0001. Use this for the "deep" search
+                    when the user types a longer phrase.
     """
     if not q:
         return None
@@ -88,6 +97,41 @@ def _build_q_clause(q: str, q_field: str, q_mode: str):
     else:
         target_cols = title_cols + desc_cols + [LegalText.moniteur_ref]
     search_articles = q_field == "all"
+
+    # FTS branch — uses the GIN indexes
+    # (``ix_legal_texts_search_vector_fr`` + ``ix_article_versions_search_fr/_ht``
+    # declared in migration 0001) instead of an EXISTS+ILIKE-per-word
+    # chain. ``plainto_tsquery`` tokenises and ANDs the words. The
+    # generated ``search_vector_fr/_ht`` columns aren't mapped on the
+    # ORM (see comment on ArticleVersion); we reference them via
+    # ``column()`` literals so the planner can still use the index.
+    if q_mode == "fts":
+        from sqlalchemy import column, literal_column
+
+        ts_fr = func.plainto_tsquery("french", q_clean)
+        ts_ht = func.plainto_tsquery("simple", q_clean)
+        lt_vec_fr = literal_column("legal_texts.search_vector_fr")
+        av_vec_fr = literal_column("article_versions.search_vector_fr")
+        av_vec_ht = literal_column("article_versions.search_vector_ht")
+        parts = [lt_vec_fr.op("@@")(ts_fr)]
+        if search_articles:
+            parts.append(
+                select(1)
+                .select_from(Article)
+                .join(
+                    ArticleVersion,
+                    ArticleVersion.article_id == Article.id,
+                )
+                .where(
+                    Article.legal_text_id == LegalText.id,
+                    or_(
+                        av_vec_fr.op("@@")(ts_fr),
+                        av_vec_ht.op("@@")(ts_ht),
+                    ),
+                )
+                .exists()
+            )
+        return or_(*parts)
 
     # NULL-safe + accent-insensitive helpers. Coalesce nulls before
     # ILIKE so the predicate never returns NULL (which would silently

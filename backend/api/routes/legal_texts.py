@@ -49,12 +49,14 @@ def list_legal_texts(
             "Moniteur ref), 'title' (titles only), 'description' (descriptions only)."
         ),
     ),
-    q_mode: Literal["all", "exact", "any", "exclude"] = Query(
+    q_mode: Literal["all", "exact", "any", "exclude", "fts"] = Query(
         "all",
         description=(
             "How the search text is matched: 'all' (every word must match), "
             "'exact' (full phrase substring), 'any' (at least one word), "
-            "'exclude' (none of the words)."
+            "'exclude' (none of the words), 'fts' (Postgres tsvector @@ "
+            "plainto_tsquery against the GIN-indexed search columns — "
+            "fastest on large corpora; less forgiving on accents/stems)."
         ),
     ),
     category: Optional[LegalCategory] = None,

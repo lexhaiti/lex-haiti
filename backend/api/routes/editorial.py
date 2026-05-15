@@ -1171,21 +1171,22 @@ def translation_stats(db: DbSession, user: EditorialUser):
         MoniteurEntry,
     )
 
-    # Per-text article counts (total + translated)
+    # Was: 7 separate ``SELECT count(*)`` round trips + one
+    # ``SELECT total, translated`` that read every legal_text row to
+    # bucket them in Python. Folded into two round trips below — one
+    # that aggregates the per-text coverage subquery into buckets in
+    # SQL, one that does the three article/entry global counters in a
+    # single statement. Cheaper, fewer connection round-trips, scales
+    # past 100K texts without revisiting.
+    is_translated = (ArticleVersion.text_ht.is_not(None)) & (
+        func.length(func.trim(ArticleVersion.text_ht)) > 0
+    )
+
     text_stats = (
         select(
             LegalText.id.label("text_id"),
             func.count(Article.id).label("total"),
-            func.sum(
-                case(
-                    (
-                        (ArticleVersion.text_ht.is_not(None))
-                        & (func.length(func.trim(ArticleVersion.text_ht)) > 0),
-                        1,
-                    ),
-                    else_=0,
-                )
-            ).label("translated"),
+            func.sum(case((is_translated, 1), else_=0)).label("translated"),
         )
         .join(Article, Article.legal_text_id == LegalText.id, isouter=True)
         .join(
@@ -1197,63 +1198,87 @@ def translation_stats(db: DbSession, user: EditorialUser):
         .subquery()
     )
 
-    legal_texts_total = db.execute(select(func.count(LegalText.id))).scalar() or 0
+    # Single statement → all four legal_text bucket counts.
+    coverage_row = db.execute(
+        select(
+            func.count(text_stats.c.text_id).label("total"),
+            func.sum(
+                case(
+                    ((text_stats.c.translated > 0), 1),
+                    else_=0,
+                )
+            ).label("with_ht"),
+            func.sum(
+                case(
+                    (
+                        (text_stats.c.total > 0)
+                        & (text_stats.c.translated == text_stats.c.total),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("fully"),
+            func.sum(
+                case(
+                    (
+                        (text_stats.c.total > 0)
+                        & (text_stats.c.translated == 0),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("fr_only"),
+        )
+    ).one()
 
-    coverage_rows = db.execute(
-        select(text_stats.c.total, text_stats.c.translated)
-    ).all()
-    legal_texts_with_ht = sum(1 for r in coverage_rows if (r.translated or 0) > 0)
-    legal_texts_fully_translated = sum(
-        1 for r in coverage_rows if (r.total or 0) > 0 and (r.translated or 0) == (r.total or 0)
-    )
-    legal_texts_fr_only = sum(
-        1 for r in coverage_rows if (r.total or 0) > 0 and (r.translated or 0) == 0
-    )
-
-    articles_total = (
-        db.execute(select(func.count(Article.id))).scalar() or 0
-    )
-    articles_translated = (
-        db.execute(
-            select(func.count(ArticleVersion.id)).where(
-                (ArticleVersion.text_ht.is_not(None))
-                & (func.length(func.trim(ArticleVersion.text_ht)) > 0)
-            )
-        ).scalar()
-        or 0
-    )
-
-    moniteur_entries_total = (
-        db.execute(select(func.count(MoniteurEntry.id))).scalar() or 0
-    )
-    moniteur_entries_with_translation_pointer = (
-        db.execute(
-            select(func.count(MoniteurEntry.id)).where(
-                MoniteurEntry.translation_issue_id.is_not(None)
-            )
-        ).scalar()
-        or 0
-    )
-    moniteur_entries_pending_translation = (
-        db.execute(
-            select(func.count(MoniteurEntry.id)).where(
-                MoniteurEntry.promoted_legal_text_id.is_not(None),
-                MoniteurEntry.translation_issue_id.is_(None),
-            )
-        ).scalar()
-        or 0
-    )
+    # Single statement → all the article + moniteur-entry counters.
+    counters_row = db.execute(
+        select(
+            func.count(Article.id).label("articles_total"),
+            func.coalesce(
+                func.sum(case((is_translated, 1), else_=0)),
+                0,
+            ).label("articles_translated"),
+        )
+        .select_from(Article)
+        .join(
+            ArticleVersion,
+            ArticleVersion.id == Article.current_version_id,
+            isouter=True,
+        )
+    ).one()
+    moniteur_row = db.execute(
+        select(
+            func.count(MoniteurEntry.id).label("total"),
+            func.sum(
+                case(
+                    (MoniteurEntry.translation_issue_id.is_not(None), 1),
+                    else_=0,
+                )
+            ).label("with_pointer"),
+            func.sum(
+                case(
+                    (
+                        (MoniteurEntry.promoted_legal_text_id.is_not(None))
+                        & (MoniteurEntry.translation_issue_id.is_(None)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("pending"),
+        )
+    ).one()
 
     return TranslationStats(
-        legal_texts_total=legal_texts_total,
-        legal_texts_with_ht=legal_texts_with_ht,
-        legal_texts_fully_translated=legal_texts_fully_translated,
-        legal_texts_fr_only=legal_texts_fr_only,
-        articles_total=articles_total,
-        articles_translated=articles_translated,
-        moniteur_entries_total=moniteur_entries_total,
-        moniteur_entries_with_translation_pointer=moniteur_entries_with_translation_pointer,
-        moniteur_entries_pending_translation=moniteur_entries_pending_translation,
+        legal_texts_total=int(coverage_row.total or 0),
+        legal_texts_with_ht=int(coverage_row.with_ht or 0),
+        legal_texts_fully_translated=int(coverage_row.fully or 0),
+        legal_texts_fr_only=int(coverage_row.fr_only or 0),
+        articles_total=int(counters_row.articles_total or 0),
+        articles_translated=int(counters_row.articles_translated or 0),
+        moniteur_entries_total=int(moniteur_row.total or 0),
+        moniteur_entries_with_translation_pointer=int(moniteur_row.with_pointer or 0),
+        moniteur_entries_pending_translation=int(moniteur_row.pending or 0),
     )
 
 
