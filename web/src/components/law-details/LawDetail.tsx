@@ -438,6 +438,15 @@ export default function LawDetail() {
   const relatedLaws: any[] = []
 
   return (
+    // TooltipProvider needs to wrap the whole page because EditableFormalBlock
+    // (rendered for preamble / visas / considérants outside ArticleViewer)
+    // uses <Tooltip> for its "FR" fallback pill. Without an ancestor
+    // provider, Radix throws "`Tooltip` must be used within `TooltipProvider`"
+    // in prod, which was the runtime crash on lexhaiti.org/loi/constitution-1987.
+    // ArticleViewer mounts its own inner provider with delayDuration={200}
+    // for the toolbar — Radix tolerates nested providers, so leaving both
+    // in place preserves the original toolbar behaviour.
+    <TooltipProvider delayDuration={150}>
     <div
       className={`min-h-screen bg-white ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : ''}`}
     >
@@ -1740,6 +1749,7 @@ export default function LawDetail() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
 
