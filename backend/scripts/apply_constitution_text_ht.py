@@ -69,7 +69,16 @@ def main() -> int:
         # one the API uses.
         db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-    engine = create_engine(db_url, pool_pre_ping=True)
+    # All tables live under the ``public_corpus`` schema (see
+    # services/corpus/models.py). The API session has it on the
+    # search path implicitly via the ORM's MetaData, but a raw
+    # ``create_engine`` connection defaults to the ``public`` schema
+    # and would fail with ``relation "legal_texts" does not exist``.
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,
+        connect_args={"options": "-csearch_path=public_corpus,public"},
+    )
     updated = 0
     skipped: list[str] = []
 
