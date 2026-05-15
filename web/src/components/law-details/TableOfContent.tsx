@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Info,
   Loader2,
   Maximize2,
   Minimize2,
@@ -17,6 +18,11 @@ import {
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface Article {
   number: string
@@ -118,6 +124,17 @@ const LEVEL_LABELS: Record<string, { fr: string; ht: string }> = {
   subsection: { fr: 'Sous-section', ht: 'Sou-seksyon' },
 }
 
+// Some headings use a French word as their "number" instead of a roman
+// numeral / letter — the 1987 Constitution's "Chapitre Préliminaire"
+// (TIT VI, Du Conseil Constitutionnel) is the canonical case. The
+// constitutional amendment that added it didn't specify a numeric
+// position, so editors store the literal word as ``number``. Provide
+// the Kreyòl spelling here so the TOC reads natively in HT.
+const HEADING_NUMBER_TRANSLATIONS: Record<string, string> = {
+  Préliminaire: 'Preliminè',
+  préliminaire: 'preliminè',
+}
+
 function formatHeadingNumber(
   level: string | null | undefined,
   number: string | null | undefined,
@@ -125,9 +142,35 @@ function formatHeadingNumber(
 ): string {
   const num = (number ?? '').trim()
   if (!num) return ''
+  const localised =
+    lang === 'ht' && HEADING_NUMBER_TRANSLATIONS[num]
+      ? HEADING_NUMBER_TRANSLATIONS[num]
+      : num
   const lbl = level ? LEVEL_LABELS[level] : undefined
-  if (!lbl) return num
-  return `${lbl[lang]} ${num}`
+  if (!lbl) return localised
+  return `${lbl[lang]} ${localised}`
+}
+
+/** Per-heading explanatory tooltip — shown next to the TOC row when an
+ *  editorial decision needs surfacing to readers. Currently only used
+ *  for "Chapitre Préliminaire", where the 1987 amendment that added
+ *  the Conseil Constitutionnel didn't specify a chapter number or
+ *  title; the literal word "Préliminaire" is an editorial choice.
+ *
+ *  Keyed on the heading's ``number`` (case-insensitive). Returns the
+ *  bilingual copy as a record so the caller can pick the active
+ *  language at render time. */
+const HEADING_TOOLTIPS: Record<string, { fr: string; ht: string }> = {
+  préliminaire: {
+    fr:
+      "Le chapitre est désigné comme « Préliminaire » par choix éditorial : " +
+      "la loi constitutionnelle qui a ajouté ce chapitre ne précise ni " +
+      "numéro ni titre pour la section consacrée au Conseil Constitutionnel.",
+    ht:
+      "Yo rele chapit sa a « Preliminè » dapre yon chwa editoryal : lwa " +
+      "konstitisyonèl ki te ajoute chapit sa a pa presize ni nimewo ni tit " +
+      "pou seksyon ki konsène Konsèy Konstitisyonèl la.",
+  },
 }
 
 /** Render the per-language article-number label for a row in the TOC
@@ -535,6 +578,46 @@ export default function TableOfContents({
                   )}
                 </span>
               )}
+              {/* Editorial-decision tooltip — surfaces only on rows
+                  whose ``number`` is in HEADING_TOOLTIPS (currently
+                  just "Préliminaire" for TIT VI's Conseil
+                  Constitutionnel chapter). Click target is a tiny
+                  info dot so it doesn't compete with the section's
+                  primary click action. ``e.stopPropagation`` keeps
+                  the row's toggle from firing when the user opens
+                  the tooltip. */}
+              {(() => {
+                const tooltipKey = (heading.number ?? '').trim().toLowerCase()
+                const tip = HEADING_TOOLTIPS[tooltipKey]
+                if (!tip) return null
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="inline-flex items-center text-slate-400 hover:text-primary cursor-help flex-shrink-0"
+                        aria-label={
+                          currentLang === 'fr'
+                            ? "Pourquoi 'Préliminaire' ?"
+                            : "Poukisa 'Preliminè' ?"
+                        }
+                      >
+                        <Info className="w-3 h-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      align="start"
+                      className="max-w-xs text-xs leading-relaxed"
+                    >
+                      {tip[currentLang]}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })()}
               {heading.number && (headingLabel || isEditor) && (
                 <span
                   className="text-gray-300 flex-shrink-0 text-[10px]"
