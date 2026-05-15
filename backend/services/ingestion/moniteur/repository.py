@@ -360,7 +360,20 @@ class MoniteurRepository:
             )
         )
         if number_filter:
-            stmt = stmt.where(func.lower(MoniteurIssue.number) == number_filter)
+            # Mirror the slug-generator's number normalisation in
+            # schemas/moniteur.py: lowercase + space/slash/dot → dash.
+            # Without this, multi-word issue numbers like "Spécial 51"
+            # would slug to ``no-spécial-51`` (dash) but the DB still
+            # holds ``"Spécial 51"`` (space), and the equality would
+            # silently fail.
+            db_norm = func.replace(
+                func.replace(
+                    func.replace(func.lower(MoniteurIssue.number), " ", "-"),
+                    "/", "-",
+                ),
+                ".", "-",
+            )
+            stmt = stmt.where(db_norm == number_filter)
         return self.session.execute(stmt).scalars().first()
 
     def get_entry(self, entry_id: int) -> Optional[MoniteurEntry]:

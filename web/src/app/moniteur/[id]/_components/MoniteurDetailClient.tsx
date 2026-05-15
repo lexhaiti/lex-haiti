@@ -624,7 +624,12 @@ export default function MoniteurDetailClient() {
   )
 
   useEffect(() => {
-    const rawParam = String(params.id ?? '')
+    // ``useParams`` returns the URL-encoded segment for dynamic
+    // routes containing non-ASCII characters. Without decoding, the
+    // ``é`` in ``...-spécial-...`` arrives as ``%C3%A9`` and the
+    // ``encodeURIComponent`` inside getMoniteurIssueBySlug then
+    // doubles the encoding to ``%25C3%25A9`` — guaranteeing a 404.
+    const rawParam = decodeURIComponent(String(params.id ?? ''))
     if (!rawParam) return
     const isNumeric = /^\d+$/.test(rawParam)
     setLoading(true)
@@ -940,7 +945,7 @@ export default function MoniteurDetailClient() {
                     // and any siblings re-order naturally. Keeps the
                     // delete UX consistent with what /editorial/moniteur
                     // does after an edit.
-                    const rawParam = String(params.id ?? '')
+                    const rawParam = decodeURIComponent(String(params.id ?? ''))
                     if (!rawParam) return
                     const isNumeric = /^\d+$/.test(rawParam)
                     const fresh = await (isNumeric
