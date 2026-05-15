@@ -119,26 +119,16 @@ export default function HeroSection() {
               the project's mission ("publicity of law is the foundation
               of liberty") on the front door. Kept restrained so the H1
               stays visually dominant. */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-xs sm:text-sm italic text-amber-300/80 mb-3"
-          >
+          <p className="animate-in fade-in duration-500 text-xs sm:text-sm italic text-amber-300/80 mb-3">
             <span className="not-italic font-bold uppercase tracking-[0.18em] text-amber-300/60 mr-2">
               ⁂
             </span>
             Publicitas iuris fundamentum libertatis.
-          </motion.p>
+          </p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.05 }}
-            className="text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-extrabold tracking-tight leading-[1.05] text-white"
-          >
+          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-extrabold tracking-tight leading-[1.05] text-white">
             {t('home.hero.title')}
-          </motion.h1>
+          </h1>
 
           {/* Amber accent — picks up the warm bronze of the palmis relief. */}
           <motion.div
@@ -148,21 +138,11 @@ export default function HeroSection() {
             className="mt-6 h-[3px] w-28 bg-amber-400 origin-left"
           />
 
-          <motion.p
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-base sm:text-lg text-white/85 leading-relaxed"
-          >
+          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-6 text-base sm:text-lg text-white/85 leading-relaxed">
             {t('home.hero.description')}
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-8"
-          >
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-8">
             <label
               htmlFor="hero-search"
               className="block text-sm font-semibold text-white/90 mb-2"
@@ -207,11 +187,9 @@ export default function HeroSection() {
                 and direct navigation, each routed to whichever surface
                 makes sense. Sits above the advanced/browse links so it's
                 the first discoverable affordance after the search bar. */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="mt-4 flex flex-wrap items-center gap-2"
+            <div
+              className="animate-in fade-in duration-500 fill-mode-both mt-4 flex flex-wrap items-center gap-2"
+              style={{ animationDelay: '400ms' }}
             >
               <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mr-1">
                 {t('home.hero.suggestionsLabel')}
@@ -240,7 +218,7 @@ export default function HeroSection() {
                 }
                 return null
               })}
-            </motion.div>
+            </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
               <Link
@@ -258,7 +236,7 @@ export default function HeroSection() {
                 {t('home.hero.browse')}
               </Link>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

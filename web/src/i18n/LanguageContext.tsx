@@ -7,12 +7,20 @@ import React, {
   useMemo,
   useState,
 } from 'react'
-import { Language, LANG_COOKIE } from '@/i18n/index'
+import { Language, LANG_COOKIE, loadMessages, MessagesDict } from '@/i18n/index'
 
 type LanguageContextValue = {
   language: Language
   setLanguage: (lang: Language) => void
   toggleLanguage: () => void
+  /** Active messages catalogue — populated by the server (passed via
+   *  ``initialMessages``) and refreshed on language switch via the
+   *  per-language dynamic import. Reads via the ``useT()`` hook. */
+  messages: MessagesDict | null
+  /** French fallback dictionary, populated lazily the first time a
+   *  non-FR session asks for a missing key. Cheaper than hydrating
+   *  it eagerly on every visit. */
+  fallback: MessagesDict | null
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
@@ -38,6 +46,7 @@ function writeCookieLang(lang: Language) {
 
 export function LanguageProvider({
   initialLanguage,
+  initialMessages,
   children,
 }: {
   /**
@@ -47,10 +56,26 @@ export function LanguageProvider({
    * Kreyòl visitors.
    */
   initialLanguage?: Language
+  /**
+   * Server-resolved messages catalogue for the active language. Lets
+   * the very first client render have strings without waiting on the
+   * dynamic import. Loaded in app/layout.tsx via
+   * ``loadMessages(serverLanguage)`` and passed in via ``Providers``.
+   */
+  initialMessages?: MessagesDict | null
   children: React.ReactNode
 }) {
   const [language, setLanguageState] = useState<Language>(
     initialLanguage ?? 'fr',
+  )
+  const [messages, setMessages] = useState<MessagesDict | null>(
+    initialMessages ?? null,
+  )
+  // FR fallback is loaded on demand the first time a non-FR session
+  // looks up a key its own dict doesn't carry. Skipped entirely when
+  // the active language IS already French (no second chunk).
+  const [fallback, setFallback] = useState<MessagesDict | null>(
+    (initialLanguage ?? 'fr') === 'fr' ? (initialMessages ?? null) : null,
   )
 
   // Sync from client storage on mount — handles the case where the
@@ -74,6 +99,24 @@ export function LanguageProvider({
     }
   }, [initialLanguage])
 
+  // Dynamic-load the active catalogue whenever the language changes.
+  // The server pre-hydrated ``messages`` for the initial render via
+  // ``initialMessages`` — this effect only fires on subsequent toggles,
+  // so chunk-loading happens during a user-initiated nav, not on first
+  // paint.
+  useEffect(() => {
+    let cancelled = false
+    // Skip on first mount when the server already gave us the dict.
+    if (messages && initialLanguage === language) return
+    loadMessages(language).then((dict) => {
+      if (!cancelled) setMessages(dict)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language])
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
     if (typeof window !== 'undefined') {
@@ -84,9 +127,19 @@ export function LanguageProvider({
 
   const toggleLanguage = () => setLanguage(language === 'fr' ? 'ht' : 'fr')
 
+  // FR fallback hydrator. Fires only when a non-FR session is active
+  // AND we haven't already loaded the FR dict (e.g. we did at startup
+  // for an FR visitor and now they toggled to HT — fallback is still
+  // their original FR dict, no reload). Cheap, idempotent.
+  useEffect(() => {
+    if (language === 'fr') return
+    if (fallback) return
+    loadMessages('fr').then(setFallback).catch(() => {})
+  }, [language, fallback])
+
   const value = useMemo(
-    () => ({ language, setLanguage, toggleLanguage }),
-    [language],
+    () => ({ language, setLanguage, toggleLanguage, messages, fallback }),
+    [language, messages, fallback],
   )
 
   return (

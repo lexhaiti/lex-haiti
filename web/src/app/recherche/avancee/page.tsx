@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { StandardPageHeader } from '@/components/shared/StandardPageHeader'
 import { useT } from '@/i18n/useT'
-import { messages } from '@/i18n'
+import { useLanguage } from '@/i18n/LanguageContext'
 import { cn } from '@/lib/utils'
 
 // =============================================================================
@@ -158,6 +158,12 @@ const DEFAULT_FORM: FormState = {
 
 export default function AdvancedSearchPage() {
   const { t, language } = useT()
+  // Raw active-language dict — only needed by the two callers below
+  // that iterate keys / read an array. ``useT()`` returns strings via
+  // t(key) but can't enumerate nested keys; ``messages`` from the
+  // LanguageContext fills that gap without re-introducing the eager
+  // ``import { fr, ht } from '@/i18n'`` we just removed.
+  const { messages: dict, fallback: dictFallback } = useLanguage()
   const lang = ((language as 'fr' | 'ht') ?? 'fr') as 'fr' | 'ht'
 
   const PAGE_SIZE = 24
@@ -296,10 +302,11 @@ export default function AdvancedSearchPage() {
   // Pre-resolve the dropdown labels into a plain Record<string,string> so
   // the FondsPicker subcomponent can index them like the legacy structure.
   const fondsDropdownLabels: Record<string, string> = Object.fromEntries(
-    Object.keys(messages.fr.searchAdvanced.fondsDropdown).map((k) => [
-      k,
-      t(`searchAdvanced.fondsDropdown.${k}`),
-    ]),
+    Object.keys(
+      dict?.searchAdvanced?.fondsDropdown ??
+        dictFallback?.searchAdvanced?.fondsDropdown ??
+        {},
+    ).map((k) => [k, t(`searchAdvanced.fondsDropdown.${k}`)]),
   )
 
   return (
@@ -311,12 +318,9 @@ export default function AdvancedSearchPage() {
 
       {/* Search panel — Légifrance-style inset */}
       <div className="container py-10 lg:py-12">
-        <motion.form
+        <form
           onSubmit={submit}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="rounded-2xl bg-slate-50/80 border border-slate-200 p-6 sm:p-8 space-y-6"
+          className="animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-2xl bg-slate-50/80 border border-slate-200 p-6 sm:p-8 space-y-6"
         >
           {/* Fonds picker — DropdownMenu with tile grid inside */}
           <div>
@@ -507,7 +511,7 @@ export default function AdvancedSearchPage() {
               )}
             </AnimatePresence>
           </div>
-        </motion.form>
+        </form>
 
         {/* Submit area — right-aligned outside the form card (Légifrance pattern) */}
         <div className="mt-4 flex justify-end">
@@ -607,8 +611,11 @@ export default function AdvancedSearchPage() {
             {t('searchAdvanced.helpIntro')}
           </p>
           <ul className="space-y-2 text-sm text-slate-600 leading-relaxed mb-8 max-w-3xl">
-            {(messages[lang]?.searchAdvanced?.helpItems ??
-              messages.fr.searchAdvanced.helpItems).map((item, i) => (
+            {(
+              (dict?.searchAdvanced?.helpItems ??
+                dictFallback?.searchAdvanced?.helpItems ??
+                []) as string[]
+            ).map((item, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="mt-1.5 h-1 w-1 rounded-full bg-slate-400 flex-shrink-0" />
                 <span>{item}</span>

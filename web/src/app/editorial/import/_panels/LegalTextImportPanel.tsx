@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertCircle,
   ArrowLeft,
@@ -597,15 +596,11 @@ interface ParsingStateProps {
 
 function ParsingState({ title, help }: ParsingStateProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-10 text-center"
-    >
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-2xl rounded-2xl border border-slate-200 bg-white p-10 text-center">
       <Loader2 className="w-10 h-10 mx-auto text-primary animate-spin mb-5" />
       <h2 className="text-xl font-bold text-slate-900 mb-3">{title}</h2>
       <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">{help}</p>
-    </motion.div>
+    </div>
   )
 }
 
@@ -690,12 +685,7 @@ function PreviewState({
   )
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-6 w-full"
-      >
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-6 w-full">
         {/* Header strip */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="flex items-start gap-4">
@@ -963,7 +953,6 @@ function PreviewState({
             {t('editorial.import.legalText.saveDraft')}
           </Button>
         </div>
-      </motion.div>
-    </AnimatePresence>
+    </div>
   )
 }

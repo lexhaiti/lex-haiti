@@ -6,9 +6,13 @@ const API_TARGET =
 const nextConfig: NextConfig = {
   reactCompiler: true,
   output: "standalone",
+  // Builds are now type-checked. The codebase passes ``npx tsc
+  // --noEmit`` on every save; flipping ``ignoreBuildErrors`` off
+  // makes that contract enforceable in CI / production builds too.
+  // If a type error sneaks in, ``npm run build`` will fail rather
+  // than ship a broken bundle.
   typescript: {
-    // Pre-existing type errors in the codebase — skip for build, fix incrementally
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Don't rewrite trailing slashes — FastAPI's collection routes end with `/`
   // and the proxy must pass URLs through verbatim.

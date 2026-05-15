@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
 import { BookOpen, Clock, FileText } from 'lucide-react'
 
 import { looksLikeHtml } from './_editor/utils'
@@ -26,18 +25,14 @@ export default function PreambleViewer({
 }: PreambleViewerProps) {
   if (!text) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="bg-white rounded-2xl border border-gray-100 p-12 text-center"
-      >
+      <div className="animate-in fade-in duration-500 bg-white rounded-2xl border border-gray-100 p-12 text-center">
         <FileText className="w-16 h-16 mx-auto text-gray-200 mb-4" />
         <h3 className="text-lg font-semibold text-gray-400">
           {currentLang === 'fr'
             ? 'Aucun contenu disponible'
             : 'Pa gen kontni disponib'}
         </h3>
-      </motion.div>
+      </div>
     )
   }
 
@@ -53,11 +48,7 @@ export default function PreambleViewer({
   const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden"
-    >
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white rounded-2xl border border-gray-100 shadow-xl overflow-hidden">
       <div className="border-b border-gray-100 p-6 lg:p-8 bg-gradient-to-r from-gray-50/50 to-white">
         <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-3 leading-tight tracking-tight">
           {title}
@@ -94,21 +85,19 @@ export default function PreambleViewer({
             ) : (
               <div className="ml-6 space-y-5 text-gray-700 leading-relaxed text-base lg:text-lg">
                 {paragraphs.map((p, i) => (
-                  <motion.p
+                  <p
                     key={i}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.4) }}
-                    className="whitespace-pre-line"
+                    style={{ animationDelay: `${Math.min(i * 20, 400)}ms` }}
+                    className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both whitespace-pre-line"
                   >
                     {p}
-                  </motion.p>
+                  </p>
                 ))}
               </div>
             )}
           </div>
         </article>
       </div>
-    </motion.div>
+    </div>
   )
 }

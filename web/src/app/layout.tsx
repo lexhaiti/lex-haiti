@@ -7,6 +7,7 @@ import './globals.css'
 import SiteShell from '@/components/layout/SiteShell'
 import Providers from './providers'
 import { getServerLanguage } from '@/i18n/server'
+import { loadMessages } from '@/i18n'
 
 // next/font self-hosts these so the browser never blocks on a
 // Google Fonts CSS request. ``swap`` shows a fallback immediately,
@@ -48,6 +49,13 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const language = await getServerLanguage()
+  // Load just the active language's catalogue server-side and hand it
+  // to the client Provider. The dynamic import in ``loadMessages``
+  // produces a per-language chunk; the server happens to render with
+  // it directly while the client picks up only that one chunk for
+  // first paint. The inactive language stays a separate chunk that
+  // only fetches when the user toggles.
+  const initialMessages = await loadMessages(language)
   return (
     <html
       lang={language}
@@ -92,7 +100,7 @@ export default async function RootLayout({
         >
           Aller au contenu principal
         </a>
-        <Providers initialLanguage={language}>
+        <Providers initialLanguage={language} initialMessages={initialMessages}>
           <SiteShell>{children}</SiteShell>
         </Providers>
         {/* Vercel Speed Insights — Core Web Vitals (LCP, CLS, INP,

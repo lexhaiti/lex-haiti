@@ -606,18 +606,14 @@ export default function ArticleViewer({
 
   if (!article) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="p-12 text-center"
-      >
+      <div className="animate-in fade-in duration-500 p-12 text-center">
         <FileText className="w-16 h-16 mx-auto text-gray-200 mb-4" />
         <h3 className="text-lg font-semibold text-gray-400">
           {currentLang === 'fr'
             ? 'Sélectionnez un article pour commencer'
             : 'Chwazi yon atik pou kòmanse'}
         </h3>
-      </motion.div>
+      </div>
     )
   }
 
@@ -837,11 +833,9 @@ export default function ArticleViewer({
   ]
 
   return (
-    <motion.div
+    <div
       key={article.number}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-transparent"
+      className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-transparent"
     >
       {/* Header — no bottom border now */}
       <div className="pb-6">
@@ -1684,7 +1678,7 @@ export default function ArticleViewer({
           loading={deleting}
         />
       )}
-    </motion.div>
+    </div>
   )
 }
 

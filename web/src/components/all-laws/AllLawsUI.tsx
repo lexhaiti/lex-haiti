@@ -2,7 +2,6 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { FileText, Grid3X3, List, Loader2, Plus, Search, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import LawFilters from '@/components/all-laws/LawFilter'
@@ -221,11 +220,7 @@ export function AllLawsUI({
           {/* Title block — fills the container width; the search bar
               below has its own width cap for input UX. */}
           <div>
-            <motion.h1
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white drop-shadow-sm"
-            >
+            <h1 className="animate-in fade-in slide-in-from-top-3 duration-500 text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white drop-shadow-sm">
               {activeSearchTerm ? (
                 <span className="flex items-center gap-3">
                   <Search className="w-8 h-8 lg:w-12 lg:h-12 text-red-600" />
@@ -238,19 +233,14 @@ export function AllLawsUI({
                   ? 'Tous les textes juridiques'
                   : 'Tout tèks jiridik yo'))
               )}
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg lg:text-xl leading-relaxed"
-            >
+            </h1>
+            <p className="animate-in fade-in duration-500 delay-100 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed">
               {filterSubtitle(themes, lang) ??
                 t?.('allLaws.subtitle') ??
                 (lang === 'fr'
                   ? "Explorez l'ensemble de la législation haïtienne."
                   : 'Eksplore tout lejislasyon ayisyen an.')}
-            </motion.p>
+            </p>
 
             {/* No header-level result count — the count lives in the
                 filter bar below, next to the filter controls where it
@@ -264,15 +254,12 @@ export function AllLawsUI({
               with deep navy submit, italic placeholder, full width up to a
               comfortable max. Replaces the previous glass-effect + red CTA
               pattern for visual consistency across pages. */}
-          <motion.form
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.4 }}
+          <form
             onSubmit={(e) => {
               e.preventDefault()
               onSearch?.()
             }}
-            className="mt-8 max-w-3xl flex items-stretch gap-0 rounded-lg overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow"
+            className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-8 max-w-3xl flex items-stretch gap-0 rounded-lg overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow"
           >
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -303,7 +290,7 @@ export function AllLawsUI({
                 {lang === 'fr' ? 'Rechercher' : 'Chèche'}
               </span>
             </button>
-          </motion.form>
+          </form>
 
           {/* Editor-only action row in the hero — sits directly under
               the search box, mirroring the /moniteur layout. Contains
@@ -312,11 +299,9 @@ export function AllLawsUI({
               ``editorialSlot`` is removed from the filter bar below so
               there's only one filter, not two. */}
           {isEditor && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
-              className="mt-4 flex flex-wrap items-center gap-3"
+            <div
+              className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both mt-4 flex flex-wrap items-center gap-3"
+              style={{ animationDelay: '320ms' }}
             >
               {editorialSlot}
               <Link
@@ -329,7 +314,7 @@ export function AllLawsUI({
                     ? 'Nouveau texte juridique'
                     : 'Nouvo tèks jiridik')}
               </Link>
-            </motion.div>
+            </div>
           )}
         </div>
       </div>

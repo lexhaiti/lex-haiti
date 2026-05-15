@@ -248,29 +248,26 @@ function SommaireCard({
   // in both contexts so the eye doesn't have to learn two layouts.
   if (isPromulgation) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.04 }}
-        className="rounded-lg border border-slate-200/60 bg-slate-50/40 px-3 py-1"
+      <div
+        className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both rounded-lg border border-slate-200/60 bg-slate-50/40 px-3 py-1"
+        style={{ animationDelay: `${index * 40}ms` }}
       >
         <CompanionRow
           candidate={candidate}
           isEditor={isEditor}
           onDelete={onDelete}
         />
-      </motion.div>
+      </div>
     )
   }
 
   const title = candidate.display_title || candidate.detected_title || 'Sans titre'
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+    <article
+      style={{ animationDelay: `${index * 40}ms` }}
       className={cn(
+        'animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both',
         'group rounded-2xl border bg-white overflow-hidden transition-all duration-300',
         'hover:border-slate-300 hover:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]',
         'border-slate-200/80',
@@ -424,7 +421,7 @@ function SommaireCard({
           ))}
         </div>
       )}
-    </motion.article>
+    </article>
   )
 }
 
@@ -747,33 +744,22 @@ export default function MoniteurDetailClient() {
           <div className="grid lg:grid-cols-[1fr_auto] gap-8 lg:gap-12 items-end">
             <div>
               {/* "LE MONITEUR" wordmark */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-3 mb-6"
-              >
+              <div className="animate-in fade-in duration-500 flex items-center gap-3 mb-6">
                 <Newspaper className="w-4 h-4 text-red-400" />
                 <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/60">
                   Le Moniteur · Journal Officiel
                 </span>
-              </motion.div>
+              </div>
 
               {/* Big issue number */}
-              <motion.h1
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-5xl lg:text-7xl font-black mb-5 leading-[0.95] tracking-tight"
-              >
+              <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100 fill-mode-both text-5xl lg:text-7xl font-black mb-5 leading-[0.95] tracking-tight">
                 {numberDisplay}
-              </motion.h1>
+              </h1>
 
               {/* Date + edition pill row */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.18 }}
-                className="flex flex-wrap items-center gap-3"
+              <div
+                className="animate-in fade-in duration-500 fill-mode-both flex flex-wrap items-center gap-3"
+                style={{ animationDelay: '180ms' }}
               >
                 <div className="inline-flex items-center gap-2 text-base lg:text-lg text-white/90 font-medium">
                   <Calendar className="w-4 h-4 text-white/60" />
@@ -789,7 +775,7 @@ export default function MoniteurDetailClient() {
                   <sup className="ml-px">e</sup>
                   <span className="ml-1">année</span>
                 </span>
-              </motion.div>
+              </div>
             </div>
 
             {/* Sidebar — stats grid. The Documents card pulls double
@@ -797,11 +783,9 @@ export default function MoniteurDetailClient() {
                 download CTA as an inline action row, so the visitor
                 doesn't have to leave the card to grab the PDF. The
                 Pages card stays a pure stat. */}
-            <motion.div
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.22 }}
-              className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:min-w-[240px]"
+            <div
+              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both grid grid-cols-2 lg:grid-cols-1 gap-3 lg:min-w-[240px]"
+              style={{ animationDelay: '220ms' }}
             >
               <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
                 {/* Stat — Documents count */}
@@ -847,7 +831,7 @@ export default function MoniteurDetailClient() {
                   </div>
                 </div>
               )}
-            </motion.div>
+            </div>
           </div>
 
           {/* Bottom action row — secondary actions only. The primary
@@ -859,11 +843,8 @@ export default function MoniteurDetailClient() {
               Lets the editor (and any public reader) grab the source
               scan that was OCR'd to produce the structured text below. */}
           {(issue.file_url || isEditor) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-10 flex flex-wrap items-center gap-3"
+            <div
+              className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-10 flex flex-wrap items-center gap-3"
             >
               {issue.file_url && (
                 <a
@@ -895,7 +876,7 @@ export default function MoniteurDetailClient() {
                   {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
                 </button>
               )}
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
@@ -912,11 +893,7 @@ export default function MoniteurDetailClient() {
       <div className="container py-10 lg:py-16">
         {/* Category breakdown chips */}
         {sortedCategoryEntries.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-10 flex flex-wrap items-center gap-2"
-          >
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 mb-10 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-2">
               Composition
             </span>
@@ -937,15 +914,11 @@ export default function MoniteurDetailClient() {
                 </span>
               )
             })}
-          </motion.div>
+          </div>
         )}
 
         {/* Sommaire */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75 fill-mode-both">
           <div className="flex items-baseline justify-between mb-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
               Sommaire
@@ -981,7 +954,7 @@ export default function MoniteurDetailClient() {
           ) : (
             <EmptyState description="Aucun document indexé dans ce numéro." />
           )}
-        </motion.section>
+        </section>
 
         {/* Footer back-link */}
         <div className="mt-16 pt-8 border-t border-slate-200">

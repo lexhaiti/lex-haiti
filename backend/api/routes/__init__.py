@@ -7,6 +7,7 @@ from api.routes import (
     citations,
     decisions,
     editorial,
+    editorial_translations,
     legal_texts,
     moniteur,
     promulgations,
@@ -20,6 +21,10 @@ api_router.include_router(articles.router)
 api_router.include_router(decisions.router)
 api_router.include_router(citations.router)
 api_router.include_router(editorial.router)
+# Split out of editorial.py — translation-pipeline dashboard +
+# worklist. Same /editorial prefix and tag so the URL surface is
+# unchanged from the client's perspective.
+api_router.include_router(editorial_translations.router)
 api_router.include_router(moniteur.router)
 api_router.include_router(promulgations.router)
 api_router.include_router(search.router)

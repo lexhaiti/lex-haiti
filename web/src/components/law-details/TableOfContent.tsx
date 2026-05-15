@@ -993,18 +993,14 @@ export default function TableOfContents({
           {filteredTree.length > 0 ? (
             filteredTree.map((node) => renderNode(node, 0))
           ) : filteredOrphans.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="p-8 text-center text-gray-400"
-            >
+            <div className="animate-in fade-in duration-500 p-8 text-center text-gray-400">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-sm">
                 {currentLang === 'fr'
                   ? 'Aucun article trouvé'
                   : 'Pa gen atik jwenn'}
               </p>
-            </motion.div>
+            </div>
           ) : null}
         </div>
       </ScrollArea>

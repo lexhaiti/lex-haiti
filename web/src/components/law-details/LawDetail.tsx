@@ -612,11 +612,7 @@ export default function LawDetail() {
               out: identity preamble in the body, not in the masthead). */}
           <div className="flex flex-col gap-8 lg:gap-10">
             {/* ── 1. Badges ──────────────────────────────────────────── */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-wrap items-center gap-3"
-            >
+            <div className="animate-in fade-in slide-in-from-top-3 duration-500 flex flex-wrap items-center gap-3">
               <Badge className="bg-red-600 text-white border-0 shadow-lg shadow-red-900/20 px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full">
                 {category[currentLang]}
               </Badge>
@@ -673,16 +669,11 @@ export default function LawDetail() {
                   )}
                 </EditableHeroField>
               )}
-            </motion.div>
+            </div>
 
             {/* ── 2. Title + description ─────────────────────────────── */}
             <div className="flex flex-col gap-6 lg:gap-8">
-              <motion.h1
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm"
-              >
+              <h1 className="animate-in fade-in slide-in-from-top-3 duration-500 delay-100 fill-mode-both text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm">
                 <EditableHeroField
                   value={title}
                   isEditor={isEditor}
@@ -701,26 +692,16 @@ export default function LawDetail() {
                 >
                   {title}
                 </EditableHeroField>
-              </motion.h1>
+              </h1>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-slate-300 text-lg lg:text-xl leading-relaxed"
-              >
+              <p className="animate-in fade-in duration-500 delay-200 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed">
                 {description}
-              </motion.p>
+              </p>
             </div>
 
             {/* ── 3. Metadata row (download icon sits next to the
                 reference at the end) ───────────────────────────────── */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-wrap items-center gap-x-8 gap-y-5"
-            >
+            <div className="animate-in fade-in duration-500 delay-300 fill-mode-both flex flex-wrap items-center gap-x-8 gap-y-5">
               <div className="contents">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-white/5 rounded-full border border-white/10">
@@ -1089,15 +1070,13 @@ export default function LawDetail() {
               </div>
 
               <DownloadDropdown slug={slug} language={language} />
-            </motion.div>
+            </div>
 
             {/* ── 4. Theme chips ─────────────────────────────────────── */}
             {law.theme_tags && law.theme_tags.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="flex flex-wrap items-center gap-2"
+              <div
+                className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both flex flex-wrap items-center gap-2"
+                style={{ animationDelay: '350ms' }}
               >
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 mr-1">
                   <Tags className="w-3.5 h-3.5" />
@@ -1121,7 +1100,7 @@ export default function LawDetail() {
                     </Link>
                   )
                 })}
-              </motion.div>
+              </div>
             )}
           </div>
         </div>

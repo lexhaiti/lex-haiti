@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,15 +49,12 @@ function SearchBar({
   }, [initial])
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
+    <form
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit(value.trim())
       }}
-      className="mt-8 max-w-3xl flex items-stretch gap-0 rounded-lg overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow"
+      className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-8 max-w-3xl flex items-stretch gap-0 rounded-lg overflow-hidden bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)] ring-1 ring-white/15 focus-within:ring-2 focus-within:ring-amber-300/60 transition-shadow"
       role="search"
     >
       <div className="relative flex-1 min-w-0">
@@ -87,7 +83,7 @@ function SearchBar({
           {lang === 'fr' ? 'Rechercher' : 'Chèche'}
         </span>
       </button>
-    </motion.form>
+    </form>
   )
 }
 

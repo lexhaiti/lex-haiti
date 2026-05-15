@@ -5,7 +5,6 @@ import { ArrowRight, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { motion } from 'framer-motion'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
@@ -47,11 +46,9 @@ export default function HeroSearch() {
   return (
     <div className="w-full max-w-3xl mx-auto px-4">
       {/* Search Container — restrained, library-card feel */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+      <div
         className={cn(
+          'animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200 fill-mode-both',
           'relative flex items-stretch gap-2',
           'p-1.5 sm:p-2 transition-all duration-300',
           'rounded-full',
@@ -103,14 +100,12 @@ export default function HeroSearch() {
             </span>
           </Button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Advanced search link — single line under input */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.35 }}
-        className="mt-3 flex justify-center"
+      <div
+        className="animate-in fade-in duration-500 fill-mode-both mt-3 flex justify-center"
+        style={{ animationDelay: '350ms' }}
       >
         <Link
           href="/recherche/avancee"
@@ -119,14 +114,12 @@ export default function HeroSearch() {
           <SlidersHorizontal className="w-3.5 h-3.5" />
           {language === 'fr' ? 'Recherche avancée' : 'Rechèch avanse'}
         </Link>
-      </motion.div>
+      </div>
 
       {/* Suggestions — quiet, like reference chips */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2"
+      <div
+        className="animate-in fade-in duration-500 fill-mode-both mt-4 sm:mt-5 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 px-2"
+        style={{ animationDelay: '400ms' }}
       >
         <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5 sm:mb-0 sm:mr-1">
           {t('home.search.suggestionsLabel') || 'Try'}:
@@ -150,7 +143,7 @@ export default function HeroSearch() {
             </button>
           ))}
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

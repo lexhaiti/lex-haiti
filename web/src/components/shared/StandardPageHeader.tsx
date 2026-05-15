@@ -1,7 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
-
 import { Breadcrumb, type BreadcrumbItem } from '@/components/shared/Breadcrumb'
 
 interface StandardPageHeaderProps {
@@ -47,24 +45,14 @@ export function StandardPageHeader({
           <Breadcrumb className="mb-6" items={breadcrumbs} />
         )}
 
-        <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tight"
-        >
+        <h1 className="animate-in fade-in slide-in-from-top-3 duration-500 delay-100 fill-mode-both text-4xl lg:text-6xl font-black mb-6 leading-tight tracking-tight">
           {title}
-        </motion.h1>
+        </h1>
 
         {subtitle && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-slate-300 text-lg lg:text-xl leading-relaxed"
-          >
+          <p className="animate-in fade-in duration-500 delay-200 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed">
             {subtitle}
-          </motion.p>
+          </p>
         )}
 
         {children}

@@ -2,7 +2,6 @@
 
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 
@@ -38,13 +37,9 @@ export function TextNotFound() {
           <p className="text-xs font-bold uppercase tracking-widest text-red-300 mb-2">
             {isFr ? 'Page introuvable' : 'Paj pa jwenn'}
           </p>
-          <motion.h1
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl lg:text-5xl font-black tracking-tight text-white"
-          >
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-3xl lg:text-5xl font-black tracking-tight text-white">
             {isFr ? 'Texte non trouvé' : 'Tèks pa jwenn'}
-          </motion.h1>
+          </h1>
         </div>
       </div>
 

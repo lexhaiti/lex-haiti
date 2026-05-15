@@ -1,7 +1,14 @@
 import 'server-only'
 
 import { cookies } from 'next/headers'
-import { LANG_COOKIE, Language, messages } from '@/i18n'
+import { LANG_COOKIE, Language } from '@/i18n'
+// Server-only eager imports — the server bundle has no client-side
+// size impact, so loading both catalogues here is cheap and lets us
+// look up fallbacks without an await chain.
+import { fr } from '@/i18n/fr'
+import { ht } from '@/i18n/ht'
+
+const messages = { fr, ht } as const
 
 /**
  * Read the visitor's language from the LANG_COOKIE in an RSC. Falls

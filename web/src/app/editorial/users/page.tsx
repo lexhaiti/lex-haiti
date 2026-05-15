@@ -12,7 +12,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
-import { motion } from 'framer-motion'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -270,23 +269,14 @@ export default function AdminUsersPage() {
               { label: isFr ? 'Utilisateurs' : 'Itilizatè' },
             ]}
           />
-          <motion.h1
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
-          >
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white">
             {isFr ? 'Gestion des utilisateurs' : 'Jesyon itilizatè'}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-slate-300 text-base lg:text-lg leading-relaxed max-w-3xl"
-          >
+          </h1>
+          <p className="animate-in fade-in duration-500 delay-100 fill-mode-both text-slate-300 text-base lg:text-lg leading-relaxed max-w-3xl">
             {isFr
               ? 'Invitez de nouveaux éditeurs, ajustez les rôles et retirez les accès. Les changements prennent effet immédiatement.'
               : 'Envite nouvo editè yo, ajiste wòl yo, retire aksè yo. Chanjman yo aplike imedyatman.'}
-          </motion.p>
+          </p>
         </div>
       </div>
 
@@ -336,11 +326,9 @@ export default function AdminUsersPage() {
 
         {/* Invite form */}
         {inviting && (
-          <motion.form
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+          <form
             onSubmit={submitInvite}
-            className="rounded-xl border border-amber-300 bg-amber-50/40 p-5 space-y-3"
+            className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-xl border border-amber-300 bg-amber-50/40 p-5 space-y-3"
           >
             <p className="text-xs font-bold uppercase tracking-widest text-amber-800">
               {isFr ? 'Nouvel éditeur' : 'Nouvo editè'}
@@ -416,7 +404,7 @@ export default function AdminUsersPage() {
                 {isFr ? 'Ajouter' : 'Ajoute'}
               </button>
             </div>
-          </motion.form>
+          </form>
         )}
 
         {/* Users table */}

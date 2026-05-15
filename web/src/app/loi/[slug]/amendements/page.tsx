@@ -18,7 +18,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { motion } from 'framer-motion'
 import {
   AlertTriangle,
   Archive,
@@ -252,29 +251,15 @@ export default function AmendementsPage() {
             ]}
           />
 
-          <motion.h1
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
-          >
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white">
             {t('amendments.title')}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl"
-          >
+          </h1>
+          <p className="animate-in fade-in duration-500 delay-100 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl">
             {t('amendments.subtitle')}
-          </motion.p>
+          </p>
 
           {changes && changes.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="mt-8 space-y-3 max-w-3xl"
-            >
+            <div className="animate-in fade-in duration-500 delay-200 fill-mode-both mt-8 space-y-3 max-w-3xl">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <StatTile
                   count={modified.length}
@@ -319,7 +304,7 @@ export default function AmendementsPage() {
                   ← {t('amendments.showAll')}
                 </button>
               )}
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
@@ -584,11 +569,7 @@ function ModifiedCard({
   const PillIcon = pill.icon
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-slate-200 bg-white overflow-hidden"
-    >
+    <article className="animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-xl border border-slate-200 bg-white overflow-hidden">
       <header className="flex items-baseline justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
         <div className="flex items-baseline gap-3 flex-wrap min-w-0">
           <h3 className="text-lg lg:text-xl font-bold text-primary">
@@ -715,7 +696,7 @@ function ModifiedCard({
           })}
         </ol>
       )}
-    </motion.article>
+    </article>
   )
 }
 

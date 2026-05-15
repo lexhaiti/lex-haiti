@@ -192,23 +192,14 @@ export default function EditorialDashboardPage() {
               { label: isFr ? 'Éditorial' : 'Editoryal' },
             ]}
           />
-          <motion.h1
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
-          >
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white">
             {isFr ? 'Pipeline éditorial' : 'Pipeline editoryal'}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl"
-          >
+          </h1>
+          <p className="animate-in fade-in duration-500 delay-100 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed max-w-3xl">
             {isFr
               ? 'Tableau de bord pour la curation du corpus juridique haïtien — imports, traductions, et inventaire des textes.'
               : 'Tablo pou kirate kòpis jiridik ayisyen — enpòtasyon, tradiksyon, ak envantè tèks yo.'}
-          </motion.p>
+          </p>
         </div>
       </div>
 

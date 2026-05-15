@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { motion } from 'framer-motion'
 import {
   CheckCircle2,
   LogOut,
@@ -120,11 +119,7 @@ export function EditorBar({
   }
 
   return (
-    <motion.div
-      initial={{ y: 100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md"
-    >
+    <div className="animate-in fade-in slide-in-from-bottom-24 duration-500 fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-2xl backdrop-blur-md">
       <div className="container max-w-7xl px-3 sm:px-4 py-2.5">
         {/* One-line layout, scrolls horizontally on overflow before wrapping */}
         <div className="flex items-center gap-3 overflow-x-auto">
@@ -285,11 +280,7 @@ export function EditorBar({
         />
 
         {showCommentBox && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3"
-          >
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3">
             <Textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -332,9 +323,9 @@ export function EditorBar({
                 {t('editorBar.confirm')}
               </Button>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }

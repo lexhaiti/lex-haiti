@@ -1,7 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
-
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { useT } from '@/i18n/useT'
 import { MoniteurAdminTable } from '@/app/moniteur/_components/MoniteurAdminTable'
@@ -33,21 +31,12 @@ export default function MoniteurDashboardPage() {
           />
 
           <div className="max-w-4xl">
-            <motion.h1
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white"
-            >
+            <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-4xl lg:text-6xl font-black mb-4 leading-tight tracking-tight text-white">
               {t('editorial.moniteur.list.title')}
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-slate-300 text-lg lg:text-xl leading-relaxed"
-            >
+            </h1>
+            <p className="animate-in fade-in duration-500 delay-100 fill-mode-both text-slate-300 text-lg lg:text-xl leading-relaxed">
               {t('editorial.moniteur.list.subtitle')}
-            </motion.p>
+            </p>
           </div>
         </div>
       </div>

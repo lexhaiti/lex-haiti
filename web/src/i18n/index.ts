@@ -73,11 +73,52 @@
  * catalogue is for strings, not application state.
  */
 
-import { fr } from './fr'
-import { ht } from '@/i18n/ht'
+// We no longer eagerly import both ``./fr`` and ``./ht`` here — that
+// import graph used to pull *both* catalogues into every client bundle
+// that called ``useT()`` (~25 KB gzip each). The active dict is now
+// resolved per-language via dynamic import in ``loadMessages()`` below;
+// server-side code that needs both (i18n/server.ts for SSR) imports
+// them directly there, where the server bundle's size doesn't matter.
+//
+// We keep ``fr.ts`` and ``ht.ts`` as plain ES modules so the dynamic
+// imports below produce per-language chunks under .next/server/chunks.
 
-export const messages = { fr, ht } as const
-export type Language = keyof typeof messages
+/** Available UI languages. Used as the typed key in cookies, the
+ *  LanguageProvider's state, and the dynamic-import loader below. */
+export type Language = 'fr' | 'ht'
+
+/** Shape of a complete messages catalogue — the union of every key
+ *  defined in fr.ts. The FR catalogue is treated as the source of
+ *  truth; ht.ts must match its shape.
+ *
+ *  We deep-widen each leaf from its literal type (e.g. ``"FR"``) to
+ *  ``string`` because each catalogue's literal narrowing diverges
+ *  (``nav.langShort`` is the literal "FR" in fr.ts vs "HT" in ht.ts).
+ *  Without widening, the two dicts wouldn't be assignable to the
+ *  same ``MessagesDict`` type. */
+type DeepStringify<T> = T extends string
+  ? string
+  : { [K in keyof T]: DeepStringify<T[K]> }
+export type MessagesDict = DeepStringify<typeof import('./fr')['fr']>
+
+/**
+ * Load a single language's messages catalogue. Returns the active dict
+ * on its own so the inactive language's ~25 KB gzipped chunk stays
+ * out of the bundle until the user actually switches.
+ *
+ * The dynamic ``import()`` is split-aware: Webpack / Turbopack put each
+ * branch in its own chunk (``i18n_fr.js`` / ``i18n_ht.js``). Calling
+ * this from a server component is fine — Node loads the JSON-shaped
+ * module synchronously and the chunk-split metadata is ignored.
+ */
+export async function loadMessages(lang: Language): Promise<MessagesDict> {
+  if (lang === 'ht') {
+    const mod = await import('./ht')
+    return mod.ht
+  }
+  const mod = await import('./fr')
+  return mod.fr
+}
 
 /**
  * Cookie name where the user's selected language is persisted. Read by
