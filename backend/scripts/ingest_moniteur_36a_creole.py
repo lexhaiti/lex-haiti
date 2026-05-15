@@ -234,8 +234,19 @@ def get_or_create_issue(session: Session) -> MoniteurIssue:
 
 
 def link_to_constitution(session: Session, issue: MoniteurIssue) -> None:
-    """Set moniteur_issue_id_ht on constitution-1987 and
-    translation_issue_id on the N° 36 French entry."""
+    """Wire all the bilingual cross-references for constitution-1987:
+
+      * ``legal_texts.moniteur_issue_id_ht`` → N° 36-A (so the hero
+        chip on the law page shows both Moniteur references).
+      * On each FR entry in N° 36 (constitution + promulgation),
+        complete the ``translation_*`` companion fields so the
+        editor's EntryTranslationPanel shows the link instead of an
+        empty form.
+      * In N° 36-A, nest the promulgation entry under the
+        constitution entry (``parent_entry_id``) so the page renders
+        like N° 36 — a single SommaireCard with the promulgation as
+        a CompanionRow inside, not two separate top-level cards.
+    """
 
     text = session.execute(
         select(LegalText).where(LegalText.slug == CONSTITUTION_SLUG)
@@ -249,10 +260,59 @@ def link_to_constitution(session: Session, issue: MoniteurIssue) -> None:
     else:
         print("  moniteur_issue_id_ht already set.")
 
-    entry = session.get(MoniteurEntry, FR_ENTRY_ID)
-    if entry and entry.translation_issue_id != issue.id:
-        entry.translation_issue_id = issue.id
-        print(f"  Set moniteur_entries[{FR_ENTRY_ID}].translation_issue_id = {issue.id}.")
+    # Complete the FR→HT translation pointer on the constitution
+    # entry. translation_issue_id alone isn't enough — the editor
+    # panel reads number / title_ht / pages and shows empty fields
+    # when only the FK is set.
+    constitution_fr = session.get(MoniteurEntry, FR_ENTRY_ID)
+    if constitution_fr:
+        constitution_fr.translation_issue_id = issue.id
+        constitution_fr.translation_detected_number = ISSUE_NUMBER
+        constitution_fr.translation_title_ht = (
+            "Konstitisyon Repiblik Ayiti 1987"
+        )
+        constitution_fr.translation_page_from = 1
+        constitution_fr.translation_page_to = 38
+        print(
+            f"  Wired translation companion on moniteur_entries[{FR_ENTRY_ID}]."
+        )
+
+    # Same for the FR promulgation companion of N° 36, if it exists.
+    # parent_entry_id == FR_ENTRY_ID identifies it without having to
+    # hard-code its row id (which can drift across environments).
+    fr_promulgation = session.execute(
+        select(MoniteurEntry)
+        .where(MoniteurEntry.issue_id == FR_ISSUE_ID)
+        .where(MoniteurEntry.detected_category == "promulgation")
+    ).scalar_one_or_none()
+    if fr_promulgation:
+        fr_promulgation.translation_issue_id = issue.id
+        fr_promulgation.translation_detected_number = ISSUE_NUMBER
+        fr_promulgation.translation_title_ht = "Pwomilgasyon"
+        fr_promulgation.translation_page_from = 38
+        fr_promulgation.translation_page_to = 38
+        print(
+            f"  Wired translation companion on moniteur_entries[{fr_promulgation.id}] (promulgation)."
+        )
+
+    # Nest the HT promulgation under the HT constitution so the
+    # N° 36-A page renders with the same layout as N° 36.
+    ht_constitution = session.execute(
+        select(MoniteurEntry)
+        .where(MoniteurEntry.issue_id == issue.id)
+        .where(MoniteurEntry.detected_category == "constitution")
+    ).scalar_one_or_none()
+    ht_promulgation = session.execute(
+        select(MoniteurEntry)
+        .where(MoniteurEntry.issue_id == issue.id)
+        .where(MoniteurEntry.detected_category == "promulgation")
+    ).scalar_one_or_none()
+    if ht_constitution and ht_promulgation and ht_promulgation.parent_entry_id != ht_constitution.id:
+        ht_promulgation.parent_entry_id = ht_constitution.id
+        print(
+            f"  Nested N° 36-A promulgation (id={ht_promulgation.id}) "
+            f"under constitution entry (id={ht_constitution.id})."
+        )
 
 
 def bulk_update_text_ht(
