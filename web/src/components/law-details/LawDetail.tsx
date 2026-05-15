@@ -673,14 +673,14 @@ export default function LawDetail() {
 
             {/* ── 2. Title + description ─────────────────────────────── */}
             <div className="flex flex-col gap-6 lg:gap-8">
-              <h1 className="animate-in fade-in slide-in-from-top-3 duration-500 delay-100 fill-mode-both text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm">
+              <h1 className="animate-in fade-in slide-in-from-top-3 duration-500 delay-100 fill-mode-both text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-black leading-[1.15] sm:leading-[1.1] tracking-tight text-white drop-shadow-sm break-words">
                 <EditableHeroField
                   value={title}
                   isEditor={isEditor}
                   editAriaLabel={
                     currentLang === 'fr' ? 'Modifier le titre' : 'Modifye tit la'
                   }
-                  inputClassName="text-4xl lg:text-6xl font-black leading-[1.1] tracking-tight w-full"
+                  inputClassName="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-black leading-[1.15] sm:leading-[1.1] tracking-tight w-full"
                   onSave={async (next) => {
                     if (!next) throw new Error('Le titre ne peut pas être vide')
                     const field = currentLang === 'ht' ? 'title_ht' : 'title_fr'

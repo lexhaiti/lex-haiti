@@ -174,7 +174,7 @@ export const ht = {
   },
   home: {
     hero: {
-      title: "Pòtal jiridik Repiblik d'Ayiti",
+      title: 'Pòtal jiridik Repiblik Ayiti',
       description:
         'Byenveni sou LexHaïti, pòtal piblik referans ki rasanble resous an liy sou dwa ayisyen an — Konstitisyon, kòd, lwa, dekrè ak arete. Tèks yo disponib an fransè ak an kreyòl ayisyen, de lang ofisyèl Repiblik la, ki sòti nan sous piblik verifye.',
       findLabel: 'Jwenn yon tèks',
@@ -283,7 +283,7 @@ export const ht = {
     },
     moniteurRecent: {
       eyebrow: 'Le Moniteur — Jounal ofisyèl',
-      subtitle: "Jounal ofisyèl Repiblik d'Ayiti a, ki endekse epi rechèche.",
+      subtitle: 'Jounal ofisyèl Repiblik Ayiti a, ki endekse epi rechèche.',
       cta: 'Wè tout nimewo yo',
       empty: 'Nimewo Moniteur yo ap pibliye depi yo enpòte yo.',
       issuesLabel: 'nimewo pibliye',
