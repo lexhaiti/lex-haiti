@@ -198,6 +198,22 @@ def _resolve_db_url() -> str | None:
 
 
 def main() -> int:
+    import argparse  # noqa: PLC0415
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Delete the legal_texts named in PROMOTION_PLAN before "
+            "re-promoting. Use after a parser change (mentions, signers, "
+            "split_preamble) to refresh the parsed content of an already-"
+            "promoted batch. Skips deletion of any slug that isn't in "
+            "PROMOTION_PLAN — never touches unrelated rows."
+        ),
+    )
+    args = parser.parse_args()
+
     db_url = _resolve_db_url()
     if not db_url:
         print("ERROR: DATABASE_URL is not set. Refusing to run.", file=sys.stderr)
@@ -213,6 +229,22 @@ def main() -> int:
     promoted = 0
     skipped_existing: list[str] = []
     skipped_missing: list[str] = []
+
+    if args.force:
+        # Force-refresh path: delete only the legal_texts whose slugs
+        # are in the batch plan. CASCADE drops their articles,
+        # headings, signers. The moniteur_entries' promoted_legal_text_id
+        # is set to NULL automatically (ON DELETE SET NULL), so the
+        # promotion loop below sees them as un-promoted and re-creates.
+        from services.corpus.models import LegalText  # noqa: PLC0415
+
+        slugs_to_clear = [t.slug for t in PROMOTION_PLAN]
+        with Session() as session:
+            n = session.query(LegalText).filter(
+                LegalText.slug.in_(slugs_to_clear)
+            ).delete(synchronize_session=False)
+            session.commit()
+            print(f"--force: deleted {n} stale legal_texts before re-promotion")
 
     with Session() as session:
         repo = MoniteurRepository(session)
