@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Files,
+  Layers,
   Loader2,
   Newspaper,
   Pencil,
@@ -790,66 +792,70 @@ export default function MoniteurDetailClient() {
               </div>
             </div>
 
-            {/* Sidebar — one consolidated stat card.
-                Documents + Pages share a single rounded panel so the
-                hero reads as a single "fiche" rather than a 2-up grid.
-                The download CTA is footer-stitched into that same card
-                and only renders for signed-in users (admin / reviewer
-                / editor — the scan endpoint refuses anonymous traffic,
-                so hiding the chip here keeps UI honest). */}
+            {/* Sidebar — premium stat panel.
+                One glass card with a 2-up icon-led metric grid and a
+                footer-stitched download chip. Mobile-first: metrics
+                stack on phones for full tap-target legibility, then
+                go side-by-side on ``sm:`` and beyond. The hairline
+                divider is a single border instead of a separate row
+                so the card reads as one surface, not three. Download
+                CTA renders only for signed-in users (the scan
+                endpoint 401s anonymous traffic — hiding the chip
+                here keeps UI honest). */}
             <div
-              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both lg:min-w-[260px]"
+              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both w-full lg:w-auto lg:min-w-[320px] lg:max-w-[360px]"
               style={{ animationDelay: '220ms' }}
             >
-              <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
+              <div className="relative rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)] overflow-hidden">
+                {/* subtle amber accent in the top-right corner —
+                    same accent color the rest of the hero uses, just
+                    enough to lift the card off the navy backdrop. */}
+                <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 bg-amber-400/20 blur-3xl rounded-full" />
+
                 <div
                   className={cn(
-                    'grid gap-px bg-white/10',
-                    issue.page_count ? 'grid-cols-2' : 'grid-cols-1',
+                    'relative grid divide-y divide-white/10 sm:divide-y-0 sm:divide-x sm:divide-white/10',
+                    issue.page_count ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
                   )}
                 >
-                  <div className="px-5 py-4 bg-slate-950/40 sm:bg-transparent">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
-                      Documents
-                    </div>
-                    <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                      {topLevel.length}
-                    </div>
-                  </div>
-                  {issue.page_count && (
-                    <div className="px-5 py-4 bg-slate-950/40 sm:bg-transparent">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
-                        Pages
-                      </div>
-                      <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                        {issue.page_count}
-                      </div>
-                    </div>
+                  <StatCell
+                    icon={Files}
+                    label="Documents"
+                    value={topLevel.length}
+                    sublabel={
+                      topLevel.length > 1 ? 'actes publiés' : 'acte publié'
+                    }
+                  />
+                  {issue.page_count != null && (
+                    <StatCell
+                      icon={Layers}
+                      label="Pages"
+                      value={issue.page_count}
+                      sublabel="pagination du Moniteur"
+                    />
                   )}
                 </div>
-                {/* Auth-gated scan download. Anonymous visitors get no
-                    chip at all (matches the 401 the API now returns);
-                    signed-in users get a button that streams the same
-                    file the editor uses. */}
+
                 {isSignedIn && issue.file_url && (
                   <a
                     href={`/api/v1/moniteur/issues/${issue.id}/scan`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group/dl flex items-center gap-3 px-5 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+                    className="group/dl relative flex items-center gap-3 px-5 py-3.5 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors min-h-[56px]"
                     title="Télécharger le scan original (PDF)"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 group-hover/dl:bg-amber-300/90 group-hover/dl:text-slate-900 text-white/80 transition-colors">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 group-hover/dl:bg-amber-300 group-hover/dl:text-slate-900 text-white/85 transition-all group-hover/dl:scale-105 shrink-0">
                       <Download className="w-4 h-4" />
                     </span>
-                    <span className="flex flex-col leading-tight">
+                    <span className="flex flex-col leading-tight flex-1 min-w-0">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
                         Télécharger
                       </span>
-                      <span className="text-sm font-semibold text-white">
-                        Scan original
+                      <span className="text-sm font-semibold text-white truncate">
+                        Scan original — PDF
                       </span>
                     </span>
+                    <ArrowRight className="w-4 h-4 text-white/40 group-hover/dl:text-white group-hover/dl:translate-x-0.5 transition-all shrink-0" />
                   </a>
                 )}
               </div>
@@ -973,6 +979,43 @@ export default function MoniteurDetailClient() {
         </div>
       </div>
       )}
+    </div>
+  )
+}
+
+// Single metric cell inside the consolidated stat card. Icon-led so
+// the surface reads as a "fiche d'identité" rather than a stats
+// dashboard; the big numeral is the focal point with a sub-line that
+// puts it in plain language (``actes publiés`` / ``pagination du
+// Moniteur``). Generous padding + an icon container give it a touch
+// target that feels considered, not afterthought.
+function StatCell({
+  icon: Icon,
+  label,
+  value,
+  sublabel,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: number | string
+  sublabel: string
+}) {
+  return (
+    <div className="flex items-start gap-3 px-5 py-5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 text-white/80 shrink-0 mt-0.5">
+        <Icon className="w-4 h-4" />
+      </span>
+      <div className="flex flex-col min-w-0">
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+          {label}
+        </div>
+        <div className="text-3xl sm:text-4xl font-black text-white tabular-nums leading-none mt-1.5">
+          {value}
+        </div>
+        <div className="mt-1.5 text-[11px] text-white/45 leading-snug">
+          {sublabel}
+        </div>
+      </div>
     </div>
   )
 }
