@@ -853,20 +853,6 @@ export default function MoniteurDetailClient() {
                   </a>
                 )}
               </div>
-              {/* Sign-in nudge — only when a scan is attached and the
-                  visitor isn't signed in. Quiet inline link; no
-                  hard-sell modal. */}
-              {!isSignedIn && issue.file_url && (
-                <p className="mt-3 text-xs text-white/50 leading-relaxed">
-                  <Link
-                    href="/sign-in"
-                    className="text-white/80 hover:text-white underline underline-offset-2"
-                  >
-                    Connectez-vous
-                  </Link>{' '}
-                  pour télécharger le scan original.
-                </p>
-              )}
             </div>
           </div>
 
