@@ -39,6 +39,12 @@ class EntryData:
     raw_text: str
     page_from: int | None = None
     page_to: int | None = None
+    # When this entry is a companion of another within the same
+    # issue — a presidential promulgation of a loi, an arrêté that
+    # implements a CPT résolution, a translator's note — set this
+    # to the parent's ``position`` and the ingest script will wire
+    # ``parent_entry_id`` after both rows exist. None = top-level.
+    parent_position: int | None = None
 
 
 @dataclass
@@ -131,19 +137,43 @@ ISSUE_1936_40 = IssueData(
                 "133ème de l'Indépendance, 2ème de la Libération et de la "
                 "Restauration.\n"
                 "Le Président : LS. S. ZEPHIRIN — Les Secrétaires : FOMBRUN, JH. "
-                "RAPHAEL NOEL\n\n"
-                "AU NOM DE LA RÉPUBLIQUE — Le Président de la République ordonne que "
-                "la Loi ci-dessus soit revêtue du Sceau de la République, imprimée, "
-                "publiée et exécutée.\n"
-                "Donné au Palais National, à Port-au-Prince, le 7 Mai 1936, An 133ème "
-                "de l'Indépendance et 2ème de la Libération et de la Restauration.\n"
-                "STENIO VINCENT — Par le Président : Le Secrétaire d'État de "
-                "l'Intérieur : JH. TITUS ; Le Secrétaire d'État des Travaux Publics : "
-                "R. BROUARD ; Le Secrétaire d'État des Finances : MONT-ROSIER DEJEAN."
+                "RAPHAEL NOEL"
             ),
         ),
         EntryData(
             position=1,
+            detected_category="promulgation",
+            parent_position=0,
+            display_title=(
+                "Promulgation de la Loi du 5 mai 1936 ouvrant un crédit "
+                "extraordinaire pour l'Avenue du Président Trujillo"
+            ),
+            detected_title="Promulgation présidentielle du 7 mai 1936",
+            detected_number=None,
+            detected_date=date(1936, 5, 7),
+            summary_fr=(
+                "Acte exécutif par lequel le Président Sténio Vincent ordonne "
+                "que la Loi votée par le Corps Législatif soit revêtue du "
+                "Sceau de la République, imprimée, publiée et exécutée."
+            ),
+            page_from=1,
+            page_to=1,
+            raw_text=(
+                "AU NOM DE LA RÉPUBLIQUE.\n\n"
+                "Le Président de la République ordonne que la Loi ci-dessus "
+                "soit revêtue du Sceau de la République, imprimée, publiée "
+                "et exécutée.\n\n"
+                "Donné au Palais National, à Port-au-Prince, le 7 Mai 1936, "
+                "An 133ème de l'Indépendance et 2ème de la Libération et de "
+                "la Restauration.\n\n"
+                "STENIO VINCENT — Par le Président : Le Secrétaire d'État "
+                "de l'Intérieur : JH. TITUS ; Le Secrétaire d'État des "
+                "Travaux Publics : R. BROUARD ; Le Secrétaire d'État des "
+                "Finances : MONT-ROSIER DEJEAN."
+            ),
+        ),
+        EntryData(
+            position=2,
             detected_category="arrete",
             display_title=(
                 "Arrêté modifiant l'article 1er de l'Arrêté du 22 Mai 1935 relatif "
@@ -219,7 +249,7 @@ ISSUE_1936_40 = IssueData(
             ),
         ),
         EntryData(
-            position=2,
+            position=3,
             detected_category="arrete",
             display_title=(
                 "Arrêté approuvant la liquidation des pensions de Mesdames "
@@ -550,7 +580,7 @@ ISSUE_2024_SPECIAL_57 = IssueData(
     entries=[
         EntryData(
             position=0,
-            detected_category="autre",
+            detected_category="resolution",
             display_title=(
                 "Résolution faisant choix, par consensus, du citoyen Alix Didier "
                 "Fils-Aimé comme Premier Ministre"
@@ -593,6 +623,7 @@ ISSUE_2024_SPECIAL_57 = IssueData(
         EntryData(
             position=1,
             detected_category="arrete",
+            parent_position=0,
             display_title="Arrêté nommant le citoyen Alix Didier Fils-Aimé Premier Ministre",
             detected_title="Arrêté du 8 novembre 2024",
             detected_number=None,

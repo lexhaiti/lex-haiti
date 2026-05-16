@@ -139,6 +139,12 @@ class MoniteurDocumentType(str, Enum):
     correspondance = "correspondance"
     promulgation = "promulgation"
     errata = "errata"
+    # Deliberation of a constituted body (CPT, Assemblée nationale,
+    # Sénat). Distinct from a regulatory act — the resolution itself
+    # records the decision; an accompanying ``arrete`` typically
+    # executes it. Not in PROMOTABLE_TYPES because resolutions don't
+    # need to live in the LegalText corpus on their own.
+    resolution = "resolution"
     # Editor-set short annotation or footnote attached to a primary
     # entry (translator's note, transcription gap, deviation from the
     # printed source, etc.). Distinct from ``communique`` (official

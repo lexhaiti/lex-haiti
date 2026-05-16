@@ -131,14 +131,17 @@ def upsert_issue(conn, issue: IssueData, *, local: bool) -> int:
     return int(row[0])
 
 
-def upsert_entry(conn, issue_id: int, entry: EntryData) -> None:
-    """UPSERT the entry row keyed on (issue_id, position).
+def upsert_entry(conn, issue_id: int, entry: EntryData) -> int:
+    """UPSERT the entry row keyed on (issue_id, position) and return
+    its id.
 
     Preserves any editorial state set on prod — ``review_status``,
-    ``promoted_legal_text_id``, ``reviewed_by/at`` — by leaving
-    those columns out of the UPDATE clause.
+    ``promoted_legal_text_id``, ``reviewed_by/at``, ``parent_entry_id``
+    — by leaving those columns out of the UPDATE clause.
+    ``parent_entry_id`` is set in a second pass once every entry in
+    the issue has a row id (see ``_link_parents``).
     """
-    conn.execute(
+    row = conn.execute(
         text(
             """
             INSERT INTO moniteur_entries
@@ -161,7 +164,21 @@ def upsert_entry(conn, issue_id: int, entry: EntryData) -> None:
               summary_fr        = EXCLUDED.summary_fr,
               raw_text          = EXCLUDED.raw_text,
               page_from         = EXCLUDED.page_from,
-              page_to           = EXCLUDED.page_to
+              page_to           = EXCLUDED.page_to,
+              -- If the category changes (e.g. an entry was re-tagged
+              -- from ``arrete`` to ``promulgation`` because we split a
+              -- promulgation block out of its parent loi), the old
+              -- ``promoted_legal_text_id`` is stale — the LegalText
+              -- it points to was generated from the *old* raw_text.
+              -- Clear it so the promotion script will re-run and
+              -- generate a fresh LegalText against the new content.
+              -- Unchanged categories keep their promotion.
+              promoted_legal_text_id = CASE
+                  WHEN moniteur_entries.detected_category IS DISTINCT FROM EXCLUDED.detected_category
+                  THEN NULL
+                  ELSE moniteur_entries.promoted_legal_text_id
+              END
+            RETURNING id
             """
         ),
         {
@@ -177,7 +194,43 @@ def upsert_entry(conn, issue_id: int, entry: EntryData) -> None:
             "page_from": entry.page_from,
             "page_to": entry.page_to,
         },
-    )
+    ).first()
+    assert row is not None
+    return int(row[0])
+
+
+def link_parents(
+    conn,
+    issue_id: int,
+    entries: list[EntryData],
+    position_to_id: dict[int, int],
+) -> int:
+    """Second pass: wire ``parent_entry_id`` from ``parent_position``.
+
+    Self-FKs only resolve once every entry in the issue has a row id,
+    so we walk twice. Returns the number of links written/refreshed.
+    """
+    n = 0
+    for entry in entries:
+        if entry.parent_position is None:
+            continue
+        parent_id = position_to_id.get(entry.parent_position)
+        child_id = position_to_id[entry.position]
+        if parent_id is None or parent_id == child_id:
+            continue
+        conn.execute(
+            text(
+                """
+                UPDATE moniteur_entries
+                   SET parent_entry_id = :parent_id
+                 WHERE id = :child_id
+                   AND (parent_entry_id IS DISTINCT FROM :parent_id)
+                """
+            ),
+            {"parent_id": parent_id, "child_id": child_id},
+        )
+        n += 1
+    return n
 
 
 def _ensure_position_unique_constraint(conn) -> None:
@@ -219,20 +272,24 @@ def main() -> int:
 
     n_issues = 0
     n_entries = 0
+    n_links = 0
     with engine.begin() as conn:
         _ensure_position_unique_constraint(conn)
         for issue in ALL_ISSUES:
             issue_id = upsert_issue(conn, issue, local=args.local)
             n_issues += 1
+            position_to_id: dict[int, int] = {}
             for entry in issue.entries:
-                upsert_entry(conn, issue_id, entry)
+                eid = upsert_entry(conn, issue_id, entry)
+                position_to_id[entry.position] = eid
                 n_entries += 1
+            n_links += link_parents(conn, issue_id, issue.entries, position_to_id)
             print(
                 f"  ✓ {issue.year} N° {issue.number}  →  issue_id={issue_id}, "
                 f"{len(issue.entries)} entries"
             )
 
-    print(f"\nDone. issues={n_issues}  entries={n_entries}")
+    print(f"\nDone. issues={n_issues}  entries={n_entries}  parent_links={n_links}")
     return 0
 
 
