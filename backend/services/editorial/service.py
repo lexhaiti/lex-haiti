@@ -589,6 +589,10 @@ class EditorialService:
             "considerants_fr", "considerants_ht",
             "mentions_procedurales_fr", "mentions_procedurales_ht",
             "enacting_formula_fr", "enacting_formula_ht",
+            # The closing formula is now edited via the same Tiptap
+            # editor as the other formal blocks (SignataireBlock).
+            # Scrub its HTML the same way.
+            "official_formula",
         )
         for field in _BLOCK_HTML_FIELDS:
             if field in updates and isinstance(updates[field], str):

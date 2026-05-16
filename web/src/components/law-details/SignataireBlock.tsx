@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Check, ChevronDown, Loader2, PenLine, Plus, X } from 'lucide-react'
 
 import {
@@ -10,6 +11,17 @@ import {
 import { cn } from '@/lib/utils'
 import { buildSignatureLeadCaption } from './_helpers/signatureCaption'
 import { SignersEditor } from './SignersEditor'
+
+// Tiptap-backed rich editor — same component the other formal blocks
+// (preamble, visas, considérants, mentions procédurales) use. Dynamic-
+// imported so the editor JS doesn't ship on the public read path.
+const RichArticleEditor = dynamic(
+  () =>
+    import('./_editor/RichArticleEditor').then((m) => ({
+      default: m.RichArticleEditor,
+    })),
+  { ssr: false },
+)
 
 /**
  * Combined "Signataires et formule de clôture" block on the law detail
@@ -125,18 +137,19 @@ export function SignataireBlock({
               caption styling). */}
           {editFormula ? (
             <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50/40 p-3">
-              <textarea
+              <RichArticleEditor
                 value={formulaDraft}
-                disabled={formulaSaving}
-                onChange={(e) => setFormulaDraft(e.target.value)}
-                rows={8}
+                onChange={setFormulaDraft}
                 placeholder={
                   lang === 'fr'
                     ? 'Donné au Palais Législatif, à Port-au-Prince…'
                     : 'Bay nan Pale Lejislatif…'
                 }
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary leading-relaxed font-mono"
-                autoFocus
+                ariaLabel={
+                  lang === 'fr' ? 'Formule de clôture' : 'Fòmil fèmti'
+                }
+                tone="amber"
+                disabled={formulaSaving}
               />
               {formulaError && (
                 <p className="mt-2 text-xs text-red-600">{formulaError}</p>
@@ -169,12 +182,17 @@ export function SignataireBlock({
           ) : hasFormula ? (
             /* Closing formula rendered as italic prose — classic French
                legal-document convention for "Donné au … le …" formulas.
-               Italic + slightly muted slate + small letter-tracking marks
-               the text as formal-block content without needing a coloured
-               left-rail. */
-            <p className="mb-6 text-sm italic text-slate-600 leading-relaxed tracking-[0.005em] whitespace-pre-wrap">
-              {officialFormula}
-            </p>
+               Rich-HTML now (Tiptap output), so dangerouslySetInnerHTML
+               instead of text node; the editor sanitises through the
+               same allowlist as the other formal blocks. The italic
+               + tracking + muted slate styling matches the previous
+               plain-text rendering, and a small ``prose``-shape rule
+               below keeps inline ``<p>`` / ``<em>`` / ``<strong>``
+               looking right inside the italic wrapper. */
+            <div
+              className="mb-6 text-sm italic text-slate-600 leading-relaxed tracking-[0.005em] [&_p]:mb-2 [&_p:last-child]:mb-0"
+              dangerouslySetInnerHTML={{ __html: officialFormula! }}
+            />
           ) : null}
 
           {/* Lead caption from the structured signers — italic
