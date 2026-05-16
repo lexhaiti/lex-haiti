@@ -32,6 +32,7 @@ import { smartIssueNumber } from '@/lib/format/moniteur'
 import { LoadingState } from '@/components/shared/LoadingState'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useEditorMode } from '@/lib/hooks/useEditorMode'
+import { useSession } from 'next-auth/react'
 import { useT } from '@/i18n/useT'
 import { MoniteurIssueEditorPanel } from './MoniteurIssueEditorPanel'
 
@@ -600,6 +601,12 @@ export default function MoniteurDetailClient() {
   const params = useParams()
   const searchParams = useSearchParams()
   const { isEditor } = useEditorMode()
+  // Anyone with a valid session (admin / reviewer / editor) can pull
+  // the source scan; anonymous visitors get the structured corpus
+  // only. ``useSession`` is also used by the editor toggle, so this
+  // doesn't add an extra request.
+  const { status: authStatus } = useSession()
+  const isSignedIn = authStatus === 'authenticated'
   const { language } = useT()
   const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   // Route param is named "id" for backwards compatibility but accepts
@@ -783,104 +790,111 @@ export default function MoniteurDetailClient() {
               </div>
             </div>
 
-            {/* Sidebar — stats grid. The Documents card pulls double
-                duty: it shows the count *and* hosts the primary
-                download CTA as an inline action row, so the visitor
-                doesn't have to leave the card to grab the PDF. The
-                Pages card stays a pure stat. */}
+            {/* Sidebar — one consolidated stat card.
+                Documents + Pages share a single rounded panel so the
+                hero reads as a single "fiche" rather than a 2-up grid.
+                The download CTA is footer-stitched into that same card
+                and only renders for signed-in users (admin / reviewer
+                / editor — the scan endpoint refuses anonymous traffic,
+                so hiding the chip here keeps UI honest). */}
             <div
-              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both grid grid-cols-2 lg:grid-cols-1 gap-3 lg:min-w-[240px]"
+              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both lg:min-w-[260px]"
               style={{ animationDelay: '220ms' }}
             >
               <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
-                {/* Stat — Documents count */}
-                <div className="px-5 pt-3 lg:pt-4 pb-3">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
-                    Documents
-                  </div>
-                  <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                    {topLevel.length}
-                  </div>
-                </div>
-                {/* Inline download action — visually a divider + card
-                    footer that the whole row reacts to. White-shade
-                    treatment matches the parent card; the hover lift
-                    + amber accent on the icon are the only colour
-                    inversions, so the action reads as part of the
-                    card, not bolted on. */}
-                <a
-                  href={`/api/v1/moniteur/issues/${issue.id}/export`}
-                  download
-                  className="group/dl flex items-center gap-3 px-5 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+                <div
+                  className={cn(
+                    'grid gap-px bg-white/10',
+                    issue.page_count ? 'grid-cols-2' : 'grid-cols-1',
+                  )}
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 group-hover/dl:bg-amber-300/90 group-hover/dl:text-slate-900 text-white/80 transition-colors">
-                    <Download className="w-4 h-4" />
-                  </span>
-                  <span className="flex flex-col leading-tight">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
-                      Télécharger
-                    </span>
-                    <span className="text-sm font-semibold text-white">
-                      PDF LexHaïti
-                    </span>
-                  </span>
-                </a>
-              </div>
-              {issue.page_count && (
-                <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 lg:py-4">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
-                    Pages
+                  <div className="px-5 py-4 bg-slate-950/40 sm:bg-transparent">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
+                      Documents
+                    </div>
+                    <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
+                      {topLevel.length}
+                    </div>
                   </div>
-                  <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
-                    {issue.page_count}
-                  </div>
+                  {issue.page_count && (
+                    <div className="px-5 py-4 bg-slate-950/40 sm:bg-transparent">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1.5">
+                        Pages
+                      </div>
+                      <div className="text-3xl lg:text-4xl font-black text-white tabular-nums leading-none">
+                        {issue.page_count}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                {/* Auth-gated scan download. Anonymous visitors get no
+                    chip at all (matches the 401 the API now returns);
+                    signed-in users get a button that streams the same
+                    file the editor uses. */}
+                {isSignedIn && issue.file_url && (
+                  <a
+                    href={`/api/v1/moniteur/issues/${issue.id}/scan`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group/dl flex items-center gap-3 px-5 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+                    title="Télécharger le scan original (PDF)"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 group-hover/dl:bg-amber-300/90 group-hover/dl:text-slate-900 text-white/80 transition-colors">
+                      <Download className="w-4 h-4" />
+                    </span>
+                    <span className="flex flex-col leading-tight">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                        Télécharger
+                      </span>
+                      <span className="text-sm font-semibold text-white">
+                        Scan original
+                      </span>
+                    </span>
+                  </a>
+                )}
+              </div>
+              {/* Sign-in nudge — only when a scan is attached and the
+                  visitor isn't signed in. Quiet inline link; no
+                  hard-sell modal. */}
+              {!isSignedIn && issue.file_url && (
+                <p className="mt-3 text-xs text-white/50 leading-relaxed">
+                  <Link
+                    href="/sign-in"
+                    className="text-white/80 hover:text-white underline underline-offset-2"
+                  >
+                    Connectez-vous
+                  </Link>{' '}
+                  pour télécharger le scan original.
+                </p>
               )}
             </div>
           </div>
 
-          {/* Bottom action row — secondary actions only. The primary
-              download moved into the sidebar above. The "Scan original"
-              button now shows whenever ``file_url`` is set (regardless
-              of http vs filesystem path) and links to the typed
-              ``/moniteur/issues/{id}/scan`` endpoint, which streams the
-              local PDF or 302s to the CDN depending on the stored value.
-              Lets the editor (and any public reader) grab the source
-              scan that was OCR'd to produce the structured text below. */}
-          {(issue.file_url || isEditor) && (
+          {/* Bottom action row — secondary actions only. The scan
+              download moved into the consolidated stat card above
+              (auth-gated). This row now exists solely for the
+              editor-mode toggle and renders only for editors. */}
+          {isEditor && (
             <div
               className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-10 flex flex-wrap items-center gap-3"
             >
-              {issue.file_url && (
-                <a
-                  href={`/api/v1/moniteur/issues/${issue.id}/scan`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold border border-white/15 transition-all"
-                >
-                  <Download className="w-4 h-4" />
-                  Scan original (PDF)
-                </a>
-              )}
               {/* Editor-only toggle. Flips the body below for the
                   review work surface (accept/reject entries, edit text,
                   attach to parent) without leaving the issue's
                   canonical URL. This is the *only* per-issue editor
                   surface — the previous /editorial/moniteur/[id]/review
                   route was removed in favour of this inline toggle. */}
-              {isEditor && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setView(view === 'editor' ? 'public' : 'editor')
-                  }
-                  aria-pressed={view === 'editor'}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold border border-amber-300 hover:bg-amber-300 transition-all"
-                >
-                  <Pencil className="w-4 h-4" />
-                  {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setView(view === 'editor' ? 'public' : 'editor')
+                }
+                aria-pressed={view === 'editor'}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold border border-amber-300 hover:bg-amber-300 transition-all"
+              >
+                <Pencil className="w-4 h-4" />
+                {view === 'editor' ? 'Vue publique' : 'Vue éditeur'}
+              </button>
             </div>
           )}
         </div>

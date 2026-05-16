@@ -21,9 +21,13 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_409_CONFLICT
+from starlette.status import (
+    HTTP_401_UNAUTHORIZED,
+    HTTP_404_NOT_FOUND,
+    HTTP_409_CONFLICT,
+)
 
-from api.deps import DbSession, EditorialUser
+from api.deps import CurrentUser, DbSession, EditorialUser
 from schemas.common import PaginatedResponse
 from schemas.enums import (
     LegalCategory,
@@ -525,11 +529,16 @@ def delete_entry(
 
 
 @router.get("/issues/{issue_id}/scan")
-def download_issue_scan(issue_id: int, db: DbSession):
+def download_issue_scan(issue_id: int, db: DbSession, user: CurrentUser):
     """Stream the original scanned PDF for this Moniteur issue.
 
-    Public endpoint — anyone can download the source document of a
-    published issue. ``moniteur_issues.file_url`` can be one of:
+    **Sign-in required.** The scan endpoint is gated behind a valid
+    session because the source PDFs are heavy assets we don't want
+    crawled or hot-linked from anonymous traffic; the public reader
+    still has the full structured text + sommaire. Any signed-in
+    role (admin / reviewer / editor) is allowed.
+
+    ``moniteur_issues.file_url`` can be one of:
       * a full ``http(s)://…`` URL — we 302 to it so the caller hits
         the CDN / Azure Blob directly without proxying the bytes.
       * an absolute filesystem path — we serve it via ``FileResponse``.
@@ -543,6 +552,12 @@ def download_issue_scan(issue_id: int, db: DbSession):
     folder reads cleanly. Same shape used by the structured PDF
     export elsewhere.
     """
+    if user is None:
+        raise HTTPException(
+            HTTP_401_UNAUTHORIZED,
+            "Sign in to download the original scan.",
+            headers={"WWW-Authenticate": "Cookie"},
+        )
     repo = MoniteurRepository(db)
     issue = repo.get_issue(issue_id)
     if not issue:

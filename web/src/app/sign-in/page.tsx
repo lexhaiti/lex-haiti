@@ -47,85 +47,115 @@ export default function SignInPage() {
   // If already signed in, show a small notice instead of the form.
   if (status === 'authenticated' && session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-white">
-        <div className="w-full max-w-sm text-center">
+      <ShellWrapper>
+        <div className="text-center">
           <p className="text-sm text-slate-600">
             {t('signIn.alreadySignedInPrefix')}
           </p>
-          <p className="mt-1 text-base font-semibold text-slate-900">
+          <p className="mt-1 text-base font-semibold text-slate-900 break-all">
             {session.user.email}
           </p>
-          <Button asChild className="mt-6 w-full">
+          <Button asChild className="mt-6 w-full h-11">
             <Link href="/">
               {t('signIn.goHome')}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
         </div>
-      </div>
+      </ShellWrapper>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-16 bg-white">
-      <div className="w-full max-w-sm">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors mb-10"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          {t('signIn.backHome')}
-        </Link>
+    <ShellWrapper>
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors mb-6 sm:mb-8 min-h-[44px] py-2 -my-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t('signIn.backHome')}
+      </Link>
 
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          {t('signIn.title')}
-        </h1>
-        <p className="mt-2 text-sm text-slate-500 leading-relaxed">
-          {t('signIn.subtitle')}
-        </p>
+      <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+        {t('signIn.title')}
+      </h1>
+      <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+        {t('signIn.subtitle')}
+      </p>
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-4">
-          <label className="block">
-            <span className="block text-xs font-semibold text-slate-700 mb-1.5">
-              {t('signIn.emailLabel')}
-            </span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('signIn.emailPlaceholder')}
-              disabled={pending}
-              autoFocus
-              className={cn(
-                'w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white',
-                'placeholder:text-slate-400 text-slate-900 text-sm',
-                'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
-                'transition-colors disabled:opacity-50',
-              )}
-            />
-          </label>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <Button
-            type="submit"
-            disabled={pending || !email}
-            className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-semibold disabled:opacity-50"
-          >
-            {pending ? (
-              <>
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                {t('signIn.submittingButton')}
-              </>
-            ) : (
-              t('signIn.submitButton')
+      <form onSubmit={onSubmit} className="mt-6 sm:mt-8 space-y-4">
+        <label className="block">
+          <span className="block text-xs font-semibold text-slate-700 mb-1.5">
+            {t('signIn.emailLabel')}
+          </span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('signIn.emailPlaceholder')}
+            disabled={pending}
+            autoComplete="email"
+            inputMode="email"
+            // ``autoFocus`` on mobile pops the keyboard before the user
+            // can read the prompt — drop it on small viewports. The
+            // ``sm:focus:`` and tap targets handle the rest.
+            className={cn(
+              'w-full px-4 py-3 sm:py-2.5 rounded-lg border border-slate-300 bg-white',
+              'placeholder:text-slate-400 text-slate-900 text-base sm:text-sm',
+              // text-base on mobile keeps iOS Safari from zooming when
+              // the input focuses (Safari only zooms inputs < 16px).
+              'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
+              'transition-colors disabled:opacity-50',
             )}
-          </Button>
-        </form>
+          />
+        </label>
 
-        <p className="mt-6 text-xs text-slate-400 leading-relaxed">{t('signIn.note')}</p>
-      </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <Button
+          type="submit"
+          disabled={pending || !email}
+          className="w-full h-12 sm:h-11 bg-slate-900 hover:bg-slate-800 text-white font-semibold disabled:opacity-50"
+        >
+          {pending ? (
+            <>
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              {t('signIn.submittingButton')}
+            </>
+          ) : (
+            t('signIn.submitButton')
+          )}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-xs text-slate-400 leading-relaxed">{t('signIn.note')}</p>
+    </ShellWrapper>
+  )
+}
+
+// Shared shell for both the form and the already-signed-in notice.
+// ``min-h-dvh`` (dynamic viewport height) keeps the layout correct
+// when the mobile keyboard opens — ``min-h-screen`` jumps the form
+// up under the keyboard on iOS Safari. Padding scales by viewport,
+// and the brand header gives the page a context the bare form
+// didn't have before.
+function ShellWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-dvh bg-white flex flex-col">
+      <header className="flex items-center justify-center px-4 pt-8 sm:pt-10">
+        <Link href="/" className="inline-flex items-center gap-2">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white text-sm font-black">
+            LH
+          </span>
+          <span className="text-lg font-black tracking-tight text-slate-900">
+            Lex<span className="text-primary">Haïti</span>
+          </span>
+        </Link>
+      </header>
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+        <div className="w-full max-w-sm sm:max-w-md">{children}</div>
+      </main>
     </div>
   )
 }
