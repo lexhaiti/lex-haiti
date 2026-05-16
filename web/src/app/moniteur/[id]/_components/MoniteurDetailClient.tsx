@@ -831,17 +831,34 @@ export default function MoniteurDetailClient() {
                   )}
                 </div>
 
+                {/* Download row — always shows the LexHaïti
+                    structured PDF (cover + sommaire + sections, with
+                    LexHaïti branding), public access. Signed-in
+                    users get a second row with the original Moniteur
+                    scan, which stays gated server-side. */}
+                <a
+                  href={`/api/v1/moniteur/issues/${issue.id}/export`}
+                  download
+                  className="group/dl relative flex items-center gap-2.5 px-4 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
+                  title="Télécharger le PDF LexHaïti — version éditoriale"
+                >
+                  <Download className="w-3.5 h-3.5 text-white/70 group-hover/dl:text-amber-300 transition-colors shrink-0" />
+                  <span className="text-xs font-semibold text-white/90 truncate flex-1">
+                    PDF LexHaïti
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-white/40 group-hover/dl:text-white group-hover/dl:translate-x-0.5 transition-all shrink-0" />
+                </a>
                 {isSignedIn && issue.file_url && (
                   <a
                     href={`/api/v1/moniteur/issues/${issue.id}/scan`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group/dl relative flex items-center gap-2.5 px-4 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
-                    title="Télécharger le scan original (PDF)"
+                    title="Télécharger le scan original (PDF) — réservé aux éditeurs"
                   >
                     <Download className="w-3.5 h-3.5 text-white/70 group-hover/dl:text-amber-300 transition-colors shrink-0" />
                     <span className="text-xs font-semibold text-white/90 truncate flex-1">
-                      Scan original — PDF
+                      Scan original
                     </span>
                     <ArrowRight className="w-3.5 h-3.5 text-white/40 group-hover/dl:text-white group-hover/dl:translate-x-0.5 transition-all shrink-0" />
                   </a>
