@@ -230,7 +230,11 @@ def main() -> int:
     skipped_existing: list[str] = []
     skipped_missing: list[str] = []
 
-    if args.force:
+    # Also honour FORCE_REFRESH=1 so the Container Apps Job can pass
+    # the flag through an env var (the ``az containerapp job`` CLI
+    # eats double-dash flags before they reach the command).
+    force = args.force or os.environ.get("FORCE_REFRESH") == "1"
+    if force:
         # Force-refresh path: delete only the legal_texts whose slugs
         # are in the batch plan. CASCADE drops their articles,
         # headings, signers. The moniteur_entries' promoted_legal_text_id
