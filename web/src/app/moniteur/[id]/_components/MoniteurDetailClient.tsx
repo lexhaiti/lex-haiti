@@ -792,46 +792,41 @@ export default function MoniteurDetailClient() {
               </div>
             </div>
 
-            {/* Sidebar — premium stat panel.
-                One glass card with a 2-up icon-led metric grid and a
-                footer-stitched download chip. Mobile-first: metrics
-                stack on phones for full tap-target legibility, then
-                go side-by-side on ``sm:`` and beyond. The hairline
-                divider is a single border instead of a separate row
-                so the card reads as one surface, not three. Download
-                CTA renders only for signed-in users (the scan
-                endpoint 401s anonymous traffic — hiding the chip
-                here keeps UI honest). */}
+            {/* Compact identity card — one panel with both metrics
+                side-by-side, never full-width. On phones it caps at
+                ``max-w-xs`` so it reads as a fiche, not a banner; on
+                tablets it widens slightly; on desktop it sits in the
+                ``auto`` column next to the title. Inside, the two
+                metrics share a single row separated by a hairline
+                divider — a compact "1 / 4" reading instead of two
+                stacked boxes. The download chip sits beneath the
+                metrics, footer-stitched, auth-gated. */}
             <div
-              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both w-full lg:w-auto lg:min-w-[320px] lg:max-w-[360px]"
+              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both w-full max-w-xs sm:max-w-sm lg:w-auto lg:max-w-none lg:min-w-[300px]"
               style={{ animationDelay: '220ms' }}
             >
               <div className="relative rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)] overflow-hidden">
-                {/* subtle amber accent in the top-right corner —
-                    same accent color the rest of the hero uses, just
-                    enough to lift the card off the navy backdrop. */}
-                <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 bg-amber-400/20 blur-3xl rounded-full" />
+                <div className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 bg-amber-400/20 blur-3xl rounded-full" />
 
+                {/* Always-inline 2-up metric row, no responsive
+                    stack. Each cell is centred so the numerals form
+                    a balanced pair when read together. */}
                 <div
                   className={cn(
-                    'relative grid divide-y divide-white/10 sm:divide-y-0 sm:divide-x sm:divide-white/10',
-                    issue.page_count ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
+                    'relative grid divide-x divide-white/10',
+                    issue.page_count != null ? 'grid-cols-2' : 'grid-cols-1',
                   )}
                 >
-                  <StatCell
+                  <CompactStatCell
                     icon={Files}
                     label="Documents"
                     value={topLevel.length}
-                    sublabel={
-                      topLevel.length > 1 ? 'actes publiés' : 'acte publié'
-                    }
                   />
                   {issue.page_count != null && (
-                    <StatCell
+                    <CompactStatCell
                       icon={Layers}
                       label="Pages"
                       value={issue.page_count}
-                      sublabel="pagination du Moniteur"
                     />
                   )}
                 </div>
@@ -841,21 +836,14 @@ export default function MoniteurDetailClient() {
                     href={`/api/v1/moniteur/issues/${issue.id}/scan`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group/dl relative flex items-center gap-3 px-5 py-3.5 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors min-h-[56px]"
+                    className="group/dl relative flex items-center gap-2.5 px-4 py-3 border-t border-white/10 bg-white/0 hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors"
                     title="Télécharger le scan original (PDF)"
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 group-hover/dl:bg-amber-300 group-hover/dl:text-slate-900 text-white/85 transition-all group-hover/dl:scale-105 shrink-0">
-                      <Download className="w-4 h-4" />
+                    <Download className="w-3.5 h-3.5 text-white/70 group-hover/dl:text-amber-300 transition-colors shrink-0" />
+                    <span className="text-xs font-semibold text-white/90 truncate flex-1">
+                      Scan original — PDF
                     </span>
-                    <span className="flex flex-col leading-tight flex-1 min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
-                        Télécharger
-                      </span>
-                      <span className="text-sm font-semibold text-white truncate">
-                        Scan original — PDF
-                      </span>
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-white/40 group-hover/dl:text-white group-hover/dl:translate-x-0.5 transition-all shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 text-white/40 group-hover/dl:text-white group-hover/dl:translate-x-0.5 transition-all shrink-0" />
                   </a>
                 )}
               </div>
@@ -983,38 +971,30 @@ export default function MoniteurDetailClient() {
   )
 }
 
-// Single metric cell inside the consolidated stat card. Icon-led so
-// the surface reads as a "fiche d'identité" rather than a stats
-// dashboard; the big numeral is the focal point with a sub-line that
-// puts it in plain language (``actes publiés`` / ``pagination du
-// Moniteur``). Generous padding + an icon container give it a touch
-// target that feels considered, not afterthought.
-function StatCell({
+// Compact metric cell — always inline, never block. Icon + label on
+// the top row, big numeral on the bottom. Two of these stand side
+// by side inside the consolidated identity card; the hairline
+// ``divide-x`` between them keeps the panel feeling like a single
+// surface rather than two stuck-together boxes.
+function CompactStatCell({
   icon: Icon,
   label,
   value,
-  sublabel,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: number | string
-  sublabel: string
 }) {
   return (
-    <div className="flex items-start gap-3 px-5 py-5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10 text-white/80 shrink-0 mt-0.5">
-        <Icon className="w-4 h-4" />
-      </span>
-      <div className="flex flex-col min-w-0">
-        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
+    <div className="px-4 sm:px-5 py-4 text-center">
+      <div className="flex items-center justify-center gap-2 mb-1.5">
+        <Icon className="w-3.5 h-3.5 text-white/55" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/55">
           {label}
-        </div>
-        <div className="text-3xl sm:text-4xl font-black text-white tabular-nums leading-none mt-1.5">
-          {value}
-        </div>
-        <div className="mt-1.5 text-[11px] text-white/45 leading-snug">
-          {sublabel}
-        </div>
+        </span>
+      </div>
+      <div className="text-2xl sm:text-3xl font-black text-white tabular-nums leading-none">
+        {value}
       </div>
     </div>
   )
