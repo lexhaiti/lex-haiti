@@ -418,6 +418,10 @@ export default function LawDetail() {
     law.considerants_fr,
     law.considerants_ht,
   )
+  const mentionsProceduralesDisplay = pickBilingual(
+    (law as any).mentions_procedurales_fr,
+    (law as any).mentions_procedurales_ht,
+  )
   const enactingDisplay = pickBilingual(
     law.enacting_formula_fr,
     law.enacting_formula_ht,
@@ -1481,6 +1485,37 @@ export default function LawDetail() {
                     blockKind="considerant"
                     onSave={async (v) => {
                       const field = currentLang === 'ht' ? 'considerants_ht' : 'considerants_fr'
+                      await updateLegalTextMetadata(law.slug, { [field]: v })
+                      refetch()
+                    }}
+                  />
+                </div>
+
+                {/* Mentions procédurales — "Sur le rapport du …" /
+                    "Et après délibération en Conseil des Ministres ;".
+                    Sits between considérants and the dispositif word;
+                    bilingual and editable. No blockKind: this block has
+                    no version-history endpoint yet (Phase 2). */}
+                <div className="scroll-mt-24">
+                  <EditableFormalBlock
+                    isFr={currentLang === 'fr'}
+                    isEditor={isEditor}
+                    title={currentLang === 'fr' ? 'Mentions procédurales' : 'Mansyon pwosedi'}
+                    hint={
+                      currentLang === 'fr'
+                        ? 'Sur le rapport du… ; Et après délibération…'
+                        : 'Sou rapò… ; Epi apre deliberasyon…'
+                    }
+                    value={mentionsProceduralesDisplay.value}
+                    valueHt={(law as any).mentions_procedurales_ht ?? null}
+                    fallbackToFr={mentionsProceduralesDisplay.fallback}
+                    lawSlug={law.slug}
+                    lawId={law.id}
+                    onSave={async (v) => {
+                      const field =
+                        currentLang === 'ht'
+                          ? 'mentions_procedurales_ht'
+                          : 'mentions_procedurales_fr'
                       await updateLegalTextMetadata(law.slug, { [field]: v })
                       refetch()
                     }}

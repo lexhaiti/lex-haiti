@@ -46,12 +46,15 @@ class PreambleParts:
       préambule (rare, mostly constitutions)
       → visas ("Vu …")
       → considérants ("Considérant que …")
+      → mentions procédurales ("Sur le rapport du … ;" /
+        "Et après délibération en Conseil des Ministres ;")
       → formule d'adoption ("Le Corps Législatif a voté …" / "DÉCRÈTE :")
     """
 
     preamble: Optional[str]
     visas: Optional[str]
     considerants: Optional[str]
+    mentions_procedurales: Optional[str]
     enacting_formula: Optional[str]
 
 
@@ -269,6 +272,18 @@ def _split_official_formula(body: str) -> tuple[str, Optional[str]]:
 
 _VU_RE = re.compile(r"^\s*Vu\s", re.IGNORECASE)
 _CONS_RE = re.compile(r"^\s*Consid[éeè]rant\s", re.IGNORECASE)
+# Mentions procédurales — the clauses that record the procedural
+# pathway between considérants and the enacting word. Lines that
+# open with ``Sur le rapport``, ``Sur la proposition``, ``Sur l'avis``,
+# ``Et après délibération``, ``Et après avis``, etc. Distinct from
+# the transitional word that follows (``ARRÊTE`` / ``DÉCRÈTE``).
+_MENTIONS_PROC_RE = re.compile(
+    r"^\s*(?:"
+    r"Sur\s+(?:le\s+rapport|la\s+proposition|l[ae]\s+demande|l'avis)|"
+    r"Et\s+(?:apr[èe]s\s+(?:d[éeè]lib[éeè]ration|avis|consultation))"
+    r")",
+    re.IGNORECASE,
+)
 _TRANSITIONAL_RE = re.compile(
     r"^\s*(?:"
     r"Le\s+Corps\s+L[éeè]gislatif|"
@@ -285,21 +300,31 @@ _TRANSITIONAL_RE = re.compile(
 
 
 def split_preamble(text: str) -> PreambleParts:
-    """Split pre-article text into its four legal blocks.
+    """Split pre-article text into its five legal blocks.
 
-    States flow forward only: pre → visa → considerant → enacting.
-    Text before any "Vu" is a true preamble (rare — mostly constitutions).
-    Text after considérants is the enacting formula.
+    States flow forward only:
+      pre → visa → considerant → mentions_proc → enacting
+
+    Text before any "Vu" is a true preamble (rare — mostly
+    constitutions). Mentions procédurales sit between considérants
+    and the dispositif word (``Sur le rapport du … ;`` /
+    ``Et après délibération en Conseil des Ministres ;``); they used
+    to bleed into ``considerants`` before this state existed.
     """
     if not text or not text.strip():
         return PreambleParts(
-            preamble=None, visas=None, considerants=None, enacting_formula=None,
+            preamble=None,
+            visas=None,
+            considerants=None,
+            mentions_procedurales=None,
+            enacting_formula=None,
         )
 
     lines = text.split("\n")
     preamble_lines: list[str] = []
     visa_lines: list[str] = []
     cons_lines: list[str] = []
+    mentions_lines: list[str] = []
     enacting_lines: list[str] = []
 
     state = "pre"
@@ -313,14 +338,23 @@ def split_preamble(text: str) -> PreambleParts:
         elif _CONS_RE.match(stripped):
             state = "considerant"
             cons_lines.append(line)
-        elif state in ("visa", "considerant"):
+        elif state in ("visa", "considerant") and _MENTIONS_PROC_RE.match(stripped):
+            state = "mentions_proc"
+            mentions_lines.append(line)
+        elif state == "mentions_proc" and stripped and _MENTIONS_PROC_RE.match(stripped):
+            # Another "Et après délibération …" continuation — stay
+            # in the mentions block.
+            mentions_lines.append(line)
+        elif state in ("visa", "considerant", "mentions_proc"):
             if stripped and _TRANSITIONAL_RE.match(stripped):
                 state = "enacting"
                 enacting_lines.append(line)
             elif state == "visa":
                 visa_lines.append(line)
-            else:
+            elif state == "considerant":
                 cons_lines.append(line)
+            else:
+                mentions_lines.append(line)
         elif state == "enacting":
             enacting_lines.append(line)
         else:
@@ -330,6 +364,7 @@ def split_preamble(text: str) -> PreambleParts:
         preamble="\n".join(preamble_lines).strip() or None,
         visas="\n".join(visa_lines).strip() or None,
         considerants="\n".join(cons_lines).strip() or None,
+        mentions_procedurales="\n".join(mentions_lines).strip() or None,
         enacting_formula="\n".join(enacting_lines).strip() or None,
     )
 

@@ -28,6 +28,7 @@ from services.corpus.models import (
     Article,
     ArticleVersion,
     LegalHeading,
+    LegalSigner,
     LegalText,
     MoniteurEntry,
     MoniteurIssue,
@@ -854,6 +855,7 @@ class MoniteurRepository:
             preamble_fr=promotion.preamble,
             visas_fr=promotion.visas,
             considerants_fr=promotion.considerants,
+            mentions_procedurales_fr=promotion.mentions_procedurales,
             enacting_formula_fr=promotion.enacting_formula,
             official_formula=promotion.official_formula,
             publication_date=effective_pub_date,
@@ -863,6 +865,36 @@ class MoniteurRepository:
         )
         self.session.add(legal_text)
         self.session.flush()
+
+        # ---- Signers (best-effort) ----
+        # ``extract_signatories`` reads the post-dispositif block —
+        # ``Donné au … / Fait à …`` followed by names + functions —
+        # and yields structured ``LegalSigner`` candidates. Wrapped
+        # in a try/except: a parser blip on one historical text
+        # shouldn't block the promotion itself, since the editor
+        # can always add signers later via ``SignersEditor``.
+        try:
+            from services.ingestion.signatories_extract import (
+                extract_signatories,
+            )  # noqa: PLC0415
+
+            extracted = extract_signatories(
+                promotion.official_formula, category=category
+            )
+            for position, sig in enumerate(extracted):
+                self.session.add(
+                    LegalSigner(
+                        legal_text_id=legal_text.id,
+                        name=sig.name,
+                        function_fr=sig.function_fr,
+                        signing_capacity=sig.signing_capacity,
+                        chamber=sig.chamber,
+                        signed_at=sig.signed_at,
+                        position=position,
+                    )
+                )
+        except Exception:  # noqa: BLE001
+            pass
 
         # --- Structural headings (Titre / Chapitre / Section / …) ---
         # The parser keys headings by ``level-number`` (e.g. "chapter-i").
@@ -1119,6 +1151,7 @@ class _PromotionPayload:
     preamble: Optional[str] = None
     visas: Optional[str] = None
     considerants: Optional[str] = None
+    mentions_procedurales: Optional[str] = None
     enacting_formula: Optional[str] = None
     official_formula: Optional[str] = None
     headings: list[_PromotionHeading] = field(default_factory=list)
@@ -1194,6 +1227,7 @@ def _promotion_from_legacy(raw_text: str) -> _PromotionPayload:
         preamble=parts.preamble,
         visas=parts.visas,
         considerants=parts.considerants,
+        mentions_procedurales=parts.mentions_procedurales,
         enacting_formula=parts.enacting_formula,
         official_formula=doc.official_formula,
         headings=[

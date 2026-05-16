@@ -277,6 +277,8 @@ class LegalTextMetadataUpdate(BaseModel):
     visas_ht: Optional[str] = None
     considerants_fr: Optional[str] = None
     considerants_ht: Optional[str] = None
+    mentions_procedurales_fr: Optional[str] = None
+    mentions_procedurales_ht: Optional[str] = None
     enacting_formula_fr: Optional[str] = None
     enacting_formula_ht: Optional[str] = None
     # 'left' (default) or 'center' — display alignment for the

@@ -196,6 +196,16 @@ class LegalText(Base):
     visas_ht: Mapped[Optional[str]] = mapped_column(Text)
     considerants_fr: Mapped[Optional[str]] = mapped_column(Text)
     considerants_ht: Mapped[Optional[str]] = mapped_column(Text)
+    # Mentions procédurales — the clauses that sit between
+    # considérants and the dispositif word: ``Sur le rapport du …`` /
+    # ``Sur la proposition du …`` / ``Et après délibération en
+    # Conseil des Ministres ;`` / ``Et après avis du …``. They're
+    # not visas (which open ``Vu …``) and not considérants (which
+    # open ``Considérant …``); they record the procedural pathway
+    # by which the act was drafted and adopted. Distinct field so
+    # the editor can curate them without polluting either block.
+    mentions_procedurales_fr: Mapped[Optional[str]] = mapped_column(Text)
+    mentions_procedurales_ht: Mapped[Optional[str]] = mapped_column(Text)
     enacting_formula_fr: Mapped[Optional[str]] = mapped_column(Text)
     enacting_formula_ht: Mapped[Optional[str]] = mapped_column(Text)
     # Display alignment for the enacting-formula block on the reader.

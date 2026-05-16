@@ -83,6 +83,8 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "visas_ht",
     "considerants_fr",
     "considerants_ht",
+    "mentions_procedurales_fr",
+    "mentions_procedurales_ht",
     "enacting_formula_fr",
     "enacting_formula_ht",
     "enacting_formula_align",
@@ -257,6 +259,8 @@ class EditorialService:
             visas_ht=data.visas_ht,
             considerants_fr=data.considerants_fr,
             considerants_ht=data.considerants_ht,
+            mentions_procedurales_fr=data.mentions_procedurales_fr,
+            mentions_procedurales_ht=data.mentions_procedurales_ht,
             enacting_formula_fr=data.enacting_formula_fr,
             enacting_formula_ht=data.enacting_formula_ht,
             preamble_fr=data.preamble_fr,
@@ -583,6 +587,7 @@ class EditorialService:
             "preamble_fr", "preamble_ht",
             "visas_fr", "visas_ht",
             "considerants_fr", "considerants_ht",
+            "mentions_procedurales_fr", "mentions_procedurales_ht",
             "enacting_formula_fr", "enacting_formula_ht",
         )
         for field in _BLOCK_HTML_FIELDS:

@@ -33,6 +33,11 @@ class LegalTextBase(BaseModel):
     visas_ht: Optional[str] = None
     considerants_fr: Optional[str] = None
     considerants_ht: Optional[str] = None
+    # Mentions procédurales — ``Sur le rapport du … ;`` /
+    # ``Et après délibération en Conseil des Ministres ;``. Bilingual,
+    # editor-correctable, sits between considérants and the dispositif.
+    mentions_procedurales_fr: Optional[str] = None
+    mentions_procedurales_ht: Optional[str] = None
     enacting_formula_fr: Optional[str] = None
     enacting_formula_ht: Optional[str] = None
     # 'left' (default) or 'center' — controls how the reader page

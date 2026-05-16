@@ -105,6 +105,174 @@ _UNTITLED_SIGNATORY_RE = re.compile(
 )
 
 
+# Modern inline signature format used in 2020-era arrêtés and CPT
+# acts: ``Le Président Jovenel MOÏSE — Le Premier Ministre Joseph
+# JOUTHE — Le Ministre de la Planification … Joseph JOUTHE — …``.
+# Single regex won't split the role from the name reliably when the
+# role contains "Ministre de la Planification et de la Coopération
+# Externe" — every word in "Coopération Externe" is also Capitalised.
+# Strategy: split the block on em-dash / semicolon / newline into
+# chunks, then in each chunk match the trailing
+# ``Firstname[ Middle…] LASTNAME`` pattern from the end. Everything
+# before is the role.
+
+# A name candidate: 1-2 Title-Cased given names + a final UPPER-CASE
+# surname (optionally hyphenated, accented). Anchored at end of chunk.
+# Stopped at 2 firstnames intentionally: 3+ would over-eat into the
+# role for ministerial titles like ``Le Ministre de la Planification
+# et de la Coopération Externe Joseph JOUTHE`` (where "Coopération
+# Externe" Title-Case-matches the firstname slot). The trade-off:
+# we miss the rare 3-firstname name; the editor adds them via the
+# SignersEditor afterward. Single given-name "X. Y. NAME" initials
+# are allowed via the ``\.?`` inside the firstname pattern.
+_INLINE_NAME_RE = re.compile(
+    r"""
+    (?:^|[\s\-—])
+    (
+      (?:[A-ZÀ-Ÿ][a-zà-ÿ\-']+\.?\s+){1,2}
+      [A-ZÀ-Ÿ]{2,}[A-ZÀ-ŸA-Z\-']*
+      (?:[\s\-][A-ZÀ-Ÿ]{2,}[A-ZÀ-ŸA-Z\-']*)*
+    )
+    \s*$
+    """,
+    re.VERBOSE,
+)
+_INLINE_ROLE_PREFIX_RE = re.compile(
+    r"""
+    ^\s*
+    (?:Par(?:\s+Le\s+Conseil\s+Pr[ée]sidentiel\s+de\s+Transition)?\s*:?\s*)?
+    (
+      (?:Le|La)\s+(?:Pr[ée]sident(?:e)?(?:[\s\-]Pr[ée]sident(?:e)?)?
+                    |Conseiller(?:[\s\-]Pr[ée]sident)?(?:e)?
+                    |Conseill[èe]re(?:[\s\-]Pr[ée]sidente)?
+                    |Premier\s+Ministre
+                    |Conseiller\s+Sp[ée]cial(?:e)?
+                    |Ministre)
+      [^,;]*?
+    )
+    \s+$
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
+# Tail words of French ministerial role titles that ``_INLINE_NAME_RE``
+# can pick up as if they were first names (``Le Ministre de la
+# Planification et de la Coopération Externe Joseph JOUTHE`` →
+# regex sees "Externe Joseph JOUTHE"). Stripped from the start of the
+# captured name and prepended back onto the role.
+_ROLE_TAIL_STOPLIST: frozenset[str] = frozenset({
+    # Role keywords — the name regex's firstname slot allows
+    # Title-Cased tokens, which over-captures the role lemma itself.
+    "Président", "President", "Présidente", "Presidente",
+    "Ministre", "Premier",
+    "Conseiller", "Conseillère", "Conseillere",
+    "Coordonnateur", "Coordonnatrice",
+    "Secrétaire", "Secretaire", "Vice", "Adjoint",
+    "Femme",  # caught as "Femme Pédrica SAINT-JEAN" — tail of "des Droits de la Femme"
+    # Ministry-tail nouns / qualifiers.
+    "Externe", "Coopération", "Coopèration",
+    "Cultes", "Étrangères", "Etrangeres",
+    "Publique", "Publics", "Publiques",
+    "Industrie", "Industrie,", "Commerce",
+    "Défense", "Defense",
+    "Finances", "Économie", "Economie",
+    "Tourisme",
+    "Environnement",
+    "Justice", "Sécurité", "Securite",
+    "Travail", "Travaux", "Transports", "Communications",
+    "Sociales", "Civique", "Culture", "Communication",
+    "Intérieur", "Interieur", "Collectivités", "Collectivites",
+    "Territoriales",
+    "Agriculture", "Naturelles", "Développement", "Developpement",
+    "Rural",
+    "Santé", "Sante", "Population",
+    "Condition", "Féminine", "Feminine", "Droits",
+    "Éducation", "Education", "Nationale", "Formation", "Professionnelle",
+    "Haïtiens", "Haitiens", "Étranger", "Etranger",
+    "Femmes", "Jeunesse", "Sports",
+    "Affaires",
+    "Ressources",
+    "Action",
+    "Planification",
+})
+
+
+def _strip_role_tail_from_name(role: str, name: str) -> tuple[str, str]:
+    """If the captured ``name`` starts with a French ministerial tail
+    word (``Externe Joseph JOUTHE``), peel that prefix off and move it
+    back onto the role. Walks token-by-token from the left."""
+    tokens = name.split()
+    moved: list[str] = []
+    while tokens and tokens[0] in _ROLE_TAIL_STOPLIST:
+        moved.append(tokens.pop(0))
+    if not moved:
+        return role, name
+    return f"{role} {' '.join(moved)}".strip(), " ".join(tokens)
+
+
+def _signers_inline(block: str, signed_at: Optional[date], base_position: int,
+                    primary_capacity: SigningCapacity) -> list[ExtractedSignatory]:
+    """Extract signers from the modern inline format.
+
+    Splits the block on em-dash / semicolon / newline separators, then
+    for each chunk matches the trailing ``…Role Firstname LASTNAME``
+    pattern by anchoring the name regex at the end of the chunk.
+    Names are deduped; the first valid match carries
+    ``primary_capacity``, rest are countersigners. A stoplist of
+    French ministry-tail words (``Externe``, ``Cultes``, …) is moved
+    back into the role when the regex over-eats them as firstnames.
+    """
+    out: list[ExtractedSignatory] = []
+    seen: set[str] = set()
+    # Split on em-dash, en-dash, semicolon, double-newline.
+    chunks = re.split(r"\s*[—–;]\s*|\n{2,}", block)
+    for raw in chunks:
+        chunk = raw.strip().rstrip(".,")
+        # Skip the "Donné au … le DATE" prologue.
+        if chunk.lower().startswith(("donné", "fait")):
+            continue
+        # Drop the "Par :" preamble that sometimes opens the first chunk.
+        chunk = re.sub(r"^\s*Par\s*:?\s*", "", chunk)
+        m = _INLINE_NAME_RE.search(chunk)
+        if not m:
+            continue
+        name = m.group(1).strip().rstrip(",.;")
+        before = chunk[: m.start(1)].rstrip()
+        # Stoplist FIRST: the name regex eats role lemmas like
+        # ``Président`` / ``Ministre`` into the firstname slot, which
+        # blocks the role-prefix match below. Peel them off the name
+        # and put them back on the role-pre stub before validating.
+        peeled, name = _strip_role_tail_from_name("", name)
+        role_pre = (before + (" " + peeled if peeled else "")).strip()
+        role_match = _INLINE_ROLE_PREFIX_RE.match(role_pre + " ")
+        if not role_match:
+            continue
+        role = role_match.group(1).strip().rstrip(",.;")
+        if not name:
+            continue
+        if name in seen:
+            continue
+        seen.add(name)
+        capacity = (
+            primary_capacity
+            if not out
+            else SigningCapacity.countersigning
+        )
+        out.append(
+            ExtractedSignatory(
+                name=name,
+                function_fr=role,
+                function_ht=None,
+                signing_capacity=capacity,
+                chamber=SignatoryChamber.executive,
+                signed_at=signed_at,
+                position=base_position + len(out),
+            )
+        )
+    return out
+
+
 # ----- Constituante (Constitution) signatory patterns ----------------------
 
 # "Signataires" header that introduces the Constituante membership list.
@@ -467,6 +635,18 @@ def extract_signatories(
             signed_at=_parse_inline_date(donne_block),
             primary_capacity=primary,
         )
+        if not rows:
+            # Fallback for the modern inline format used in 2020-era
+            # arrêtés and CPT acts: ``Le Président NAME — Le Premier
+            # Ministre NAME — Le Ministre de … NAME — …``.
+            # The line-anchored _UNTITLED_SIGNATORY_RE expects
+            # ``NAME, Role`` per line and finds zero rows on these.
+            rows = _signers_inline(
+                donne_block,
+                signed_at=_parse_inline_date(donne_block),
+                base_position=cursor,
+                primary_capacity=primary,
+            )
         out.extend(rows)
         cursor += len(rows)
 

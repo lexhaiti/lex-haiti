@@ -1206,6 +1206,11 @@ export type LegalTextMetadataPatch = {
   visas_ht?: string | null
   considerants_fr?: string | null
   considerants_ht?: string | null
+  /** Procedural mentions — "Sur le rapport du …" / "Et après
+   *  délibération …". Sits between considérants and the dispositif
+   *  word. Editable bilingually via the same EditableFormalBlock. */
+  mentions_procedurales_fr?: string | null
+  mentions_procedurales_ht?: string | null
   enacting_formula_fr?: string | null
   enacting_formula_ht?: string | null
   /** 'left' (default) or 'center' — display alignment of the

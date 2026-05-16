@@ -200,6 +200,8 @@ def text_to_read(
         visas_ht=text.visas_ht,
         considerants_fr=text.considerants_fr,
         considerants_ht=text.considerants_ht,
+        mentions_procedurales_fr=text.mentions_procedurales_fr,
+        mentions_procedurales_ht=text.mentions_procedurales_ht,
         enacting_formula_fr=text.enacting_formula_fr,
         enacting_formula_ht=text.enacting_formula_ht,
         preamble_fr=text.preamble_fr,
