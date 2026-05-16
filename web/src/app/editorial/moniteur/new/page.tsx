@@ -19,9 +19,11 @@ import {
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import {
+  createLegalText,
   createMoniteurIssue,
   listEditorialTexts,
   setMoniteurSommaire,
+  type LegalTextCreatePayload,
   type SommaireEntryInput,
 } from '@/lib/api/endpoints'
 import { cn } from '@/lib/utils'
@@ -187,27 +189,36 @@ export default function NewMoniteurPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-        <Breadcrumb
-          items={[
-            { label: 'Éditorial', href: '/editorial' },
-            { label: 'Le Moniteur', href: '/editorial/moniteur' },
-            { label: 'Nouveau' },
-          ]}
-        />
-
-        <header className="mt-4 mb-8">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+    <div className="min-h-screen bg-white pb-24">
+      {/* Same navy hero band as /editorial/loi/new + the editorial
+          dashboard so the wizards read as one surface. */}
+      <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
+        </div>
+        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-10 lg:py-14 pt-28 lg:pt-36">
+          <Breadcrumb
+            className="mb-6"
+            items={[
+              { label: 'Éditorial', href: '/editorial' },
+              { label: 'Le Moniteur', href: '/editorial/moniteur' },
+              { label: 'Nouveau' },
+            ]}
+          />
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
             Nouveau numéro du Moniteur
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="animate-in fade-in duration-500 delay-100 fill-mode-both mt-3 text-slate-300 text-base lg:text-lg leading-relaxed max-w-3xl">
             Saisie structurée d&apos;un numéro du journal officiel — métadonnées
             de couverture et sommaire. Chaque entrée du sommaire peut lier un
-            texte juridique existant ou décrire une note éditoriale.
+            texte juridique existant ou en créer un nouveau à la volée.
           </p>
-        </header>
+        </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-8 lg:py-10">
         <TabStrip active={active} onChange={setActive} errors={errors} />
 
         <div className="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-slate-200 p-6 sm:p-8">
@@ -587,9 +598,12 @@ function SommaireRow({
       <div className="mt-3">
         <Field
           label="Lier à un texte juridique"
-          help="Optionnel. Tapez le titre pour rechercher dans les brouillons et les textes publiés."
+          help="Optionnel. Tapez le titre pour rechercher dans les brouillons et les textes publiés, ou créez un nouveau texte à partir de cette entrée."
         >
           <LegalTextPicker
+            seedTitle={row.display_title}
+            seedCategory={row.detected_category}
+            seedDate={row.detected_date}
             selectedId={row.legal_text_id}
             selectedLabel={row.legal_text_label}
             onSelect={(id, label) =>
@@ -649,13 +663,19 @@ function SommaireRow({
   )
 }
 
-// LegalText autocomplete picker
+// LegalText autocomplete picker + "create new from this row" CTA
 function LegalTextPicker({
+  seedTitle,
+  seedCategory,
+  seedDate,
   selectedId,
   selectedLabel,
   onSelect,
   onClear,
 }: {
+  seedTitle: string
+  seedCategory: string
+  seedDate: string
   selectedId: number | null
   selectedLabel: string | null
   onSelect: (id: number, label: string) => void
@@ -667,6 +687,7 @@ function LegalTextPicker({
     Array<{ id: number; slug: string; title_fr: string; category: string }>
   >([])
   const [loading, setLoading] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
   const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -718,64 +739,296 @@ function LegalTextPicker({
   }
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 focus-within:border-slate-500">
-        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Rechercher dans les textes juridiques…"
-          className="block w-full border-0 bg-transparent text-sm focus:ring-0 py-2"
-        />
-        {loading && (
-          <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin shrink-0" />
-        )}
-      </div>
-      {open && (q || results.length > 0) && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
-          {results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-slate-500">
-              {loading ? 'Recherche…' : 'Aucun résultat.'}
+    <>
+      <div className="flex items-stretch gap-2">
+        <div className="relative flex-1">
+          <div className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 focus-within:border-slate-500 h-full">
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value)
+                setOpen(true)
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setTimeout(() => setOpen(false), 150)}
+              placeholder="Rechercher dans les textes juridiques…"
+              className="block w-full border-0 bg-transparent text-sm focus:ring-0 py-2"
+            />
+            {loading && (
+              <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin shrink-0" />
+            )}
+          </div>
+          {open && (q || results.length > 0) && (
+            <div className="absolute top-full left-0 right-0 mt-1 z-20 max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+              {results.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-slate-500">
+                  {loading ? 'Recherche…' : 'Aucun résultat.'}
+                </div>
+              ) : (
+                <ul>
+                  {results.map((it) => (
+                    <li key={it.id}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          // mousedown so the click fires before the input's
+                          // onBlur closes the dropdown.
+                          e.preventDefault()
+                          onSelect(it.id, `${it.title_fr} (${it.slug})`)
+                          setOpen(false)
+                          setQ('')
+                        }}
+                        className="block w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                      >
+                        <div className="text-sm font-medium text-slate-800 truncate">
+                          {it.title_fr}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                          <span className="px-1 py-px rounded bg-slate-100 uppercase">
+                            {it.category}
+                          </span>
+                          /loi/{it.slug}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          ) : (
-            <ul>
-              {results.map((it) => (
-                <li key={it.id}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      // mousedown so the click fires before the input's
-                      // onBlur closes the dropdown.
-                      e.preventDefault()
-                      onSelect(it.id, `${it.title_fr} (${it.slug})`)
-                      setOpen(false)
-                      setQ('')
-                    }}
-                    className="block w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
-                  >
-                    <div className="text-sm font-medium text-slate-800 truncate">
-                      {it.title_fr}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-2">
-                      <span className="px-1 py-px rounded bg-slate-100 uppercase">
-                        {it.category}
-                      </span>
-                      /loi/{it.slug}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 hover:border-amber-400 hover:bg-amber-100 shrink-0"
+          title="Créer un nouveau texte juridique à partir de cette entrée"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Créer
+        </button>
+      </div>
+
+      {showCreate && (
+        <QuickCreateLegalTextModal
+          seedTitle={seedTitle}
+          seedCategory={seedCategory}
+          seedDate={seedDate}
+          onClose={() => setShowCreate(false)}
+          onCreated={(id, label) => {
+            setShowCreate(false)
+            onSelect(id, label)
+          }}
+        />
       )}
+    </>
+  )
+}
+
+// Minimal in-modal create form. Pre-fills from the sommaire row so
+// the editor can stay in flow: enter sommaire row → create text →
+// auto-link. Submits straight to ``POST /editorial/legal-texts``
+// (status ``draft``). Full editing — articles, signers, formal
+// blocks beyond title/description — happens later on the
+// ``/editorial/loi/[slug]`` page.
+function QuickCreateLegalTextModal({
+  seedTitle,
+  seedCategory,
+  seedDate,
+  onClose,
+  onCreated,
+}: {
+  seedTitle: string
+  seedCategory: string
+  seedDate: string
+  onClose: () => void
+  onCreated: (id: number, label: string) => void
+}) {
+  const [titleFr, setTitleFr] = useState(seedTitle.trim())
+  const [titleHt, setTitleHt] = useState('')
+  const [category, setCategory] = useState(seedCategory)
+  const [descFr, setDescFr] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
+  const [manualSlug, setManualSlug] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const derivedSlug = useMemo(() => deriveSlug(titleFr), [titleFr])
+  const slug = slugTouched ? manualSlug : derivedSlug
+
+  async function submit() {
+    setError(null)
+    if (!titleFr.trim()) {
+      setError('Le titre français est obligatoire.')
+      return
+    }
+    if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      setError(
+        'Le slug doit être en minuscules ASCII (lettres, chiffres, tirets).',
+      )
+      return
+    }
+    setSaving(true)
+    try {
+      const payload: LegalTextCreatePayload = {
+        slug,
+        category,
+        jurisdiction: 'HT',
+        title_fr: titleFr.trim(),
+        title_ht: titleHt.trim() || null,
+        description_fr: descFr.trim() || null,
+        promulgation_date: seedDate || null,
+        status: 'in_force',
+      }
+      const created: any = await createLegalText(payload)
+      onCreated(created.id, `${created.title_fr} (${created.slug})`)
+    } catch (e: any) {
+      const msg =
+        e?.body?.detail ??
+        e?.body?.message ??
+        (typeof e?.message === 'string' ? e.message : 'Échec de la création.')
+      setError(String(msg))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-xl bg-white rounded-xl shadow-2xl my-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-slate-900">
+            Créer un texte juridique
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="text-slate-500 hover:text-slate-800"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4 text-sm">
+          <p className="text-xs text-slate-500">
+            Brouillon rapide pré-rempli depuis cette entrée du sommaire.
+            Vous pourrez compléter les blocs (visas, considérants,
+            articles, signataires) sur la page d&apos;édition après la
+            création.
+          </p>
+
+          <Field label="Type" required>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="block w-full rounded-md border-slate-300 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
+            >
+              <option value="loi">Loi</option>
+              <option value="decret">Décret</option>
+              <option value="arrete">Arrêté</option>
+              <option value="ordonnance">Ordonnance</option>
+              <option value="convention">Convention</option>
+              <option value="circulaire">Circulaire</option>
+              <option value="code">Code</option>
+              <option value="constitution">Constitution</option>
+              <option value="communique">Communiqué</option>
+              <option value="avis">Avis</option>
+              <option value="other_regulatory">Autre acte réglementaire</option>
+            </select>
+          </Field>
+
+          <Field label="Titre (FR)" required>
+            <input
+              value={titleFr}
+              onChange={(e) => setTitleFr(e.target.value)}
+              className="block w-full rounded-md border-slate-300 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
+              placeholder="Décret du… / Arrêté du…"
+            />
+          </Field>
+
+          <Field label="Titre (HT)">
+            <input
+              value={titleHt}
+              onChange={(e) => setTitleHt(e.target.value)}
+              className="block w-full rounded-md border-slate-300 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
+            />
+          </Field>
+
+          <Field label="Slug (permalien)" required>
+            <input
+              value={slug}
+              onChange={(e) => {
+                setManualSlug(e.target.value)
+                setSlugTouched(true)
+              }}
+              className="block w-full rounded-md border-slate-300 bg-white text-sm font-mono focus:border-slate-500 focus:ring-slate-500"
+            />
+            {slug && (
+              <p className="mt-1 text-xs text-slate-500 font-mono">
+                /loi/{slug}
+              </p>
+            )}
+          </Field>
+
+          <Field label="Description courte (FR)">
+            <textarea
+              value={descFr}
+              onChange={(e) => setDescFr(e.target.value)}
+              rows={2}
+              className="block w-full rounded-md border-slate-300 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
+            />
+          </Field>
+
+          {error && (
+            <div className="rounded-md bg-red-50 ring-1 ring-red-200 px-3 py-2 text-xs text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 disabled:opacity-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Check className="w-3.5 h-3.5" />
+            )}
+            Créer et lier
+          </button>
+        </div>
+      </div>
     </div>
   )
+}
+
+function deriveSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 200)
 }
 
 // ──────────────────────────────────────────────────────────────────────

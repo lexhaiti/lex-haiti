@@ -216,28 +216,38 @@ export default function NewLegalTextPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-        <Breadcrumb
-          items={[
-            { label: 'Éditorial', href: '/editorial' },
-            { label: 'Textes juridiques', href: '/editorial/loi' },
-            { label: 'Nouveau' },
-          ]}
-        />
-
-        <header className="mt-4 mb-8">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+    <div className="min-h-screen bg-white pb-24">
+      {/* Navy hero — same surface as /editorial and the law-detail
+          pages so the editor reads as part of one app. The
+          ``pt-28 lg:pt-36`` clears the fixed site header. */}
+      <div className="relative bg-primary text-white overflow-hidden border-b border-white/5">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-red-600/5 blur-[120px] rounded-full pointer-events-none" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]" />
+        </div>
+        <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-10 lg:py-14 pt-28 lg:pt-36">
+          <Breadcrumb
+            className="mb-6"
+            items={[
+              { label: 'Éditorial', href: '/editorial' },
+              { label: 'Textes juridiques', href: '/editorial/loi' },
+              { label: 'Nouveau' },
+            ]}
+          />
+          <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
             Nouveau texte juridique
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="animate-in fade-in duration-500 delay-100 fill-mode-both mt-3 text-slate-300 text-base lg:text-lg leading-relaxed max-w-3xl">
             Saisie structurée d&apos;un texte juridique — loi, décret, arrêté,
             code, communiqué. Les articles, les signataires et la liaison à
             un numéro du Moniteur se complètent sur la page d&apos;édition
             après la création.
           </p>
-        </header>
+        </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-8 lg:py-10">
         <TabStrip
           active={activeTab}
           onChange={setActiveTab}
