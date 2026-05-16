@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2,
+  Eye,
   LogOut,
   MessageSquareWarning,
   Loader2,
@@ -23,6 +24,7 @@ import {
   deleteLegalText,
   publishLegalText,
   requestChanges,
+  submitLegalTextForReview,
   unpublishLegalText,
 } from '@/lib/api/endpoints'
 import { ApiError } from '@/lib/api/client'
@@ -144,7 +146,34 @@ export function EditorBar({
           {/* Spacer pushes actions to the right */}
           <div className="flex-1 min-w-0" />
 
-          {/* Actions */}
+          {/* Actions — the workflow has three button slots depending
+              on status:
+                draft           → "Soumettre à révision" (light) + Publier
+                pending_review  → Publier (highlighted) + Renvoyer en brouillon
+                published       → Dépublier
+                rejected        → Publier (escape hatch — overrides the
+                                  rejection) + Renvoyer en brouillon
+              The pending_review pathway turns the formerly-implicit
+              two-step (draft → published) into an explicit peer-review
+              gate without forcing a rebuild of the toolbar. */}
+          {status === 'draft' && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() =>
+                run(
+                  'Texte soumis à révision.',
+                  () => submitLegalTextForReview(slug),
+                )
+              }
+              className="h-8 px-3 sm:px-4 flex-shrink-0 border-blue-300 text-blue-800 hover:bg-blue-50"
+              title="Soumettre à révision"
+            >
+              <Eye className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Soumettre à révision</span>
+            </Button>
+          )}
           {status !== 'published' ? (
             <Button
               size="sm"
@@ -157,7 +186,11 @@ export function EditorBar({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5 sm:mr-1.5" />
               )}
-              <span className="hidden sm:inline">{t('editorBar.publish')}</span>
+              <span className="hidden sm:inline">
+                {status === 'pending_review'
+                  ? 'Approuver et publier'
+                  : t('editorBar.publish')}
+              </span>
             </Button>
           ) : (
             <Button

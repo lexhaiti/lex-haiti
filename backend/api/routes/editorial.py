@@ -1058,6 +1058,24 @@ def publish_legal_text(
     return result
 
 
+@router.post(
+    "/legal-texts/{slug}/submit-for-review",
+    response_model=LegalTextRead,
+)
+def submit_for_review(
+    slug: str,
+    db: DbSession,
+    user: EditorialUser,
+    service: EditorialServiceDep,
+):
+    """Flip a draft to ``pending_review`` for a peer audit before
+    publication. Idempotent; refuses on already-published texts —
+    use ``/unpublish`` to take a published text back to draft."""
+    result = service.submit_for_review(slug, actor=user)
+    db.commit()
+    return result
+
+
 @router.post("/legal-texts/{slug}/unpublish")
 def unpublish_legal_text(
     slug: str,

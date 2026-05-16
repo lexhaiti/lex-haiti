@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/shared/Breadcrumb'
@@ -12,6 +13,18 @@ import {
 } from '@/lib/api/endpoints'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
+
+// Same Tiptap-backed editor the other formal blocks use (preamble /
+// visa / considérants / mentions procédurales / enacting / closing
+// formula on the LawDetail edit panels). Dynamic-imported so the
+// editor JS isn't pulled on the public read paths.
+const RichArticleEditor = dynamic(
+  () =>
+    import(
+      '@/components/law-details/_editor/RichArticleEditor'
+    ).then((m) => ({ default: m.RichArticleEditor })),
+  { ssr: false },
+)
 
 // Slug shape the backend enforces (services/editorial/service.py:_SLUG_RE):
 // lowercase ASCII letters / digits / hyphens, 1-200, no leading/trailing
@@ -586,12 +599,12 @@ function BlocksSection({
         label="Formule de clôture"
         help="« Donné au Palais National… » — apparaît en bloc italique au-dessus des signataires."
       >
-        <textarea
+        <RichArticleEditor
           value={draft.official_formula}
-          onChange={(e) => update('official_formula', e.target.value)}
-          rows={3}
+          onChange={(html: string) => update('official_formula', html)}
+          ariaLabel="Formule de clôture"
           placeholder="Donné au Palais National, à Port-au-Prince, le 8 août 2025, An 222e de l'Indépendance."
-          className="block w-full rounded-md border-slate-300 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
+          tone="amber"
         />
       </FieldGroup>
     </div>
@@ -613,13 +626,30 @@ function BlockField({
 }) {
   return (
     <FieldGroup label={label} help={hint}>
-      <BilingualInput
-        frValue={frValue}
-        htValue={htValue}
-        onChange={onChange}
-        textarea
-        rows={5}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+            🇫🇷 Français
+          </div>
+          <RichArticleEditor
+            value={frValue}
+            onChange={(html: string) => onChange(html, htValue)}
+            ariaLabel={`${label} (FR)`}
+            placeholder={`${label} en français…`}
+          />
+        </div>
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+            🇭🇹 Kreyòl
+          </div>
+          <RichArticleEditor
+            value={htValue}
+            onChange={(html: string) => onChange(frValue, html)}
+            ariaLabel={`${label} (HT)`}
+            placeholder={`${label} an kreyòl…`}
+          />
+        </div>
+      </div>
     </FieldGroup>
   )
 }

@@ -446,6 +446,45 @@ class EditorialService:
         self.session.flush()
         return self.corpus.get_text_by_slug(slug, include="all")
 
+    def submit_for_review(
+        self, slug: str, *, actor: User
+    ) -> LegalTextRead:
+        """Flip a draft to ``pending_review`` so another editor can audit
+        the content before publication.
+
+        Idempotent: already-pending texts return unchanged. Refuses to
+        regress an already-published text — use ``unpublish`` for that.
+        """
+        text = self.repo.get_text_by_slug(slug, editorial_status=None)
+        if text is None:
+            raise NotFound(f"LegalText not found: {slug}")
+
+        if text.editorial_status == EditorialStatus.published:
+            raise InvalidInput(
+                "Cannot submit a published text for review. "
+                "Unpublish first, then resubmit."
+            )
+
+        before = text.editorial_status.value
+        if text.editorial_status != EditorialStatus.pending_review:
+            text.editorial_status = EditorialStatus.pending_review
+
+        _audit(
+            self.session,
+            actor=actor,
+            action="submit_for_review",
+            target_type="legal_text",
+            target_id=text.id,
+            diff={
+                "editorial_status": {
+                    "before": before,
+                    "after": "pending_review",
+                }
+            },
+        )
+        self.session.flush()
+        return self.corpus.get_text_by_slug(slug, include="all")
+
     def unpublish_legal_text(
         self, slug: str, *, actor: User, comment: str
     ) -> LegalTextRead:

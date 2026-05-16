@@ -1167,6 +1167,16 @@ export async function publishLegalText(slug: string) {
   )
 }
 
+/** Submit a draft for peer review. Flips ``editorial_status`` to
+ *  ``pending_review`` so another editor sees it on the review
+ *  queue. Idempotent on already-pending texts; refuses if the text
+ *  is already published — use ``unpublishLegalText`` first. */
+export async function submitLegalTextForReview(slug: string) {
+  return apiPost<LegalTextRead>(
+    `/editorial/legal-texts/${encodeURIComponent(slug)}/submit-for-review`,
+  )
+}
+
 export async function unpublishLegalText(slug: string, comment: string) {
   return apiPost<{ ok: boolean }>(
     `/editorial/legal-texts/${encodeURIComponent(slug)}/unpublish`,

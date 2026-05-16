@@ -6,6 +6,8 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronDown,
   Loader2,
@@ -122,6 +124,17 @@ export default function NewMoniteurPage() {
       )
     })
   }
+  function moveRow(uid: string, direction: -1 | 1) {
+    setRows((rs) => {
+      const i = rs.findIndex((r) => r.uid === uid)
+      if (i < 0) return rs
+      const j = i + direction
+      if (j < 0 || j >= rs.length) return rs
+      const next = rs.slice()
+      ;[next[i], next[j]] = [next[j]!, next[i]!]
+      return next
+    })
+  }
 
   async function save() {
     setSaving(true)
@@ -211,6 +224,7 @@ export default function NewMoniteurPage() {
               update={updateRow}
               add={addRow}
               remove={removeRow}
+              move={moveRow}
               errors={errors.sommaire}
             />
           )}
@@ -409,12 +423,14 @@ function SommaireSection({
   update,
   add,
   remove,
+  move,
   errors,
 }: {
   rows: SommaireRowDraft[]
   update: (uid: string, patch: Partial<SommaireRowDraft>) => void
   add: () => void
   remove: (uid: string) => void
+  move: (uid: string, direction: -1 | 1) => void
   errors: string[]
 }) {
   return (
@@ -444,9 +460,12 @@ function SommaireSection({
             <SommaireRow
               row={r}
               index={i}
+              total={rows.length}
               allRows={rows}
               onChange={(p) => update(r.uid, p)}
               onRemove={() => remove(r.uid)}
+              onMoveUp={() => move(r.uid, -1)}
+              onMoveDown={() => move(r.uid, 1)}
             />
           </li>
         ))}
@@ -466,21 +485,51 @@ function SommaireSection({
 function SommaireRow({
   row,
   index,
+  total,
   allRows,
   onChange,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   row: SommaireRowDraft
   index: number
+  total: number
   allRows: SommaireRowDraft[]
   onChange: (p: Partial<SommaireRowDraft>) => void
   onRemove: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
 }) {
+  const canMoveUp = index > 0
+  const canMoveDown = index < total - 1
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="text-xs font-bold uppercase tracking-widest text-slate-400">
-          Entrée #{index + 1}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-400">
+            Entrée #{index + 1}
+          </div>
+          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50">
+            <button
+              type="button"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              aria-label="Monter cette entrée"
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed rounded-l-md"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              aria-label="Descendre cette entrée"
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed rounded-r-md border-l border-slate-200"
+            >
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <button
           type="button"
