@@ -606,20 +606,49 @@ class MoniteurRepository:
         self.session.flush()
 
         out: list[MoniteurEntry] = []
+        position_to_id: dict[int, int] = {}
         for i, item in enumerate(sommaire):
+            # Manual-authoring path: when the editor supplies
+            # ``legal_text_id``, attach the existing draft/published
+            # LegalText directly. The entry is marked ``accepted`` so
+            # nothing downstream tries to re-promote it.
+            linked_id = item.get("legal_text_id")
             row = MoniteurEntry(
                 issue_id=issue.id,
                 position=i,
                 detected_category=item.get("detected_category"),
                 detected_title=item.get("detected_title"),
+                display_title=item.get("display_title"),
                 detected_number=item.get("detected_number"),
                 detected_date=item.get("detected_date"),
+                summary_fr=item.get("summary_fr"),
+                summary_ht=item.get("summary_ht"),
                 page_from=item.get("page_from"),
                 page_to=item.get("page_to"),
-                raw_text="",  # filled by run_parse_for_issue
+                raw_text="",  # filled by run_parse_for_issue, or empty
+                                # forever when the entry just links an
+                                # already-structured LegalText.
+                promoted_legal_text_id=linked_id,
             )
+            if linked_id is not None:
+                from schemas.enums import MoniteurCandidateStatus  # noqa: PLC0415
+
+                row.review_status = MoniteurCandidateStatus.accepted
             self.session.add(row)
             out.append(row)
+        self.session.flush()
+        # Second pass: wire ``parent_entry_id`` from caller-supplied
+        # ``parent_position`` (promulgation companions etc.). Mirrors
+        # the pattern in ``scripts/ingest_moniteur_batch.py``.
+        for entry, item in zip(out, sommaire):
+            position_to_id[entry.position] = entry.id
+        for entry, item in zip(out, sommaire):
+            parent_pos = item.get("parent_position")
+            if parent_pos is None:
+                continue
+            parent_id = position_to_id.get(parent_pos)
+            if parent_id is not None and parent_id != entry.id:
+                entry.parent_entry_id = parent_id
         self.session.flush()
         return out
 

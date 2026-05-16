@@ -1060,6 +1060,8 @@ export async function parseDocument(
 export type LegalTextCreatePayload = {
   slug: string
   category: string
+  code_subcategory?: string | null
+  jurisdiction?: string
   title_fr: string
   title_ht?: string | null
   description_fr?: string | null
@@ -1070,11 +1072,16 @@ export type LegalTextCreatePayload = {
   visas_ht?: string | null
   considerants_fr?: string | null
   considerants_ht?: string | null
+  mentions_procedurales_fr?: string | null
+  mentions_procedurales_ht?: string | null
   enacting_formula_fr?: string | null
   enacting_formula_ht?: string | null
+  official_formula?: string | null
+  issuing_authority?: string | null
   promulgation_date?: string | null
   publication_date?: string | null
   moniteur_ref?: string | null
+  moniteur_issue_id?: number | null
   status?: string
   headings?: Array<{
     key: string

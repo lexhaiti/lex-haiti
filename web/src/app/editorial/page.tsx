@@ -205,7 +205,27 @@ export default function EditorialDashboardPage() {
 
       <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10 py-10 lg:py-12 space-y-10">
       {/* Quick actions */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <DashboardCard
+          href="/editorial/loi/new"
+          icon={Sparkles}
+          title={isFr ? 'Nouveau texte' : 'Nouvo tèks'}
+          subtitle={
+            isFr
+              ? 'Saisie manuelle — loi, décret, arrêté…'
+              : 'Antre alamen — lwa, dekrè, areté…'
+          }
+        />
+        <DashboardCard
+          href="/editorial/moniteur/new"
+          icon={Newspaper}
+          title={isFr ? 'Nouveau Moniteur' : 'Nouvo Moniteur'}
+          subtitle={
+            isFr
+              ? 'Numéro + sommaire structuré'
+              : 'Nimewo + somè estriktire'
+          }
+        />
         <DashboardCard
           href="/editorial/import"
           icon={Sparkles}

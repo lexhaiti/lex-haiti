@@ -293,6 +293,7 @@ class SommaireEntryInput(BaseModel):
 
     detected_category: MoniteurDocumentType
     detected_title: Optional[str] = None
+    display_title: Optional[str] = None
     detected_number: Optional[str] = None
     # Optional per-entry date. Older imports sometimes carry a different
     # date than the issue header (a decree signed on day X but appearing
@@ -300,8 +301,17 @@ class SommaireEntryInput(BaseModel):
     # editor UI auto-fills this from the issue's ``publication_date``
     # for new rows, but a per-entry override sticks.
     detected_date: Optional[date] = None
-    page_from: int
-    page_to: int
+    summary_fr: Optional[str] = None
+    summary_ht: Optional[str] = None
+    page_from: Optional[int] = None
+    page_to: Optional[int] = None
+    # Manual-authoring path: editor links an existing LegalText into
+    # the sommaire instead of having the parser create one. When set
+    # the create-issue handler creates the entry row with
+    # ``promoted_legal_text_id = legal_text_id`` and
+    # ``review_status = 'accepted'``.
+    legal_text_id: Optional[int] = None
+    parent_position: Optional[int] = None
 
 
 class TranscriptArticlePreview(BaseModel):
