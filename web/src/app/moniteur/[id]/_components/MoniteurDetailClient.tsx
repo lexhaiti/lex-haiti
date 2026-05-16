@@ -754,119 +754,120 @@ export default function MoniteurDetailClient() {
             ]}
           />
 
-          {/* Two-column layout: title block + meta sidebar */}
-          <div className="grid lg:grid-cols-[1fr_auto] gap-8 lg:gap-12 items-end">
-            <div>
-              {/* "LE MONITEUR" wordmark */}
-              <div className="animate-in fade-in duration-500 flex items-center gap-3 mb-6">
-                <Newspaper className="w-4 h-4 text-red-400" />
-                <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/60">
-                  Le Moniteur · Journal Officiel
-                </span>
-              </div>
-
-              {/* Big issue number */}
-              <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100 fill-mode-both text-5xl lg:text-7xl font-black mb-5 leading-[0.95] tracking-tight">
-                {numberDisplay}
-              </h1>
-
-              {/* Date + edition pill row */}
-              <div
-                className="animate-in fade-in duration-500 fill-mode-both flex flex-wrap items-center gap-3"
-                style={{ animationDelay: '180ms' }}
-              >
-                <div className="inline-flex items-center gap-2 text-base lg:text-lg text-white/90 font-medium">
-                  <Calendar className="w-4 h-4 text-white/60" />
-                  {formattedDate}
-                </div>
-                {issue.edition_label && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-amber-400/15 border border-amber-300/30 text-amber-200 text-xs font-bold uppercase tracking-wider">
-                    {issue.edition_label}
-                  </span>
-                )}
-                <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-medium">
-                  {moniteurAnnee(issue.year)}
-                  <sup className="ml-px">e</sup>
-                  <span className="ml-1">année</span>
-                </span>
-              </div>
+          {/* Single-column layout: wordmark → title → date row →
+              horizontal stats row. Matches the LawDetail hero so the
+              two reading surfaces feel like one app. */}
+          <div className="flex flex-col gap-6">
+            {/* "LE MONITEUR" wordmark */}
+            <div className="animate-in fade-in duration-500 flex items-center gap-3">
+              <Newspaper className="w-4 h-4 text-red-400" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/60">
+                Le Moniteur · Journal Officiel
+              </span>
             </div>
 
-            {/* Identity fiche — tight, polished, never wider than
-                it has to be. Eyebrow / metrics / CTA, stacked in
-                ~64px vertical rhythm. Mobile + desktop share the
-                same card; only ``min-w`` differs to anchor it
-                cleanly in the desktop sidebar.                */}
+            {/* Big issue number */}
+            <h1 className="animate-in fade-in slide-in-from-top-2 duration-500 delay-100 fill-mode-both text-5xl lg:text-7xl font-black leading-[0.95] tracking-tight">
+              {numberDisplay}
+            </h1>
+
+            {/* Date + edition pill row */}
             <div
-              className="animate-in fade-in slide-in-from-right-2 duration-500 fill-mode-both w-full max-w-[260px] mx-auto lg:mx-0 lg:max-w-[280px] lg:min-w-[260px]"
-              style={{ animationDelay: '220ms' }}
+              className="animate-in fade-in duration-500 fill-mode-both flex flex-wrap items-center gap-3"
+              style={{ animationDelay: '180ms' }}
             >
-              <div className="group/card relative rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.09] to-white/[0.02] backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.25)] overflow-hidden transition-all hover:border-white/15 hover:shadow-[0_14px_36px_rgba(0,0,0,0.3)]">
-                <div className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 bg-amber-400/15 blur-3xl rounded-full transition-opacity group-hover/card:bg-amber-400/20" />
-                <div className="pointer-events-none absolute -bottom-12 -left-12 w-24 h-24 bg-blue-500/10 blur-3xl rounded-full" />
-
-                <div className="relative p-4 sm:p-5 flex flex-col gap-4">
-                  {/* Eyebrow */}
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">
-                    <Newspaper className="w-3 h-3 text-amber-300/90" />
-                    Ce numéro
-                  </div>
-
-                  {/* Metrics — tight vertical rule, smaller numerals
-                      so the panel doesn't dominate. */}
-                  <div
-                    className={cn(
-                      'grid items-center divide-x divide-white/10',
-                      issue.page_count != null
-                        ? 'grid-cols-2'
-                        : 'grid-cols-1',
-                    )}
-                  >
-                    <HeroStat
-                      icon={Files}
-                      value={topLevel.length}
-                      label={
-                        topLevel.length > 1 ? 'Documents' : 'Document'
-                      }
-                    />
-                    {issue.page_count != null && (
-                      <HeroStat
-                        icon={Layers}
-                        value={issue.page_count}
-                        label={issue.page_count > 1 ? 'Pages' : 'Page'}
-                      />
-                    )}
-                  </div>
-
-                  {/* Primary CTA — amber pill, 40px tall (still tap-
-                      safe with the inline label), gentle gradient
-                      that brightens on hover. The full-width pill
-                      is the page's call-to-action. */}
-                  <a
-                    href={`/api/v1/moniteur/issues/${issue.id}/export`}
-                    download
-                    className="group/cta relative flex items-center justify-center gap-2 h-10 rounded-lg bg-gradient-to-b from-amber-300 to-amber-400 text-slate-900 font-bold text-[12px] uppercase tracking-[0.08em] shadow-[0_4px_14px_rgba(251,191,36,0.32)] hover:from-amber-200 hover:to-amber-300 hover:shadow-[0_6px_18px_rgba(251,191,36,0.42)] active:scale-[0.98] transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5 shrink-0 transition-transform group-hover/cta:translate-y-0.5" />
-                    <span>Télécharger ce numéro</span>
-                  </a>
-
-                  {/* Secondary action — signed-in only. */}
-                  {isSignedIn && issue.file_url && (
-                    <a
-                      href={`/api/v1/moniteur/issues/${issue.id}/scan`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group/scan -mt-1.5 inline-flex items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/50 hover:text-white transition-colors"
-                      title="Réservé aux éditeurs"
-                    >
-                      <FileText className="w-2.5 h-2.5" />
-                      <span>Scan original</span>
-                      <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover/scan:opacity-100 group-hover/scan:translate-x-0.5 transition-all" />
-                    </a>
-                  )}
-                </div>
+              <div className="inline-flex items-center gap-2 text-base lg:text-lg text-white/90 font-medium">
+                <Calendar className="w-4 h-4 text-white/60" />
+                {formattedDate}
               </div>
+              {issue.edition_label && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-amber-400/15 border border-amber-300/30 text-amber-200 text-xs font-bold uppercase tracking-wider">
+                  {issue.edition_label}
+                </span>
+              )}
+            </div>
+
+            {/* ── Stats + download row ───────────────────────────
+                Same icon-circle + label/value pattern as
+                ``LawDetail``: ``ANNÉE`` · ``CONTENU`` · ``PAGES`` ·
+                ``TÉLÉCHARGER``. Flex-wrap so the row collapses
+                gracefully on phones; ``divide`` would force one
+                line. ``mt-2`` adds breathing room between the
+                pills above and this denser metadata band. */}
+            <div
+              className="animate-in fade-in duration-500 fill-mode-both flex flex-wrap items-center gap-x-8 gap-y-5 mt-2"
+              style={{ animationDelay: '240ms' }}
+            >
+              <HeroChip
+                icon={Calendar}
+                label="Année"
+                value={`${issue.year}`}
+              />
+              <HeroChip
+                icon={Files}
+                label="Contenu"
+                value={`${topLevel.length} ${
+                  topLevel.length > 1 ? 'actes' : 'acte'
+                }`}
+              />
+              {issue.page_count != null && (
+                <HeroChip
+                  icon={Layers}
+                  label="Pages"
+                  value={`${issue.page_count}`}
+                />
+              )}
+              <HeroChip
+                icon={BookOpen}
+                label="Année moniteur"
+                value={`${moniteurAnnee(issue.year)}e année`}
+              />
+              {/* Download chip — primary action, styled to match the
+                  other chips so the row reads as one band. Amber
+                  icon container marks it as the active call-to-
+                  action without breaking the grid. */}
+              <a
+                href={`/api/v1/moniteur/issues/${issue.id}/export`}
+                download
+                className="group/dl flex items-center gap-4 -my-1 rounded-full pr-2 hover:bg-white/[0.04] transition-colors"
+                title="Télécharger ce numéro — PDF LexHaïti"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/15 border border-amber-300/30 text-amber-200 group-hover/dl:bg-amber-400 group-hover/dl:text-slate-900 group-hover/dl:border-amber-300 transition-colors">
+                  <Download className="w-5 h-5" />
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mb-0.5">
+                    Télécharger
+                  </span>
+                  <span className="text-white font-bold inline-flex items-center gap-1.5">
+                    <span>PDF</span>
+                    {isSignedIn && issue.file_url && (
+                      <>
+                        <span className="text-white/40">·</span>
+                        {/* Scan link only surfaces for signed-in
+                            editors, click-through goes to the gated
+                            ``/scan`` endpoint. Reads as a soft
+                            secondary inside the same chip so the
+                            row stays balanced. */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            window.open(
+                              `/api/v1/moniteur/issues/${issue.id}/scan`,
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
+                          }}
+                          className="text-white/70 hover:text-white text-sm font-semibold transition-colors"
+                        >
+                          Scan original
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </span>
+              </a>
             </div>
           </div>
 
@@ -996,23 +997,28 @@ export default function MoniteurDetailClient() {
 // Two of these flank a vertical rule inside the card; centered cells
 // give the pair visual balance even when one numeral is wider than
 // the other.
-function HeroStat({
+// Inline hero stat chip, matching the ``LawDetail`` pattern: a
+// circular icon container on the left + a stacked label/value pair
+// on the right. Flex-wrap parent keeps the row responsive on phones.
+function HeroChip({
   icon: Icon,
-  value,
   label,
+  value,
 }: {
   icon: React.ComponentType<{ className?: string }>
-  value: number | string
   label: string
+  value: React.ReactNode
 }) {
   return (
-    <div className="px-3 py-1.5 text-center">
-      <div className="text-3xl font-black text-white tabular-nums leading-none">
-        {value}
+    <div className="flex items-center gap-4">
+      <div className="p-3 bg-white/5 rounded-full border border-white/10">
+        <Icon className="w-5 h-5 text-slate-400" />
       </div>
-      <div className="mt-1.5 flex items-center justify-center gap-1 text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">
-        <Icon className="w-2.5 h-2.5" />
-        {label}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
+          {label}
+        </p>
+        <p className="text-white font-bold">{value}</p>
       </div>
     </div>
   )
