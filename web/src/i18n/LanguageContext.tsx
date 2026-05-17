@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { Language, LANG_COOKIE, loadMessages, MessagesDict } from '@/i18n/index'
@@ -101,13 +102,19 @@ export function LanguageProvider({
 
   // Dynamic-load the active catalogue whenever the language changes.
   // The server pre-hydrated ``messages`` for the initial render via
-  // ``initialMessages`` — this effect only fires on subsequent toggles,
-  // so chunk-loading happens during a user-initiated nav, not on first
-  // paint.
+  // ``initialMessages`` — we skip the first mount when we already have
+  // a dict, so chunk-loading only happens during a user-initiated
+  // toggle. ``isFirstMount`` is a ref (not the
+  // ``initialLanguage === language`` comparison this used to do)
+  // because toggling back to the initial language was wrongly skipping
+  // the reload, leaving the dict stuck on the previous value.
+  const isFirstMount = useRef(true)
   useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false
+      if (messages && initialLanguage === language) return
+    }
     let cancelled = false
-    // Skip on first mount when the server already gave us the dict.
-    if (messages && initialLanguage === language) return
     loadMessages(language).then((dict) => {
       if (!cancelled) setMessages(dict)
     })
