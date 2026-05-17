@@ -513,6 +513,10 @@ export const fr = {
       'Champs édités en français et en kreyòl. Le slug et le statut éditorial ne sont pas modifiables ici.',
     titleFr: 'Titre (FR) *',
     titleHt: 'Titre (KW)',
+    officialTitleFr: 'Titre officiel — Moniteur (FR)',
+    officialTitleHt: 'Titre officiel — Moniteur (KW)',
+    officialTitleHint:
+      'Titre verbatim tel qu’imprimé au Moniteur (sans date), affiché dans le corps du document sous l’étiquette ARRÊTÉ / DÉCRET. Laissez vide pour reprendre le titre principal ci-dessus.',
     slug: 'Permalien (slug) *',
     slugHint:
       'Identifiant dans l’URL : /loi/<slug>. Lettres minuscules, chiffres et tirets (max 200 car.). Modifie le permalien du texte — partagez la nouvelle URL.',
@@ -670,10 +674,12 @@ export const fr = {
           constitution: 'Constitution',
           code: 'Code',
           loi: 'Loi',
+          loi_constitutionnelle: 'Loi constitutionnelle',
           decret: 'Décret',
           arrete: 'Arrêté',
           circulaire: 'Circulaire',
           convention: 'Convention',
+          ordonnance: 'Ordonnance',
         },
         dropzoneDocument: 'Glissez-déposez le fichier ici, ou ',
         dropzoneSource: 'Glissez-déposez le scan ici, ou ',

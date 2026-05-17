@@ -34,10 +34,12 @@ const CATEGORY_VALUES = [
   'constitution',
   'code',
   'loi',
+  'loi_constitutionnelle',
   'decret',
   'arrete',
   'circulaire',
   'convention',
+  'ordonnance',
 ] as const
 
 const SUBCATEGORY_OPTS = [
@@ -57,6 +59,11 @@ export type LegalTextMetadata = {
   slug: string
   title_fr: string
   title_ht: string | null
+  /** Moniteur-verbatim form of the title (no date) — distinct from
+   *  the citation-form ``title_*`` above. Rendered in the LawDetail
+   *  body under the doc-type heading. */
+  official_title_fr: string | null
+  official_title_ht: string | null
   description_fr: string | null
   description_ht: string | null
   promulgation_date: string | null
@@ -116,6 +123,8 @@ export function MetadataEditor({
     slug: text.slug,
     title_fr: text.title_fr,
     title_ht: text.title_ht ?? '',
+    official_title_fr: text.official_title_fr ?? '',
+    official_title_ht: text.official_title_ht ?? '',
     description_fr: text.description_fr ?? '',
     description_ht: text.description_ht ?? '',
     promulgation_date: text.promulgation_date ?? '',
@@ -139,6 +148,8 @@ export function MetadataEditor({
         slug: text.slug,
         title_fr: text.title_fr,
         title_ht: text.title_ht ?? '',
+        official_title_fr: text.official_title_fr ?? '',
+        official_title_ht: text.official_title_ht ?? '',
         description_fr: text.description_fr ?? '',
         description_ht: text.description_ht ?? '',
         promulgation_date: text.promulgation_date ?? '',
@@ -189,6 +200,8 @@ export function MetadataEditor({
       slug: text.slug,
       title_fr: text.title_fr,
       title_ht: text.title_ht ?? '',
+      official_title_fr: text.official_title_fr ?? '',
+      official_title_ht: text.official_title_ht ?? '',
       description_fr: text.description_fr ?? '',
       description_ht: text.description_ht ?? '',
       promulgation_date: text.promulgation_date ?? '',
@@ -279,6 +292,31 @@ export function MetadataEditor({
             <Input
               value={form.title_ht}
               onChange={(e) => patch('title_ht', e.target.value)}
+            />
+          </Field>
+
+          {/* Moniteur-verbatim title — multi-line so editors can paste
+              the original printed form which often wraps over 2–3
+              lines (the page-1 sommaire and the heading above the
+              issuing authority both carry the same long uppercase
+              sentence). Kept in its own pair of fields so the
+              citation-form title above stays clean. */}
+          <Field
+            label={t('metadataEditor.officialTitleFr')}
+            hint={t('metadataEditor.officialTitleHint')}
+          >
+            <Textarea
+              rows={3}
+              value={form.official_title_fr}
+              onChange={(e) => patch('official_title_fr', e.target.value)}
+            />
+          </Field>
+
+          <Field label={t('metadataEditor.officialTitleHt')}>
+            <Textarea
+              rows={3}
+              value={form.official_title_ht}
+              onChange={(e) => patch('official_title_ht', e.target.value)}
             />
           </Field>
 

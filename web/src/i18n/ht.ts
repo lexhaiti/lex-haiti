@@ -501,6 +501,10 @@ export const ht = {
       'Chan an fransè ak an kreyòl. Slug ak estati editoryal pa modifye isit la.',
     titleFr: 'Tit (FR) *',
     titleHt: 'Tit (KW)',
+    officialTitleFr: 'Tit ofisyèl — Moniteur (FR)',
+    officialTitleHt: 'Tit ofisyèl — Moniteur (KW)',
+    officialTitleHint:
+      'Tit la verbatim jan li enprime nan Moniteur (san dat), parèt nan kò dokiman an anba etikèt ARÈTE / DEKRÈ. Kite vid pou pran tit prensipal anwo a.',
     slug: 'Pèmalyen (slug) *',
     slugHint:
       'Idantifyan nan URL la : /loi/<slug>. Lèt miniskil, chif, ak tirè (maks 200 karaktè).',
@@ -657,10 +661,12 @@ export const ht = {
           constitution: 'Konstitisyon',
           code: 'Kòd',
           loi: 'Lwa',
+          loi_constitutionnelle: 'Lwa konstitisyonèl',
           decret: 'Dekrè',
           arrete: 'Arète',
           circulaire: 'Sikilè',
           convention: 'Konvansyon',
+          ordonnance: 'Òdonans',
         },
         dropzoneDocument: 'Glise epi depoze fichye a la, oswa ',
         dropzoneSource: 'Glise epi depoze skanèyon an la, oswa ',

@@ -927,6 +927,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/editorial/legal-texts/{slug}/submit-for-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit For Review
+         * @description Flip a draft to ``pending_review`` for a peer audit before
+         *     publication. Idempotent; refuses on already-published texts —
+         *     use ``/unpublish`` to take a published text back to draft.
+         */
+        post: operations["submit_for_review_api_v1_editorial_legal_texts__slug__submit_for_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/editorial/legal-texts/{slug}/unpublish": {
         parameters: {
             query?: never;
@@ -1019,10 +1041,10 @@ export interface paths {
          * Translation Stats
          * @description Translation-pipeline counters for the editorial dashboard.
          *
-         *     Single round-trip — a handful of count(*) queries against
-         *     article_versions, legal_texts, and moniteur_entries. Cheap enough
-         *     to render on the editorial home; should stay cheap until the
-         *     corpus crosses ~100K articles (then add a materialised view).
+         *     Two SQL aggregates: one for the per-text coverage buckets, one for
+         *     the global article + moniteur-entry counters. Was 7 separate
+         *     count(*) round trips before — see commit history for the change
+         *     log. Scales past 100K texts without revisiting.
          */
         get: operations["translation_stats_api_v1_editorial_translations_stats_get"];
         put?: never;
@@ -1243,6 +1265,46 @@ export interface paths {
          *     Returns 204 No Content on success, 404 if the entry doesn't exist.
          */
         delete: operations["delete_entry_api_v1_moniteur_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moniteur/issues/{issue_id}/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Issue Scan
+         * @description Stream the original scanned PDF for this Moniteur issue.
+         *
+         *     **Sign-in required.** The scan endpoint is gated behind a valid
+         *     session because the source PDFs are heavy assets we don't want
+         *     crawled or hot-linked from anonymous traffic; the public reader
+         *     still has the full structured text + sommaire. Any signed-in
+         *     role (admin / reviewer / editor) is allowed.
+         *
+         *     ``moniteur_issues.file_url`` can be one of:
+         *       * a full ``http(s)://…`` URL — we 302 to it so the caller hits
+         *         the CDN / Azure Blob directly without proxying the bytes.
+         *       * an absolute filesystem path — we serve it via ``FileResponse``.
+         *         Only paths that resolve inside ``MONITEUR_PDF_DIR`` are accepted
+         *         (defence against ``../`` traversal if someone ever pokes the
+         *         column manually).
+         *       * NULL — 404.
+         *
+         *     Filename in the ``Content-Disposition`` header is
+         *     ``lexhaiti-moniteur-{number}-{year}.pdf`` so readers' Downloads
+         *     folder reads cleanly. Same shape used by the structured PDF
+         *     export elsewhere.
+         */
+        get: operations["download_issue_scan_api_v1_moniteur_issues__issue_id__scan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1842,8 +1904,16 @@ export interface components {
          *     Versioning semantics live in EditorialService.update_article_content:
          *     a draft version mutates in place; a published version is superseded by
          *     a new draft version pointing at the same article.
+         *
+         *     ``number`` is the article's identifier (``"1"``, ``"1er"``, ``"premier"``,
+         *     ``"2-1"``, ``"1-bis"``) — distinct from the title. It lives on the
+         *     Article row itself (not the version) so updating it mutates Article
+         *     directly without touching versioning. The slug stays stable so
+         *     permalinks survive renames.
          */
         ArticleContentUpdate: {
+            /** Number */
+            number?: string | null;
             /** Title Fr */
             title_fr?: string | null;
             /** Title Ht */
@@ -2731,7 +2801,7 @@ export interface components {
          *     2010 CSPJ communiqués, ministerial avis).
          * @enum {string}
          */
-        LegalCategory: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "avis" | "other_regulatory";
+        LegalCategory: "constitution" | "code" | "loi" | "loi_constitutionnelle" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "avis" | "other_regulatory";
         /**
          * LegalChangeMadeRead
          * @description One edit a law made to an article *or* a formal block in
@@ -3059,6 +3129,10 @@ export interface components {
             title_fr: string;
             /** Title Ht */
             title_ht?: string | null;
+            /** Official Title Fr */
+            official_title_fr?: string | null;
+            /** Official Title Ht */
+            official_title_ht?: string | null;
             /** Description Fr */
             description_fr?: string | null;
             /** Description Ht */
@@ -3075,6 +3149,10 @@ export interface components {
             considerants_fr?: string | null;
             /** Considerants Ht */
             considerants_ht?: string | null;
+            /** Mentions Procedurales Fr */
+            mentions_procedurales_fr?: string | null;
+            /** Mentions Procedurales Ht */
+            mentions_procedurales_ht?: string | null;
             /** Enacting Formula Fr */
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
@@ -3158,6 +3236,10 @@ export interface components {
             title_fr?: string | null;
             /** Title Ht */
             title_ht?: string | null;
+            /** Official Title Fr */
+            official_title_fr?: string | null;
+            /** Official Title Ht */
+            official_title_ht?: string | null;
             /** Description Fr */
             description_fr?: string | null;
             /** Description Ht */
@@ -3189,6 +3271,10 @@ export interface components {
             considerants_fr?: string | null;
             /** Considerants Ht */
             considerants_ht?: string | null;
+            /** Mentions Procedurales Fr */
+            mentions_procedurales_fr?: string | null;
+            /** Mentions Procedurales Ht */
+            mentions_procedurales_ht?: string | null;
             /** Enacting Formula Fr */
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
@@ -3216,6 +3302,10 @@ export interface components {
             title_fr: string;
             /** Title Ht */
             title_ht?: string | null;
+            /** Official Title Fr */
+            official_title_fr?: string | null;
+            /** Official Title Ht */
+            official_title_ht?: string | null;
             /** Description Fr */
             description_fr?: string | null;
             /** Description Ht */
@@ -3232,6 +3322,10 @@ export interface components {
             considerants_fr?: string | null;
             /** Considerants Ht */
             considerants_ht?: string | null;
+            /** Mentions Procedurales Fr */
+            mentions_procedurales_fr?: string | null;
+            /** Mentions Procedurales Ht */
+            mentions_procedurales_ht?: string | null;
             /** Enacting Formula Fr */
             enacting_formula_fr?: string | null;
             /** Enacting Formula Ht */
@@ -3377,7 +3471,7 @@ export interface components {
          *     errata, etc.) but should not pollute the corpus-level category enum.
          * @enum {string}
          */
-        MoniteurDocumentType: "constitution" | "code" | "loi" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "correspondance" | "promulgation" | "errata" | "note" | "autre";
+        MoniteurDocumentType: "constitution" | "code" | "loi" | "loi_constitutionnelle" | "decret" | "arrete" | "circulaire" | "convention" | "ordonnance" | "communique" | "correspondance" | "promulgation" | "errata" | "resolution" | "note" | "autre";
         /**
          * MoniteurEntryParserProfileUpdate
          * @description Editor override for which parser profile runs on this entry.
@@ -4115,14 +4209,24 @@ export interface components {
             detected_category: components["schemas"]["MoniteurDocumentType"];
             /** Detected Title */
             detected_title?: string | null;
+            /** Display Title */
+            display_title?: string | null;
             /** Detected Number */
             detected_number?: string | null;
             /** Detected Date */
             detected_date?: string | null;
+            /** Summary Fr */
+            summary_fr?: string | null;
+            /** Summary Ht */
+            summary_ht?: string | null;
             /** Page From */
-            page_from: number;
+            page_from?: number | null;
             /** Page To */
-            page_to: number;
+            page_to?: number | null;
+            /** Legal Text Id */
+            legal_text_id?: number | null;
+            /** Parent Position */
+            parent_position?: number | null;
         };
         /**
          * ThemeSource
@@ -4338,8 +4442,8 @@ export interface operations {
                 q?: string | null;
                 /** @description Where the search text is matched: 'all' (titles + descriptions + Moniteur ref), 'title' (titles only), 'description' (descriptions only). */
                 q_field?: "all" | "title" | "description";
-                /** @description How the search text is matched: 'all' (every word must match), 'exact' (full phrase substring), 'any' (at least one word), 'exclude' (none of the words). */
-                q_mode?: "all" | "exact" | "any" | "exclude";
+                /** @description How the search text is matched: 'all' (every word must match), 'exact' (full phrase substring), 'any' (at least one word), 'exclude' (none of the words), 'fts' (Postgres tsvector @@ plainto_tsquery against the GIN-indexed search columns — fastest on large corpora; less forgiving on accents/stems). */
+                q_mode?: "all" | "exact" | "any" | "exclude" | "fts";
                 category?: components["schemas"]["LegalCategory"] | null;
                 code_subcategory?: components["schemas"]["CodeSubcategory"] | null;
                 status?: components["schemas"]["LegalStatus"] | null;
@@ -5746,6 +5850,37 @@ export interface operations {
             };
         };
     };
+    submit_for_review_api_v1_editorial_legal_texts__slug__submit_for_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalTextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unpublish_legal_text_api_v1_editorial_legal_texts__slug__unpublish_post: {
         parameters: {
             query?: never;
@@ -6229,6 +6364,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_issue_scan_api_v1_moniteur_issues__issue_id__scan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

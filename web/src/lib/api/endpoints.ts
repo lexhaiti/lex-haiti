@@ -1203,6 +1203,11 @@ export type LegalTextMetadataPatch = {
   slug?: string
   title_fr?: string
   title_ht?: string | null
+  /** Moniteur-verbatim form of the title (no date), distinct from the
+   *  citation-form ``title_*`` above. Editable per-field; pass `null`
+   *  to clear, `undefined` (omit) to leave untouched. */
+  official_title_fr?: string | null
+  official_title_ht?: string | null
   description_fr?: string | null
   description_ht?: string | null
   promulgation_date?: string | null // ISO date "YYYY-MM-DD"
@@ -1261,6 +1266,10 @@ export async function deleteLegalText(slug: string): Promise<void> {
  * a published version is superseded by a new draft (next version_number).
  */
 export type ArticleContentPatch = {
+  /** Article identifier ("1", "1er", "premier", "2-1", "1-bis"). Lives
+   *  on the Article row, not the version — updating it is a rename,
+   *  no version bump. The slug stays stable so permalinks survive. */
+  number?: string
   title_fr?: string | null
   title_ht?: string | null
   text_fr?: string

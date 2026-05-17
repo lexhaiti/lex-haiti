@@ -60,6 +60,13 @@ import { ChangesMadePanel } from '@/components/law-details/_panels/ChangesMadePa
 import { AddHeadingDialog } from '@/components/law-details/_panels/AddHeadingDialog'
 import { AddArticleDialog } from '@/components/law-details/_panels/AddArticleDialog'
 import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useLawDetail } from '@/lib/hooks/useLawDetail'
 import { useLanguage } from '@/i18n/LanguageContext'
 import { useT } from '@/i18n/useT'
@@ -82,6 +89,10 @@ import { OfficialNumberTab } from './_panels/OfficialNumberTab'
 import { buildSignatureLeadCaption } from './_helpers/signatureCaption'
 
 
+// Every value of the backend ``LegalCategory`` enum needs an entry — the
+// hero eyebrow reads ``categoryLabels[law.category][currentLang]`` and a
+// missing key would throw at render. Keep this in sync with
+// ``backend/schemas/enums.py::LegalCategory``.
 const categoryLabels: Record<
   string,
   { fr: string; ht: string; color: string }
@@ -92,9 +103,24 @@ const categoryLabels: Record<
     color: 'bg-amber-500',
   },
   code: { fr: 'Code', ht: 'Kòd', color: 'bg-blue-500' },
+  loi: { fr: 'Loi', ht: 'Lwa', color: 'bg-indigo-500' },
+  loi_constitutionnelle: {
+    fr: 'Loi constitutionnelle',
+    ht: 'Lwa konstitisyonèl',
+    color: 'bg-amber-600',
+  },
   decret: { fr: 'Décret', ht: 'Dekrè', color: 'bg-green-500' },
   arrete: { fr: 'Arrêté', ht: 'Arète', color: 'bg-purple-500' },
-  loi: { fr: 'Loi', ht: 'Lwa', color: 'bg-indigo-500' },
+  ordonnance: { fr: 'Ordonnance', ht: 'Òdonans', color: 'bg-teal-500' },
+  circulaire: { fr: 'Circulaire', ht: 'Sikilè', color: 'bg-sky-500' },
+  convention: { fr: 'Convention', ht: 'Konvansyon', color: 'bg-fuchsia-500' },
+  communique: { fr: 'Communiqué', ht: 'Kominike', color: 'bg-slate-500' },
+  avis: { fr: 'Avis', ht: 'Avi', color: 'bg-slate-500' },
+  other_regulatory: {
+    fr: 'Texte réglementaire',
+    ht: 'Tèks règlemantè',
+    color: 'bg-slate-500',
+  },
 }
 
 
@@ -390,6 +416,14 @@ export default function LawDetail() {
 
   const title =
     currentLang === 'ht' && law.title_ht ? law.title_ht : law.title_fr
+  // Moniteur-verbatim title used in the body masthead (under the
+  // doc-type heading, above the issuing authority). Falls back to the
+  // hero title when no official version was captured for this law.
+  const officialTitleStored =
+    currentLang === 'ht'
+      ? (law.official_title_ht ?? null)
+      : (law.official_title_fr ?? null)
+  const officialTitle = officialTitleStored ?? title
   const description =
     currentLang === 'ht' && law.description_ht
       ? law.description_ht
@@ -606,20 +640,19 @@ export default function LawDetail() {
 
           {/* Hero is a vertical stack of self-contained sections, each
               left-aligned and using the full container width:
-                1. Category + status badges (with optional N° officiel)
+                1. Status pill + N° officiel
                 2. Title + description
                 3. Metadata row (year / articles / Moniteur ref) + download
                 4. Theme chips
-              The DeviseBanner + IssuingAuthorityHeader are NOT in the
-              hero — per design, they sit in the document body, just
-              above the visas (mirroring how a printed legal act lays
-              out: identity preamble in the body, not in the masthead). */}
+              The category badge that used to sit in the badges row was
+              removed: the doc-type ("ARRÊTÉ" / "DÉCRET" / ...) is now
+              announced in the body, between the devise and the issuing
+              authority — Le Moniteur's own convention. The DeviseBanner
+              and IssuingAuthorityHeader sit in the document body, just
+              above the visas, mirroring a printed legal act's masthead. */}
           <div className="flex flex-col gap-8 lg:gap-10">
-            {/* ── 1. Badges ──────────────────────────────────────────── */}
+            {/* ── 1. Status + N° officiel ───────────────────────────── */}
             <div className="animate-in fade-in slide-in-from-top-3 duration-500 flex flex-wrap items-center gap-3">
-              <Badge className="bg-red-600 text-white border-0 shadow-lg shadow-red-900/20 px-4 py-1.5 font-bold uppercase tracking-wider text-[10px] rounded-full">
-                {category[currentLang]}
-              </Badge>
               {(() => {
                 const status = (law.status as TextStatus) ?? 'in_force'
                 const meta = TEXT_STATUS_PILL[status] ?? TEXT_STATUS_PILL.in_force
@@ -1400,12 +1433,157 @@ export default function LawDetail() {
                 Generous vertical padding so the block reads as a formal
                 opening emblem, with a max-width cap so the centered
                 composition stays compact even on wide viewports. */}
-            {/* Devise nationale — always shown; issuing authority only when set */}
+            {/* Devise nationale → Doc-type heading → Issuing authority.
+                This mirrors the Moniteur masthead literally: after the
+                devise ("Liberté Égalité Fraternité / République d'Haïti")
+                the act always announces its formal class — ARRÊTÉ,
+                DÉCRET, LOI, ORDONNANCE etc. — and only then names the
+                signing authority. Editable from the MetadataEditor side
+                panel; the label is the FR/HT translation of the stored
+                ``category`` enum value. */}
             <div className="my-6 lg:my-8 flex justify-center">
-              <div className="flex flex-col items-center gap-2 lg:gap-3 text-slate-700 max-w-2xl">
+              <div className="flex flex-col items-center gap-3 lg:gap-4 text-slate-700 max-w-2xl">
                 <DeviseBanner lang={currentLang} />
-                {law.issuing_authority && (
-                  <IssuingAuthorityHeader value={law.issuing_authority} />
+
+                <div className="mt-1 flex flex-col items-center text-center group/cat">
+                  {isEditor ? (
+                    // Editor inline picker for the doc-type. Renders as
+                    // the same all-caps heading until hovered, then a
+                    // chevron surfaces; clicking opens a dropdown of every
+                    // ``LegalCategory`` value the editor can switch to.
+                    // Saving PATCHes ``category`` via the existing
+                    // metadata endpoint; the slug stays stable so
+                    // permalinks survive a reclassification.
+                    <Select
+                      value={law.category}
+                      onValueChange={async (next) => {
+                        if (next === law.category) return
+                        try {
+                          await updateLegalTextMetadata(law.slug, {
+                            category: next,
+                          } as any)
+                          refetch()
+                        } catch (e) {
+                          toast({
+                            description:
+                              currentLang === 'fr'
+                                ? 'Impossible de modifier le type'
+                                : 'Pa kapab chanje kalite a',
+                          })
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label={
+                          currentLang === 'fr'
+                            ? "Type du document"
+                            : 'Kalite dokiman an'
+                        }
+                        className="!h-auto !p-0 !bg-transparent !border-0 !shadow-none focus:!ring-0 focus:!ring-offset-0 group/trigger hover:!bg-transparent gap-2"
+                      >
+                        <span className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-[0.18em] text-slate-900 leading-tight">
+                          {category[currentLang]}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(categoryLabels).map(([value, meta]) => (
+                          <SelectItem key={value} value={value}>
+                            {meta[currentLang]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-[0.18em] text-slate-900 leading-tight">
+                      {category[currentLang]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Title in Le Moniteur masthead form — verbatim text
+                    the journal prints under the doc-type heading.
+                    ``official_title_*`` when set, otherwise hidden for
+                    public viewers + an editable affordance for editors.
+                    Light-themed inline edit via EditableHeroField so
+                    the chrome reads on the white body surface. */}
+                {(officialTitleStored || isEditor) && (
+                  <EditableHeroField
+                    value={officialTitleStored ?? ''}
+                    isEditor={isEditor}
+                    kind="textarea"
+                    theme="light"
+                    layout="block"
+                    editAriaLabel={
+                      currentLang === 'fr'
+                        ? 'Modifier le titre officiel (Moniteur)'
+                        : 'Modifye tit ofisyèl (Moniteur)'
+                    }
+                    emptyPlaceholder={
+                      currentLang === 'fr'
+                        ? '+ Ajouter le titre officiel (Moniteur)'
+                        : '+ Ajoute tit ofisyèl (Moniteur)'
+                    }
+                    inputClassName="text-sm sm:text-base font-bold uppercase text-center tracking-wide leading-relaxed w-full max-w-xl mx-auto"
+                    onSave={async (next) => {
+                      const field =
+                        currentLang === 'ht'
+                          ? 'official_title_ht'
+                          : 'official_title_fr'
+                      await updateLegalTextMetadata(law.slug, {
+                        [field]: next || null,
+                      } as any)
+                      refetch()
+                    }}
+                  >
+                    {officialTitleStored ? (
+                      <p className="text-sm sm:text-base lg:text-lg font-bold uppercase text-center tracking-wide leading-relaxed text-slate-900 max-w-xl whitespace-pre-line">
+                        {officialTitleStored}
+                      </p>
+                    ) : (
+                      <span className="text-xs sm:text-sm italic text-slate-400">
+                        {currentLang === 'fr'
+                          ? '+ Ajouter le titre officiel (Moniteur)'
+                          : '+ Ajoute tit ofisyèl (Moniteur)'}
+                      </span>
+                    )}
+                  </EditableHeroField>
+                )}
+
+                {(law.issuing_authority || isEditor) && (
+                  <EditableHeroField
+                    value={law.issuing_authority ?? ''}
+                    isEditor={isEditor}
+                    kind="textarea"
+                    theme="light"
+                    layout="block"
+                    editAriaLabel={
+                      currentLang === 'fr'
+                        ? 'Modifier l’autorité émettrice'
+                        : 'Modifye otorite ki bay la'
+                    }
+                    emptyPlaceholder={
+                      currentLang === 'fr'
+                        ? '+ Ajouter l’autorité émettrice'
+                        : '+ Ajoute otorite ki bay la'
+                    }
+                    inputClassName="text-base sm:text-lg font-black uppercase tracking-[0.18em] text-center leading-snug w-full max-w-xl mx-auto"
+                    onSave={async (next) => {
+                      await updateLegalTextMetadata(law.slug, {
+                        issuing_authority: next || null,
+                      } as any)
+                      refetch()
+                    }}
+                  >
+                    {law.issuing_authority ? (
+                      <IssuingAuthorityHeader value={law.issuing_authority} />
+                    ) : (
+                      <span className="text-xs sm:text-sm italic text-slate-400">
+                        {currentLang === 'fr'
+                          ? '+ Ajouter l’autorité émettrice'
+                          : '+ Ajoute otorite ki bay la'}
+                      </span>
+                    )}
+                  </EditableHeroField>
                 )}
               </div>
             </div>
@@ -1679,6 +1857,8 @@ export default function LawDetail() {
                   slug: law.slug,
                   title_fr: law.title_fr,
                   title_ht: law.title_ht ?? null,
+                  official_title_fr: law.official_title_fr ?? null,
+                  official_title_ht: law.official_title_ht ?? null,
                   description_fr: law.description_fr ?? null,
                   description_ht: law.description_ht ?? null,
                   promulgation_date: law.promulgation_date ?? null,
@@ -1785,7 +1965,7 @@ export default function LawDetail() {
                       <div className="bg-white rounded-2xl border border-gray-100 p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-200">
                         <div className="flex items-start justify-between mb-3">
                           <Badge className={`${relatedLaw.color} text-white`}>
-                            {categoryLabels[relatedLaw.category][currentLang]}
+                            {(categoryLabels[relatedLaw.category] ?? categoryLabels.loi)[currentLang]}
                           </Badge>
                           <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
                         </div>
