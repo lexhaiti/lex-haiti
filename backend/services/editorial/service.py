@@ -63,6 +63,8 @@ _METADATA_FIELDS: tuple[str, ...] = (
     "slug",
     "title_fr",
     "title_ht",
+    "official_title_fr",
+    "official_title_ht",
     "description_fr",
     "description_ht",
     "promulgation_date",
@@ -757,10 +759,30 @@ class EditorialService:
                 f"Article {article_id} has no current version to edit"
             )
 
-        editable = {"title_fr", "title_ht", "text_fr", "text_ht"}
+        # ``number`` is editable but lives on the Article row, not on the
+        # version. We split it out so the rename mutates Article directly
+        # (no version bump, no diff against version fields) while the
+        # remaining title/text updates go through the version path below.
+        # The article's slug stays stable so permalinks survive renames
+        # (CLAUDE.md: "permalinks are forever").
+        editable_article = {"number"}
+        editable_version = {"title_fr", "title_ht", "text_fr", "text_ht"}
+        editable = editable_article | editable_version
         bad = [k for k in updates if k not in editable]
         if bad:
             raise InvalidInput(f"non-editable article fields: {sorted(bad)}")
+
+        # Extract the article-level rename so the version-update logic
+        # below sees only title/text fields.
+        new_number = updates.pop("number", None)
+        number_changed: Optional[dict[str, str]] = None
+        if new_number is not None:
+            new_number = new_number.strip() if isinstance(new_number, str) else new_number
+            if not new_number:
+                raise InvalidInput("number cannot be empty")
+            if new_number != article.number:
+                number_changed = {"before": article.number, "after": new_number}
+                article.number = new_number
 
         # Normalize blanks → None for nullable cols, while keeping text_fr
         # as a required non-empty string. Body fields go through the
@@ -792,6 +814,23 @@ class EditorialService:
             diff[field] = {"before": old_value, "after": new_value}
 
         if not diff:
+            # No version-level changes; if a rename happened, audit it
+            # separately + return the refreshed article so the new
+            # number flows back to the client.
+            if number_changed is not None:
+                _audit(
+                    self.session,
+                    actor=actor,
+                    action="rename_article",
+                    target_type="article",
+                    target_id=article.id,
+                    diff={"number": number_changed},
+                    comment=comment,
+                )
+                self.session.flush()
+                refreshed = self.repo.get_article(article_id)
+                assert refreshed is not None
+                return article_to_embed(refreshed)
             return article_to_embed(article)
 
         # Always mutate the current version in place — no version bump
@@ -814,6 +853,19 @@ class EditorialService:
             diff=diff,
             comment=comment,
         )
+        # Audit the rename in its own row if it happened alongside the
+        # version edit — it targets the Article (not the version), so a
+        # combined diff would conflate two scopes.
+        if number_changed is not None:
+            _audit(
+                self.session,
+                actor=actor,
+                action="rename_article",
+                target_type="article",
+                target_id=article.id,
+                diff={"number": number_changed},
+                comment=comment,
+            )
         self.session.flush()
 
         # Reload with eager-loaded current_version for the response DTO.

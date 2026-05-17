@@ -194,6 +194,8 @@ def text_to_read(
         jurisdiction=text.jurisdiction,
         title_fr=text.title_fr,
         title_ht=text.title_ht,
+        official_title_fr=text.official_title_fr,
+        official_title_ht=text.official_title_ht,
         description_fr=text.description_fr,
         description_ht=text.description_ht,
         visas_fr=text.visas_fr,

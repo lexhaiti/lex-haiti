@@ -256,6 +256,11 @@ class LegalTextMetadataUpdate(BaseModel):
     slug: Optional[str] = None
     title_fr: Optional[str] = None
     title_ht: Optional[str] = None
+    # Moniteur-verbatim form of the title (no date), maintained
+    # independently from the citation-form ``title_*`` above. Pass empty
+    # string or null to clear.
+    official_title_fr: Optional[str] = None
+    official_title_ht: Optional[str] = None
     description_fr: Optional[str] = None
     description_ht: Optional[str] = None
     promulgation_date: Optional[date] = None

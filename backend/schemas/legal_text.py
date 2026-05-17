@@ -25,6 +25,13 @@ class LegalTextBase(BaseModel):
 
     title_fr: str
     title_ht: Optional[str] = None
+    # Moniteur-verbatim form of the title (no date, exact wording as
+    # printed under the LIBERTÉ / RÉPUBLIQUE banner above the issuing
+    # authority). Nullable: when missing the LawDetail body falls back
+    # to ``title_*``. The editor maintains it independently via
+    # MetadataEditor / inline edit.
+    official_title_fr: Optional[str] = None
+    official_title_ht: Optional[str] = None
     description_fr: Optional[str] = None
     description_ht: Optional[str] = None
     preamble_fr: Optional[str] = None

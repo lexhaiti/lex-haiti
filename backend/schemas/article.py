@@ -219,8 +219,15 @@ class ArticleContentUpdate(BaseModel):
     Versioning semantics live in EditorialService.update_article_content:
     a draft version mutates in place; a published version is superseded by
     a new draft version pointing at the same article.
+
+    ``number`` is the article's identifier (``"1"``, ``"1er"``, ``"premier"``,
+    ``"2-1"``, ``"1-bis"``) — distinct from the title. It lives on the
+    Article row itself (not the version) so updating it mutates Article
+    directly without touching versioning. The slug stays stable so
+    permalinks survive renames.
     """
 
+    number: Optional[str] = None
     title_fr: Optional[str] = None
     title_ht: Optional[str] = None
     text_fr: Optional[str] = None

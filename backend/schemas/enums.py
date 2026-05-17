@@ -20,6 +20,12 @@ class LegalCategory(str, Enum):
     constitution = "constitution"
     code = "code"
     loi = "loi"
+    # Loi constitutionnelle — an Act of Parliament that amends the
+    # Constitution. Distinct from ``constitution`` (the founding text)
+    # and from ordinary ``loi`` (one-off amendment scope and special
+    # adoption procedure). The 1987 Constitution's 2012 amendment is
+    # the canonical example.
+    loi_constitutionnelle = "loi_constitutionnelle"
     decret = "decret"
     arrete = "arrete"
     circulaire = "circulaire"
@@ -129,6 +135,7 @@ class MoniteurDocumentType(str, Enum):
     constitution = "constitution"
     code = "code"
     loi = "loi"
+    loi_constitutionnelle = "loi_constitutionnelle"
     decret = "decret"
     arrete = "arrete"
     circulaire = "circulaire"

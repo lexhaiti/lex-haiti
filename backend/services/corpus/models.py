@@ -225,9 +225,18 @@ class LegalText(Base):
     # Page-1 official metadata. Populated by the import parser
     # (services/ingestion/header_split.py) when the document carries
     # the standard Haitian legal-act header; editor can correct via the
-    # MetadataEditor UI. All three are nullable — old corpus rows
-    # predate the columns and many older laws lack the modern header
-    # structure entirely.
+    # MetadataEditor UI. All nullable — old corpus rows predate the
+    # columns and many older laws lack the modern header structure
+    # entirely.
+    #
+    # ``official_title_*`` is the verbatim Moniteur form of the act's
+    # title (no date, exactly as printed under the LIBERTÉ / RÉPUBLIQUE
+    # banner and above the issuing authority). The ``title_*`` columns
+    # above remain the editor-friendly citation form (typically prefixed
+    # with the date, used in lists and the hero h1). When the official
+    # version is missing the LawDetail body falls back to ``title_*``.
+    official_title_fr: Mapped[Optional[str]] = mapped_column(Text)
+    official_title_ht: Mapped[Optional[str]] = mapped_column(Text)
     official_number: Mapped[Optional[str]] = mapped_column(
         String(64), index=True
     )  # e.g. "CL-007-09-09"
