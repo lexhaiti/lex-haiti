@@ -56,6 +56,7 @@ import {
   type ArticleVersionStatusPatch,
 } from '@/lib/api/endpoints'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { EditableHeroField } from '@/components/law-details/_helpers/EditableHeroField'
 import {
   mapCitations,
   type CitationEntry,
@@ -873,17 +874,58 @@ export default function ArticleViewer({
                 // ``Atik 1`` / ``Atik 1-1`` to match how N° 36-A writes
                 // article identifiers.
                 const num = String(article.number ?? '')
-                if (num.toLowerCase().startsWith('article')) return num
-                if (currentLang === 'ht') {
-                  const htNum =
-                    num === 'premier'
-                      ? '1'
-                      : num.startsWith('premier-')
-                        ? `1-${num.slice('premier-'.length)}`
-                        : num
-                  return `Atik ${htNum}`
-                }
-                return `Article ${num}`
+                const rendered = (() => {
+                  if (num.toLowerCase().startsWith('article')) return num
+                  if (currentLang === 'ht') {
+                    const htNum =
+                      num === 'premier'
+                        ? '1'
+                        : num.startsWith('premier-')
+                          ? `1-${num.slice('premier-'.length)}`
+                          : num
+                    return `Atik ${htNum}`
+                  }
+                  return `Article ${num}`
+                })()
+                // Inline rename — editors only. Saves the raw
+                // identifier (e.g. ``1er``, ``premier``, ``2-1``);
+                // the rendering above re-applies the language-aware
+                // prefix. The article slug stays stable so permalinks
+                // don't break (CLAUDE.md: "permalinks are forever").
+                if (!isEditor) return rendered
+                return (
+                  <EditableHeroField
+                    value={num}
+                    isEditor={isEditor}
+                    theme="light"
+                    editAriaLabel={
+                      currentLang === 'fr'
+                        ? "Renommer l'article (numéro)"
+                        : 'Chanje nimewo atik la'
+                    }
+                    emptyPlaceholder={
+                      currentLang === 'fr'
+                        ? '— numéro —'
+                        : '— nimewo —'
+                    }
+                    inputClassName="font-bold text-slate-900 tracking-tight text-sm w-24"
+                    onSave={async (next) => {
+                      if (!next) {
+                        throw new Error(
+                          currentLang === 'fr'
+                            ? "Le numéro ne peut pas être vide"
+                            : 'Nimewo a pa ka vid',
+                        )
+                      }
+                      await updateArticleContent(article.id, {
+                        number: next,
+                      } as ArticleContentPatch)
+                      onArticleSaved?.()
+                    }}
+                  >
+                    <span>{rendered}</span>
+                  </EditableHeroField>
+                )
               })()}
             </h2>
           </nav>
