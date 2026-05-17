@@ -175,8 +175,8 @@ export async function apiGet<T>(
   const url = `${API_BASE}${path}${query}`
   const key = cacheKey('GET', url)
   const ttl = opts?.cacheTtlMs ?? DEFAULT_TTL_MS
-  const useCache =
-    typeof window !== 'undefined' && ttl > 0 && opts?.cache !== 'no-store'
+  const isServer = typeof window === 'undefined'
+  const useCache = !isServer && ttl > 0 && opts?.cache !== 'no-store'
 
   if (useCache) {
     const hit = cache.get(key)
@@ -187,6 +187,28 @@ export async function apiGet<T>(
     if (pending) return pending
   }
 
+  // SSR fetches default to Next's data cache with a 60s revalidate.
+  // The corpus is editor-curated, mutations are rare, and a minute of
+  // stale-but-coherent reads costs nothing while collapsing the
+  // homepage's per-request API hop into one cold miss per 60s window.
+  // The browser path keeps its own 5-min module-scope cache above —
+  // no double-caching.
+  //
+  // Callers that need a fresh read (inline-edit refetch, search) can
+  // override with ``cache: 'no-store'``; that branch wins below and
+  // disables the Next data cache for that call.
+  const useNextRevalidate =
+    isServer && opts?.cache !== 'no-store' && opts?.next === undefined
+  const effectiveNext: RequestInit['next'] | undefined = useNextRevalidate
+    ? { revalidate: 60 }
+    : opts?.next
+  // Next's data cache and ``cache: 'no-store'`` are mutually
+  // exclusive. When the revalidate path is on, leave ``cache``
+  // unset — Next inspects ``next.revalidate`` instead.
+  const effectiveCache: RequestInit['cache'] | undefined = useNextRevalidate
+    ? undefined
+    : (opts?.cache ?? 'no-store')
+
   const fetchPromise = (async () => {
     const res = await fetch(url, {
       method: 'GET',
@@ -196,8 +218,8 @@ export async function apiGet<T>(
         ...(opts?.headers ?? {}),
       },
       signal: opts?.signal,
-      next: opts?.next,
-      cache: opts?.cache ?? 'no-store',
+      next: effectiveNext,
+      cache: effectiveCache,
     })
 
     if (!res.ok) {
