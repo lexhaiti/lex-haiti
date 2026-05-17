@@ -128,6 +128,13 @@ REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0"
 bold "API Container App: $LH_API_APP"
 # Bootstrap with the hello-world image; the GH Actions deploy will
 # swap it for the real backend image on the first push.
+#
+# ``--min-replicas 1`` keeps one instance warm 24/7. Scale-to-zero
+# saved nothing in practice (Container Apps idle-rate is cheap, and
+# Python + FastAPI + SQLAlchemy import time + DB-pool warm-up adds
+# 8–20s to the first request after a 5-minute idle — visible on
+# every cold visitor). The Worker stays at min=0 because background
+# RQ jobs tolerate a startup delay.
 az containerapp create \
   --name "$LH_API_APP" \
   --resource-group "$LH_RG" \
@@ -135,7 +142,7 @@ az containerapp create \
   --image mcr.microsoft.com/azuredocs/containerapps-helloworld:latest \
   --target-port 8000 \
   --ingress external \
-  --min-replicas 0 --max-replicas 3 \
+  --min-replicas 1 --max-replicas 3 \
   --cpu 0.5 --memory 1.0Gi \
   --secrets \
     database-url="$DB_URL" \
