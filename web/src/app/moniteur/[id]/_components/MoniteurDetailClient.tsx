@@ -822,52 +822,48 @@ export default function MoniteurDetailClient() {
                 label="Année moniteur"
                 value={`${moniteurAnnee(issue.year)}e année`}
               />
-              {/* Download chip — primary action, styled to match the
-                  other chips so the row reads as one band. Amber
-                  icon container marks it as the active call-to-
-                  action without breaking the grid. */}
-              <a
-                href={`/api/v1/moniteur/issues/${issue.id}/export`}
-                download
-                className="group/dl flex items-center gap-4 -my-1 rounded-full pr-2 hover:bg-white/[0.04] transition-colors"
-                title="Télécharger ce numéro — PDF LexHaïti"
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/15 border border-amber-300/30 text-amber-200 group-hover/dl:bg-amber-400 group-hover/dl:text-slate-900 group-hover/dl:border-amber-300 transition-colors">
-                  <Download className="w-5 h-5" />
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mb-0.5">
+              {/* Download chip — matches the other chip shapes
+                  (icon-container + label + value) but the value
+                  slot carries two independent links: ``PDF``
+                  (public LexHaïti export) and ``Scan original``
+                  (signed-in editors only). Anonymous visitors see
+                  the PDF link alone; the row stays balanced.    */}
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-400/15 border border-amber-300/30 rounded-full">
+                  <Download className="w-5 h-5 text-amber-200" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">
                     Télécharger
-                  </span>
-                  <span className="text-white font-bold inline-flex items-center gap-1.5">
-                    <span>PDF</span>
+                  </p>
+                  <div className="text-white font-bold inline-flex items-center gap-2">
+                    <a
+                      href={`/api/v1/moniteur/issues/${issue.id}/export`}
+                      download
+                      className="hover:text-amber-200 transition-colors"
+                      title="Télécharger le PDF LexHaïti"
+                    >
+                      PDF
+                    </a>
                     {isSignedIn && issue.file_url && (
                       <>
-                        <span className="text-white/40">·</span>
-                        {/* Scan link only surfaces for signed-in
-                            editors, click-through goes to the gated
-                            ``/scan`` endpoint. Reads as a soft
-                            secondary inside the same chip so the
-                            row stays balanced. */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            window.open(
-                              `/api/v1/moniteur/issues/${issue.id}/scan`,
-                              '_blank',
-                              'noopener,noreferrer',
-                            )
-                          }}
-                          className="text-white/70 hover:text-white text-sm font-semibold transition-colors"
+                        <span className="text-white/30 font-normal select-none">
+                          ·
+                        </span>
+                        <a
+                          href={`/api/v1/moniteur/issues/${issue.id}/scan`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white/70 hover:text-amber-200 transition-colors"
+                          title="Réservé aux éditeurs — scan original (PDF)"
                         >
                           Scan original
-                        </button>
+                        </a>
                       </>
                     )}
-                  </span>
-                </span>
-              </a>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
