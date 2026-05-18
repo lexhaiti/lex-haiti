@@ -138,16 +138,12 @@ export default function Header() {
           {/* 1. LOGO (Always Visible) */}
           <div className="flex-shrink-0 z-20 relative">
             <BrandLogo
-              // --- TEXT STYLES ---
-              // Lex (Dark Slate)
               titleClassName="text-slate-900 font-extrabold text-2xl tracking-tighter"
-              // Tagline (Red Accent)
               taglineClassName=" text-[10px] font-bold uppercase tracking-widest mt-0.5"
-              // --- ICON STYLES (Adapted for White Header) ---
-              // A subtle light gradient box to hold the icon
-              iconWrapperClassName="w-10 h-10 rounded-full bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-red-500/20 group-hover:border-red-200 transition-all duration-300"
-              // The scale icon itself in Red
-              iconClassName="w-5 h-5 text-red-600"
+              // The new emblem (Lady Justice + palmis + circular
+              // legend) carries its own navy backdrop, so the old
+              // light-gradient card wrapper is gone — just a subtle
+              // shadow + hover-scale via the default in BrandLogo.
               showTagline={true}
               taglineKey={t('nav.logoTagline')}
             />

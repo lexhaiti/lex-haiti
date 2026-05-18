@@ -144,10 +144,20 @@ function ShellWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-white flex flex-col">
       <header className="flex items-center justify-center px-4 pt-8 sm:pt-10">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white text-sm font-black">
-            LH
-          </span>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2"
+          aria-label="LexHaiti"
+        >
+          {/* Plain <img> here instead of next/image to avoid Image's
+              SSR layout reservation on a one-off auth shell — the
+              browser can defer-load it without affecting LCP. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/lexhaiti-logo.svg"
+            alt="LexHaiti"
+            className="h-9 w-9 object-contain"
+          />
           <span className="text-lg font-black tracking-tight text-slate-900">
             Lex<span className="text-primary">Haïti</span>
           </span>

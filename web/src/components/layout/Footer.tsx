@@ -33,14 +33,12 @@ export default function Footer() {
           {/* COL 1: Brand & Contact */}
           <div className="space-y-8">
             <div className="flex flex-col items-start">
-              {/* --- BRAND LOGO IMPLEMENTATION --- */}
+              {/* The new emblem reads cleanly on dark navy (its own
+                  background is navy + gold ring), no extra wrapper
+                  needed; just keep the tagline + title white. */}
               <BrandLogo
-                // 1. Text Colors for Dark Mode
                 titleClassName="text-white font-extrabold text-2xl tracking-tight"
                 taglineClassName=" text-[10px] font-bold uppercase tracking-widest mt-1"
-                // 2. Icon Styling (Dark container with Red Icon)
-                iconWrapperClassName="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shadow-lg group-hover:border-red-500/50 group-hover:shadow-red-900/20 transition-all duration-300"
-                iconClassName="w-5 h-5 text-red-500"
                 showTagline={true}
                 taglineKey={t('nav.logoTagline')}
               />

@@ -1,8 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { Scale } from 'lucide-react'
 import { useT } from '@/i18n/useT'
+import { cn } from '@/lib/utils'
 
 type BrandLogoProps = {
   href?: string
@@ -11,10 +12,20 @@ type BrandLogoProps = {
   titleClassName?: string
   taglineClassName?: string
 
-  /** Icon card styles */
+  /**
+   * Classes applied to the logo image itself — size, rounding, shadow,
+   * etc. Default is a 40×40 contained box, matching the previous
+   * gradient-card icon size. Pass a different size (``w-12 h-12``) or
+   * drop the rounded background if the parent surface already provides
+   * contrast.
+   */
   iconWrapperClassName?: string
 
-  /** Icon styles */
+  /**
+   * @deprecated kept for backward compat with old call-sites that pass
+   * a Lucide-icon classname. The new logo is a self-contained emblem;
+   * style the surrounding box via ``iconWrapperClassName`` instead.
+   */
   iconClassName?: string
 
   /** show tagline (you might want hidden on mobile in header etc.) */
@@ -28,8 +39,7 @@ export default function BrandLogo({
   href = '/',
   titleClassName = 'text-foreground',
   taglineClassName = 'text-muted-foreground',
-  iconWrapperClassName = 'w-10 h-10 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a87] flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow',
-  iconClassName = 'w-5 h-5 text-accent',
+  iconWrapperClassName,
   showTagline = true,
   taglineKey = 'nav.logoTagline',
 }: BrandLogoProps) {
@@ -39,10 +49,24 @@ export default function BrandLogo({
     <Link
       href={href}
       className="group flex items-center gap-2 cursor-pointer min-h-[44px] -my-0.5"
+      aria-label="LexHaiti"
     >
-      <div className={iconWrapperClassName}>
-        <Scale className={iconClassName} />
-      </div>
+      {/* The new logo is a self-contained circular emblem (Lady Justice
+          on palm + IURIS FUNDAMENTUM • LIBERTATIS • LEXHAITI •
+          PUBLICITAS legend). No background card needed; the SVG carries
+          its own navy disc + gold ring. ``priority`` so the header
+          logo isn't deferred behind lazy loading on first paint. */}
+      <Image
+        src="/lexhaiti-logo.svg"
+        alt="LexHaiti"
+        width={40}
+        height={40}
+        priority
+        className={cn(
+          'h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-[1.05]',
+          iconWrapperClassName,
+        )}
+      />
 
       <div className="flex flex-col">
         <span className={`text-xl font-bold tracking-tight ${titleClassName}`}>
