@@ -140,10 +140,10 @@ export default function Header() {
             <BrandLogo
               titleClassName="text-slate-900 font-extrabold text-2xl tracking-tighter"
               taglineClassName=" text-[10px] font-bold uppercase tracking-widest mt-0.5"
-              // Bump the header emblem to 48px (default is 40) so the
-              // engraved detail reads at a glance; tailwind-merge
-              // overrides the BrandLogo defaults via cn().
-              iconWrapperClassName="h-12 w-12"
+              // Mobile keeps the 40px default — at sm+ bump to 48px so
+              // the engraved detail reads at desktop glance distance.
+              // tailwind-merge handles the responsive override via cn().
+              iconWrapperClassName="sm:h-12 sm:w-12"
               showTagline={true}
               taglineKey={t('nav.logoTagline')}
             />

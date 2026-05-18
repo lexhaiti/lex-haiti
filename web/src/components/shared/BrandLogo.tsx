@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
@@ -51,19 +50,20 @@ export default function BrandLogo({
       className="group flex items-center gap-2 cursor-pointer min-h-[44px] -my-0.5"
       aria-label="LexHaiti"
     >
-      {/* The new logo is a self-contained circular emblem (Lady Justice
-          on palm + IURIS FUNDAMENTUM • LIBERTATIS • LEXHAITI •
-          PUBLICITAS legend). No background card needed; the SVG carries
-          its own navy disc + gold ring. ``priority`` so the header
-          logo isn't deferred behind lazy loading on first paint. */}
-      <Image
+      {/* Plain ``<img>`` (not next/image) so the browser renders the
+          SVG natively as a vector and stays crisp on Retina/iPhone —
+          next/image was rasterising the file on high-DPI screens,
+          leaving the engraved detail (Lady Justice, palmis, circular
+          legend) blurry. Default size 40px; the header bumps it to
+          48px from ``sm`` upwards via ``iconWrapperClassName``. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src="/lexhaiti-logo.svg"
         alt="LexHaiti"
-        width={40}
-        height={40}
-        priority
+        loading="eager"
+        decoding="async"
         className={cn(
-          'h-10 w-10 object-contain transition-transform duration-300 group-hover:scale-[1.05]',
+          'h-10 w-10 shrink-0 object-contain transition-transform duration-300 group-hover:scale-[1.05]',
           iconWrapperClassName,
         )}
       />
