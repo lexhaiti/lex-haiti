@@ -33,12 +33,17 @@ export default function Footer() {
           {/* COL 1: Brand & Contact */}
           <div className="space-y-8">
             <div className="flex flex-col items-start">
-              {/* The new emblem reads cleanly on dark navy (its own
-                  background is navy + gold ring), no extra wrapper
-                  needed; just keep the tagline + title white. */}
+              {/* The emblem's own navy disc would merge into the
+                  footer's navy background — we wrap the image in a
+                  white circular backdrop so the gold ring + Lady
+                  Justice icon read as crisply as in the header
+                  (where the white site surface already plays that
+                  role). Tiny padding keeps the emblem from touching
+                  the badge edge. */}
               <BrandLogo
                 titleClassName="text-white font-extrabold text-2xl tracking-tight"
                 taglineClassName=" text-[10px] font-bold uppercase tracking-widest mt-1"
+                iconWrapperClassName="bg-white rounded-full p-0.5 ring-1 ring-white/20 shadow-md"
                 showTagline={true}
                 taglineKey={t('nav.logoTagline')}
               />
