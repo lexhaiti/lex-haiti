@@ -140,10 +140,10 @@ export default function Header() {
             <BrandLogo
               titleClassName="text-slate-900 font-extrabold text-2xl tracking-tighter"
               taglineClassName=" text-[10px] font-bold uppercase tracking-widest mt-0.5"
-              // The new emblem (Lady Justice + palmis + circular
-              // legend) carries its own navy backdrop, so the old
-              // light-gradient card wrapper is gone — just a subtle
-              // shadow + hover-scale via the default in BrandLogo.
+              // Bump the header emblem to 48px (default is 40) so the
+              // engraved detail reads at a glance; tailwind-merge
+              // overrides the BrandLogo defaults via cn().
+              iconWrapperClassName="h-12 w-12"
               showTagline={true}
               taglineKey={t('nav.logoTagline')}
             />
