@@ -1464,12 +1464,11 @@ export default function LawDetail() {
                           } as any)
                           refetch()
                         } catch (e) {
-                          toast({
-                            description:
-                              currentLang === 'fr'
-                                ? 'Impossible de modifier le type'
-                                : 'Pa kapab chanje kalite a',
-                          })
+                          toast(
+                            currentLang === 'fr'
+                              ? 'Impossible de modifier le type'
+                              : 'Pa kapab chanje kalite a',
+                          )
                         }
                       }}
                     >

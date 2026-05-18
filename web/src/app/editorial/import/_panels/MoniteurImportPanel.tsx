@@ -816,15 +816,20 @@ function SommaireRowEditor({
             {t('editorial.import.moniteur.sommairePages')}
           </span>
           <div className="flex items-center gap-1.5">
+            {/* ``page_from`` / ``page_to`` are nullable in the OpenAPI
+                schema (the parser may emit a row without them when the
+                page band is undetectable); the editor form always
+                keeps a numeric value, so we fall back to 1 when null
+                — same default ``emptyRow`` uses for a brand-new row. */}
             <PageInput
-              value={row.page_from}
+              value={row.page_from ?? 1}
               disabled={disabled}
               onChange={(v) => onChange({ page_from: v })}
               aria-label={t('editorial.import.moniteur.sommairePageFrom')}
             />
             <span className="text-slate-300 text-xs flex-shrink-0">→</span>
             <PageInput
-              value={row.page_to}
+              value={row.page_to ?? 1}
               disabled={disabled}
               onChange={(v) => onChange({ page_to: v })}
               aria-label={t('editorial.import.moniteur.sommairePageTo')}
