@@ -73,14 +73,14 @@ export default function HeroSection() {
   return (
     <section
       className={cn(
-        // Light tool-style hero. ``min-h-screen + flex justify-center``
-        // pins the content to the visual midline of the viewport (the
-        // fixed 80px header is reserved by ``pt-20``), so the brand +
-        // tagline + search land where the eye naturally settles after
-        // the page paints — instead of clinging to the top edge.
-        // ``overflow-hidden`` clips the watermark seal that hangs off
-        // the right edge below.
-        'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center overflow-hidden',
+        // Light tool-style hero. Sized to its content (no ``min-h-screen``)
+        // so the Explorer section below comes into view sooner — the
+        // previous full-viewport reserve created a hollow stretch
+        // below the search card that read as wasted space. ``pt-20``
+        // still clears the fixed 80px header. ``overflow-hidden`` is
+        // kept because the centred watermark seal sometimes overruns
+        // the section's natural width on wide viewports.
+        'relative w-full bg-slate-50 text-slate-900 pt-20 overflow-hidden',
       )}
     >
       {/* Brand watermark — centred embossed seal behind the hero
@@ -121,7 +121,7 @@ export default function HeroSection() {
             the global header, and the surface now leads with the
             actual value proposition. */}
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.05] text-slate-950">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.05] text-primary">
             {t('home.hero.tagline')}
           </h1>
           <p className="mt-5 text-base sm:text-lg md:text-xl leading-relaxed text-slate-700">
