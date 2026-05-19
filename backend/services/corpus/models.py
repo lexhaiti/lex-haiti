@@ -55,6 +55,7 @@ from schemas.enums import (
     ImportJobStatus,
     Language,
     LegalCategory,
+    LegislationInForceStatus,
     MoniteurDocumentType,
     LegalTheme,
     MoniteurCandidateStatus,
@@ -1561,6 +1562,107 @@ class Translation(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
 
+class LegislationIndexEntry(Base):
+    """One row of a chronological index of Haitian legislation.
+
+    Distinct from ``LegalText``: the entry is a *historical reference*
+    we know about (typically from a published index — the 2001 Ministère
+    de la Justice ``Index Chronologique de la Législation Haïtienne
+    (1804–2000)`` is the seed source), not the text itself. The
+    optional ``legal_text_id`` FK is set once we have ingested the
+    underlying instrument — that's the link the editorial UI uses to
+    show "imported / not imported" on the index list and to wire a
+    public-side "see full text" jump.
+
+    Each entry also carries an editor-managed ``in_force_status``
+    (defaults to ``unknown``) so the public surface can honestly
+    distinguish "we know this is still law" from "we have a citation
+    but no confirmation yet". The latter is the dominant case for
+    pre-1990 entries.
+    """
+
+    __tablename__ = "legislation_index_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "source",
+            "display_order",
+            name="uq_legislation_index_source_order",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # Provenance: where this row was extracted from. Plain text key
+    # (``INDEX_CHRONOLOGIQUE_2001``) so we can carry future indexes
+    # (e.g. compilations by Bouzi, Justinien) under the same table.
+    source: Mapped[str] = mapped_column(
+        Text, nullable=False, default="INDEX_CHRONOLOGIQUE_2001"
+    )
+    source_page: Mapped[Optional[int]] = mapped_column(Integer)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Section breadcrumbs as printed in the source index
+    # (CHAPITRE I : DROIT PUBLIC → SECTION III : DES ACCORDS BILATÉRAUX).
+    chapter: Mapped[Optional[str]] = mapped_column(Text, index=True)
+    section: Mapped[Optional[str]] = mapped_column(Text)
+
+    # The act itself
+    description_fr: Mapped[str] = mapped_column(Text, nullable=False)
+    detected_category: Mapped[Optional[LegalCategory]] = mapped_column(
+        _enum(LegalCategory, "legal_category"),
+        index=True,
+    )
+    act_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
+    # When the date is ambiguous in the source (``1860``, ``septembre
+    # 1932``, …) the raw string survives here so editors can resolve
+    # it later without re-OCR'ing the source page.
+    act_date_raw: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Moniteur publication reference, as the index records it
+    moniteur_number: Mapped[Optional[str]] = mapped_column(Text)
+    moniteur_year: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    moniteur_date: Mapped[Optional[date]] = mapped_column(Date)
+    moniteur_date_raw: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Linked-up records (nullable until ingested)
+    legal_text_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.legal_texts.id", ondelete="SET NULL"
+        ),
+        index=True,
+    )
+    moniteur_issue_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey(
+            f"{PUBLIC_CORPUS_SCHEMA}.moniteur_issues.id", ondelete="SET NULL"
+        ),
+    )
+
+    # Editorial: in-force status. Defaults to ``unknown`` so we never
+    # imply a text is still binding without explicit editor sign-off.
+    in_force_status: Mapped["LegislationInForceStatus"] = mapped_column(
+        _enum(LegislationInForceStatus, "legislation_in_force_status"),
+        nullable=False,
+        default=LegislationInForceStatus.unknown,
+        index=True,
+    )
+    in_force_notes: Mapped[Optional[str]] = mapped_column(Text)
+    in_force_verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True)
+    )
+
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 __all__ = [
     "Base",
     "PUBLIC_CORPUS_SCHEMA",
@@ -1576,6 +1678,7 @@ __all__ = [
     "Citation",
     "EditorialAction",
     "LegalThemeTag",
+    "LegislationIndexEntry",
     "MoniteurIssue",
     "MoniteurEntry",
     "Promulgation",
