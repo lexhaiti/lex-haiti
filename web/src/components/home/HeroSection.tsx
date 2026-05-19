@@ -100,12 +100,17 @@ export default function HeroSection() {
           alt=""
           loading="eager"
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover object-right opacity-[0.35]"
+          className="absolute inset-0 w-full h-full object-cover object-right opacity-[0.30]"
         />
-        {/* Left-edge fade — keeps the content column on clean
-            slate-50. ``via`` stop pinned at ~55% so the fade clears
-            the full left half of the hero. */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-50 from-15% via-slate-50/80 via-55% to-transparent" />
+        {/* Left → centre fade keeps the H1 / description / trust
+            line on a clean slate-50 wash. ``via`` stop pushed to
+            ~65 % and bumped to /90 opacity so the coat-of-arms
+            metalwork on the right half doesn't bleed through into
+            the headline area (AA contrast was fine before but the
+            texture made the navy look soft). The image stays fully
+            visible past ~75 % of the width — search card + pills
+            sit on top of it. */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-50 from-20% via-slate-50/90 via-65% to-transparent" />
         {/* Bottom fade — protects the popular pills + footer trust
             line so they don't sit on a busy image area. */}
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-50 to-transparent" />
