@@ -428,3 +428,23 @@ class ExtractionMethod(str, Enum):
     regex = "regex"
     llm = "llm"
     manual = "manual"
+
+
+class LegislationInForceStatus(str, Enum):
+    """Editorial assessment of a chronological-index entry's standing.
+
+    Separate from ``LegalStatus`` (which describes the whole text we've
+    already ingested) because the index holds *historical references*
+    whose current status often can't be verified without consulting
+    physical archives. ``unknown`` is the default — it means "this
+    entry was carried over from the source index but we haven't
+    confirmed whether it is still law" — and must be surfaced verbatim
+    to public users so they don't mistake "we haven't checked" for
+    "still binding".
+    """
+
+    unknown = "unknown"  # default; not yet researched
+    in_force = "in_force"
+    abrogated = "abrogated"  # explicitly repealed
+    superseded = "superseded"  # silently replaced by a later text
+    modified = "modified"  # amended but still substantially in force

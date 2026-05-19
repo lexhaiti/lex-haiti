@@ -121,6 +121,20 @@ _ARTICLE_HEADING_RE = re.compile(
     [\s ]+                        # at least one space
     (                              # -- number, captured --
         [Pp]remier(?:[\.\-]\d+)?   # "Article premier", "Article premier-1"
+      | [IVXLCDM]{1,8}             # Roman numerals — anchored to known
+                                   # Roman characters only. ``Article I``,
+                                   # ``Article Ier``, ``Article II``,
+                                   # ``Article IVème``. Used by older
+                                   # Haitian instruments and by
+                                   # Concordat-style international acts.
+        (?:er|ère|e|re|ème)?       # optional ordinal suffix on the Roman
+                                   # form (1er and friends; ère/re carry
+                                   # the feminine, ème the post-1990 form)
+        (?=[\s\.\-—–:]|$)          # require a separator after the Roman
+                                   # block so ``Article IRE …`` does NOT
+                                   # parse as Roman ``IRE`` + tail; lets
+                                   # ``Article I.-`` and ``Article Ier.``
+                                   # through cleanly
       | \d+                        # core integer
         (?:[\.\-]\d+)?             # optional first dot/dash suffix
         (?:\s*(?:bis|ter|quater|quinquies|sexies|septies|octies|nonies|decies))?

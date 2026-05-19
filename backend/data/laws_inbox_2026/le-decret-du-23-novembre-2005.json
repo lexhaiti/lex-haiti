@@ -1,0 +1,102 @@
+{
+  "source_filename": "287784178-Le-Decret-du-23-Novembre-2005.pdf",
+  "extracted_chars": 4086,
+  "extracted_pages": 4,
+  "status": "ingested",
+  "doc_type": "arrete",
+  "filename_note": "Source filename is misleading — this is an ARRÊTÉ (not décret), du 23 novembre 2005, on privileges for former heads of state.",
+  "official_title_fr": "Arrêté accordant aux anciens Chefs d'État et de Gouvernement les privilèges qui y sont énumérés",
+  "official_title_ht": null,
+  "title_fr": "Arrêté du 23 novembre 2005 accordant des privilèges aux anciens chefs d'État et de Gouvernement",
+  "act_date": "2005-11-23",
+  "publication_date": "2006-01-19",
+  "moniteur": {
+    "number": "6",
+    "year": 2006,
+    "date": "2006-01-19"
+  },
+  "issuing_authority": "PRÉSIDENT PROVISOIRE DE LA RÉPUBLIQUE",
+  "preamble_fr": "Me. BONIFACE ALEXANDRE, PRÉSIDENT PROVISOIRE DE LA RÉPUBLIQUE",
+  "visas": [
+    "les Articles 22, 35, 48, 136, 144 et 220 de la Constitution",
+    "l'entente intervenue entre la Communauté Internationale, les Organisations de la Société Civile et les Partis Politiques portant création de la Commission Tripartite et du Conseil des Sages",
+    "le Consensus de Transition Politique adopté le 4 avril 2004",
+    "le Décret du 6 octobre 2004 sur la Pension Civile de Retraite"
+  ],
+  "considerants": [
+    "qu'il y a lieu de dispenser les anciens Chefs de l'État et de Gouvernement des formalités en vue de l'obtention de la liquidation de leur pension de retraite",
+    "qu'il y a lieu de formaliser la pratique des privilèges accordés depuis l'année 1996 aux anciens Chefs de l'État et de Gouvernement"
+  ],
+  "official_formula": "Sur le rapport du Ministre de l'Économie et des Finances ; Et après délibération en Conseil des Ministres",
+  "enacting_formula_fr": "ARRÊTE",
+  "signers": [
+    {
+      "name": "Me. Boniface Alexandre",
+      "function_fr": "Président Provisoire de la République"
+    },
+    {
+      "name": "Henri Marge Dorléans",
+      "function_fr": "Ministre de la Justice et de la Sécurité Publique"
+    },
+    {
+      "name": "Roland Pierre",
+      "function_fr": "Ministre de l'Intérieur et des Collectivités Territoriales"
+    },
+    {
+      "name": "Philippe Mathieu",
+      "function_fr": "Ministre de l'Économie et des Finances"
+    },
+    {
+      "name": "Jacques Fritz Kenol",
+      "function_fr": "Ministre du Plan et de la Coopération Externe"
+    },
+    {
+      "name": "Fritz Adrien",
+      "function_fr": "Ministre des Travaux Publics, Transports et Communications"
+    },
+    {
+      "name": "Pierre Buteau",
+      "function_fr": "Ministre de l'Éducation Nationale, de la Jeunesse, des Sports et de l'Éducation Civique"
+    },
+    {
+      "name": "Magali Comeau Denis",
+      "function_fr": "Ministre de la Communication et de la Culture"
+    },
+    {
+      "name": "Josette Bijou",
+      "function_fr": "Ministre de la Santé Publique et de la Population"
+    },
+    {
+      "name": "Adeline Magloire Chancy",
+      "function_fr": "Ministre à la Condition Féminine"
+    },
+    {
+      "name": "Alix Baptiste",
+      "function_fr": "Ministre des Haïtiens Vivant à l'Étranger"
+    }
+  ],
+  "articles": [
+    {
+      "number": "1",
+      "text_fr": "La liquidation de la Pension Civile de Retraite s'opère automatiquement pour tout ancien chef de l'État et de Gouvernement conformément au Décret du 6 octobre 2004 sur la Pension Civile de Retraite le mois qui suit celui de la passation des pouvoirs."
+    },
+    {
+      "number": "2",
+      "text_fr": "Tout ancien chef de l'État et de Gouvernement dispose de : un Secrétariat ; un Service de Sécurité Rapprochée ; les moyens de transports adéquats.\n\nLes frais de fonctionnement du Secrétariat et du Service de Sécurité Rapprochée ainsi que les dépenses d'entretien des véhicules mis à la disposition de l'ancien chef de l'État ou de Gouvernement sont à la charge de l'État."
+    },
+    {
+      "number": "3",
+      "text_fr": "Les privilèges mentionnés à l'article 2 du présent Arrêté s'étendent sur une période de cinq (5) ans consécutifs à la fin du mandat.\n\nEn ce qui se rapporte aux anciens chefs de Gouvernement, la période s'étend sur deux (2) ans."
+    },
+    {
+      "number": "4",
+      "text_fr": "Le présent Arrêté sera publié et exécuté à la diligence du Ministre de l'Économie et des Finances.\n\nDonné au Palais National à Port-au-Prince, le 23 novembre 2005, An 202ème de l'Indépendance."
+    }
+  ],
+  "themes": [
+    "droit_administratif"
+  ],
+  "notes": "Normalized 2026-05-19 by Claude. OCR damage in source (e.g. 'Jallvier' instead of 'Janvier'); minister names cross-checked against the 2005-2006 government composition.",
+  "legal_text_id": 174,
+  "ingested_at": "2026-05-19T17:37:10.727166"
+}

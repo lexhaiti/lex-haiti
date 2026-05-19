@@ -71,6 +71,7 @@ const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, stri
   constitution:   { fr: ['Constitution', 'Constitutions'],     ht: ['Konstitisyon', 'Konstitisyon yo'] },
   code:           { fr: ['Code', 'Codes'],                     ht: ['Kòd', 'Kòd yo'] },
   loi:            { fr: ['Loi', 'Lois'],                       ht: ['Lwa', 'Lwa yo'] },
+  loi_constitutionnelle: { fr: ['Loi constitutionnelle', 'Lois constitutionnelles'], ht: ['Lwa konstitisyonèl', 'Lwa konstitisyonèl yo'] },
   decret:         { fr: ['Décret', 'Décrets'],                 ht: ['Dekrè', 'Dekrè yo'] },
   arrete:         { fr: ['Arrêté', 'Arrêtés'],                 ht: ['Arete', 'Arete yo'] },
   circulaire:     { fr: ['Circulaire', 'Circulaires'],         ht: ['Sikilè', 'Sikilè yo'] },
@@ -81,6 +82,8 @@ const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, stri
   promulgation:   { fr: ['Promulgation', 'Promulgations'],     ht: ['Pwomilgasyon', 'Pwomilgasyon yo'] },
   // "Errata" is invariable in both languages.
   errata:         { fr: ['Errata', 'Errata'],                  ht: ['Errata', 'Errata'] },
+  // Deliberation of a constituted body — CPT, Assemblée, Sénat.
+  resolution:     { fr: ['Résolution', 'Résolutions'],         ht: ['Rezolisyon', 'Rezolisyon yo'] },
   // Editorial annotation attached to a sommaire row (translator note,
   // transcription gap, deviation from the printed source).
   note:           { fr: ['Note', 'Notes'],                     ht: ['Nòt', 'Nòt yo'] },
@@ -125,6 +128,16 @@ const CATEGORY_META: Record<
     badge: 'bg-blue-50 text-blue-800 border-blue-200',
     bar: 'bg-blue-500',
     icon: 'text-blue-600',
+  },
+  // Added in migration 0029 — a ``loi`` that amends the Constitution.
+  // Keeps the blue palette (loi family) but a deeper indigo accent so
+  // the constitutional flavour reads at a glance.
+  loi_constitutionnelle: {
+    label: 'Loi constitutionnelle',
+    plural: 'Lois constitutionnelles',
+    badge: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+    bar: 'bg-indigo-600',
+    icon: 'text-indigo-700',
   },
   decret: {
     label: 'Décret',
@@ -200,6 +213,16 @@ const CATEGORY_META: Record<
     bar: 'bg-sky-500',
     icon: 'text-sky-600',
   },
+  // Added in migration 0026. Deliberation of a constituted body
+  // (CPT, Assemblée nationale, Sénat) — distinct from a regulatory
+  // act. Violet so it stands apart from the regulatory family.
+  resolution: {
+    label: 'Résolution',
+    plural: 'Résolutions',
+    badge: 'bg-violet-50 text-violet-800 border-violet-200',
+    bar: 'bg-violet-500',
+    icon: 'text-violet-600',
+  },
   autre: {
     label: 'Autre',
     plural: 'Autres',
@@ -233,7 +256,7 @@ function SommaireCard({
   const isPromulgation = candidate.detected_category === 'promulgation'
   const hasRawText = !!candidate.raw_text && !isPromoted
   const meta = candidate.detected_category
-    ? CATEGORY_META[candidate.detected_category]
+    ? CATEGORY_META[candidate.detected_category] ?? CATEGORY_META.autre
     : null
   // Localised category label (e.g. "Promulgation" / "Pwomilgasyon",
   // "Constitution" / "Konstitisyon") — sits on top of the same colour
@@ -457,7 +480,7 @@ function CompanionRow({
   const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   const hasRawText = !!candidate.raw_text
   const meta = candidate.detected_category
-    ? CATEGORY_META[candidate.detected_category]
+    ? CATEGORY_META[candidate.detected_category] ?? CATEGORY_META.autre
     : null
   // Fallback to the raw category code if our label table doesn't carry
   // it — better than a blank chip. ``autre`` and any future enum value
@@ -914,7 +937,10 @@ export default function MoniteurDetailClient() {
               Composition
             </span>
             {sortedCategoryEntries.map(([cat, n]) => {
-              const meta = CATEGORY_META[cat]
+              // Fall back to ``autre`` so a future enum addition can't
+              // crash this client component before the corresponding
+              // palette is wired up.
+              const meta = CATEGORY_META[cat] ?? CATEGORY_META.autre
               const word = categoryLabel(cat, lang, { plural: n !== 1 })
               return (
                 <span

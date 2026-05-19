@@ -1,0 +1,130 @@
+{
+  "source_filename": "Arrete-liberant-les-membres-du-Conseil-Electoral-Provisoire-de-leurs-liens-avec-l-Administration-Publique.pdf",
+  "extracted_chars": 4186,
+  "extracted_pages": 4,
+  "status": "ingested",
+  "doc_type": "arrete",
+  "official_title_fr": "Arrêté libérant les membres du Conseil Électoral Provisoire de leurs liens avec l'Administration Publique",
+  "official_title_ht": null,
+  "title_fr": "Arrêté du 27 septembre 2021 libérant les membres du Conseil Électoral Provisoire de leurs liens avec l'Administration Publique",
+  "act_date": "2021-09-27",
+  "publication_date": "2021-09-27",
+  "moniteur": {
+    "number": "Spécial 47",
+    "year": 2021,
+    "date": "2021-09-27"
+  },
+  "issuing_authority": "PREMIER MINISTRE",
+  "preamble_fr": "ARIEL HENRY, PREMIER MINISTRE",
+  "visas": [
+    "la Constitution",
+    "l'Accord politique pour une Gouvernance apaisée et efficace de la Période intérimaire des 10, 11, 12, 13 et 14 septembre 2021 publié dans le Journal Officiel de la République « Le Moniteur » en date du 17 septembre 2021",
+    "le Décret Electoral du 3 juillet 2021",
+    "le Décret du 17 mai 2005 portant organisation de l'Administration centrale de l'État",
+    "le Décret du 17 mai 2005 portant révision du Statut général de la Fonction publique",
+    "l'Arrêté du 5 juillet 2021 nommant le Premier Ministre",
+    "l'Arrêté du 19 juillet 2021 nommant les membres du Cabinet Ministériel",
+    "l'Arrêté du 18 septembre 2020 nommant les membres du Conseil Électoral Provisoire et fixant son mandat"
+  ],
+  "considerants": [
+    "qu'il convient de créer, selon l'article 14 de l'Accord politique sus-visé, un nouvel Organe électoral",
+    "qu'il convient de libérer les membres du Conseil Électoral Provisoire de leurs liens avec l'Administration publique",
+    "qu'il y a lieu, à cet effet, de rapporter l'Arrêté du 18 septembre 2020 sus-visé nommant les membres du Conseil Électoral Provisoire et fixant son mandat"
+  ],
+  "official_formula": "Sur le rapport du Ministre a.i. de la Justice et de la Sécurité Publique ; Et après délibération en Conseil des Ministres",
+  "enacting_formula_fr": "ARRÊTE",
+  "signers": [
+    {
+      "name": "Ariel Henry",
+      "function_fr": "Premier Ministre"
+    },
+    {
+      "name": "Ariel Henry",
+      "function_fr": "Ministre des Affaires Sociales et du Travail"
+    },
+    {
+      "name": "Claude Joseph",
+      "function_fr": "Ministre des Affaires Étrangères et des Cultes"
+    },
+    {
+      "name": "Simon Dieuseul Desras",
+      "function_fr": "Ministre de la Planification et de la Coopération Externe"
+    },
+    {
+      "name": "Michel Patrick Boisvert",
+      "function_fr": "Ministre de l'Économie et des Finances"
+    },
+    {
+      "name": "Charlot Bredy",
+      "function_fr": "Ministre de l'Agriculture, des Ressources Naturelles et du Développement Rural"
+    },
+    {
+      "name": "Wilson Edouard",
+      "function_fr": "Ministre des Travaux Publics, Transports et Communications"
+    },
+    {
+      "name": "Ricardin Saint-Jean",
+      "function_fr": "Ministre du Commerce et de l'Industrie"
+    },
+    {
+      "name": "James Cadet",
+      "function_fr": "Ministre de l'Environnement"
+    },
+    {
+      "name": "Luz Kurta Cassandra François",
+      "function_fr": "Ministre du Tourisme"
+    },
+    {
+      "name": "Liszt Quitel",
+      "function_fr": "Ministre a.i. de la Justice et de la Sécurité Publique"
+    },
+    {
+      "name": "Judith Nazareth Auguste",
+      "function_fr": "Ministre des Haïtiens Vivant à l'Étranger"
+    },
+    {
+      "name": "Liszt Quitel",
+      "function_fr": "Ministre de l'Intérieur et des Collectivités Territoriales"
+    },
+    {
+      "name": "Marie Lucie Joseph",
+      "function_fr": "Ministre de l'Éducation Nationale et de la Formation Professionnelle"
+    },
+    {
+      "name": "Marie Gréta Roy Clément",
+      "function_fr": "Ministre de la Santé Publique et de la Population"
+    },
+    {
+      "name": "Sofia Loreus",
+      "function_fr": "Ministre à la Condition Féminine et aux Droits des Femmes"
+    },
+    {
+      "name": "Petricks Justin",
+      "function_fr": "Ministre de la Jeunesse, des Sports et de l'Action Civique"
+    },
+    {
+      "name": "Jean Emmanuel Jacquet",
+      "function_fr": "Ministre de la Culture et de la Communication"
+    },
+    {
+      "name": "Enold Joseph",
+      "function_fr": "Ministre de la Défense"
+    }
+  ],
+  "articles": [
+    {
+      "number": "1",
+      "text_fr": "Est et demeure rapporté l'Arrêté du 18 septembre 2020 nommant les membres du Conseil Électoral Provisoire."
+    },
+    {
+      "number": "2",
+      "text_fr": "Le présent Arrêté abroge tous Arrêtés ou dispositions d'Arrêtés qui lui sont contraires et sera imprimé, publié et exécuté à la diligence du Ministre a.i. de la Justice et de la Sécurité Publique.\n\nDonné à la Primature, à Port-au-Prince, le 27 septembre 2021, An 218ème de l'Indépendance."
+    }
+  ],
+  "themes": [
+    "droit_administratif"
+  ],
+  "notes": "Normalized 2026-05-19 by Claude. Source filename matches the official title. Moniteur Spécial No 47 of 27 September 2021.",
+  "legal_text_id": 175,
+  "ingested_at": "2026-05-19T17:39:39.971598"
+}

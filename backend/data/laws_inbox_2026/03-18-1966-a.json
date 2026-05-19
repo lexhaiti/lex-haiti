@@ -1,0 +1,24 @@
+{
+  "source_filename": "03-18-1966-A.pdf",
+  "extracted_chars": 10043,
+  "extracted_pages": 2,
+  "status": "pending_normalisation",
+  "doc_type": null,
+  "official_title_fr": null,
+  "official_title_ht": null,
+  "act_date": null,
+  "publication_date": null,
+  "moniteur": {
+    "number": null,
+    "year": null,
+    "date": null
+  },
+  "preamble_fr": null,
+  "visas": [],
+  "considerants": [],
+  "enacting_formula_fr": null,
+  "signers": [],
+  "articles": [],
+  "themes": [],
+  "notes": "Fill in the fields above by reading the .txt next to this JSON. Flip status to 'ready_for_ingest' when done."
+}
