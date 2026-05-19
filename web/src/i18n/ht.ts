@@ -174,7 +174,8 @@ export const ht = {
   },
   home: {
     hero: {
-      title: 'Pòtal jiridik Repiblik Ayiti',
+      title: 'LexHaïti',
+      tagline: 'Dwa ayisyen an, an aksè lib.',
       description:
         'Byenveni sou LexHaïti, bibliyotèk nimerik lejislasyon ayisyèn nan. Pòtal la rasanble tèks esansyèl yo nan dwa nasyonal la : Konstitisyon, kòd, lwa, dekrè, arete, òdonans ak kominike. Yo tout soti nan sous piblik verifye.',
       findLabel: 'Jwenn yon tèks',

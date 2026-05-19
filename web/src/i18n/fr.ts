@@ -175,7 +175,8 @@ export const fr = {
     // The legacy `hero` shape (badge / titleTop / titleAccent / subtitle)
     // was vestigial from an earlier design and has been retired.
     hero: {
-      title: "Portail juridique de la République d'Haïti",
+      title: 'LexHaïti',
+      tagline: 'Le droit haïtien, en accès libre.',
       description:
         "Bienvenue sur LexHaïti, la bibliothèque numérique de la législation haïtienne. Le portail regroupe les textes essentiels du droit national : Constitution, codes, lois, décrets, arrêtés, ordonnances et communiqués. Tous proviennent de sources publiques vérifiées.",
       findLabel: 'Trouver un texte',

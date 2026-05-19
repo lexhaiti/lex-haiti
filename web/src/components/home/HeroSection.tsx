@@ -126,9 +126,23 @@ export default function HeroSection() {
             Publicitas iuris fundamentum libertatis.
           </p>
 
-          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-3xl sm:text-4xl md:text-5xl xl:text-[3.25rem] font-extrabold tracking-tight leading-[1.05] text-white">
+          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-4xl sm:text-5xl md:text-6xl xl:text-[3.75rem] font-extrabold tracking-tight leading-[1.05] text-white">
+            {/* The brand name is now the H1 — the descriptive
+                "Portail juridique de la République d'Haïti" wording
+                we used before was institutional-sounding and risked
+                implying an official mandate LexHaïti doesn't yet hold.
+                Brand name + a short mission tagline below carries the
+                same weight without the legal-status ambiguity. */}
             {t('home.hero.title')}
           </h1>
+
+          {/* Mission tagline: "Le droit haïtien, en accès libre." —
+              short, memorable, and ties the brand to its promise
+              without claiming a status (``service public``,
+              ``portail officiel``) we can't legally back. */}
+          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both mt-3 text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-white/85 leading-tight">
+            {t('home.hero.tagline')}
+          </p>
 
           {/* Amber accent — picks up the warm bronze of the palmis relief. */}
           <motion.div
