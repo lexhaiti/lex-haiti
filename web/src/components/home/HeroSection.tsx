@@ -94,12 +94,14 @@ export default function HeroSection() {
   return (
     <section
       className={cn(
-        // Light tool-style hero — the previous immersive navy + palm
-        // image worked as a "welcome to LexHaïti" billboard but didn't
-        // serve the actual primary task (find a text). This rebuild
-        // mirrors Légifrance / Westlaw conventions: clean light
-        // surface, search-first, ranked secondary affordances.
-        'relative w-full bg-slate-50 text-slate-900 pt-20',
+        // Light tool-style hero. ``min-h-screen + flex justify-center``
+        // pins the content to the visual midline of the viewport (the
+        // fixed 80px header is reserved by ``pt-20``), so the brand +
+        // tagline + search land where the eye naturally settles after
+        // the page paints — instead of clinging to the top edge.
+        // Section still grows past 100vh when the content (popular
+        // row, trust line) is taller than the viewport.
+        'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center',
       )}
     >
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
@@ -116,13 +118,13 @@ export default function HeroSection() {
                    (smaller, lighter weight)
               p  → welcome paragraph (description, capped width) */}
         <div className="py-10 sm:py-14 text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.1em] text-slate-900">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.1em] text-slate-950">
             Lex<span className="text-red-600">Haïti</span>
           </h1>
-          <p className="mt-5 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight leading-tight text-slate-700">
+          <p className="mt-5 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight leading-tight text-slate-800">
             {t('home.hero.tagline')}
           </p>
-          <p className="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto">
+          <p className="mt-6 text-base sm:text-lg text-slate-700 leading-relaxed max-w-3xl mx-auto">
             {t('home.hero.description')}
           </p>
         </div>
