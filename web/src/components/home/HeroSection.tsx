@@ -83,22 +83,22 @@ export default function HeroSection() {
         'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center overflow-hidden',
       )}
     >
-      {/* Brand watermark — top-right, half off-canvas, ~5% opacity.
-          Reads as the embossed seal on an official document rather
-          than a decorative image: the circular emblem (Lady Justice
-          + palmis + gold ring) ties the surface back to the brand
-          without competing with the search-first content. Hidden
-          below md: on mobile the 600px seal would crowd the 375px
-          viewport and trade institutional polish for visual noise. */}
+      {/* Brand watermark — centred behind the hero content at ~5%
+          opacity. The circular emblem (Lady Justice + palmis + gold
+          ring) sits as an embossed seal directly under the H1 +
+          search stack, the way an official document carries its
+          institutional seal centred on the page. Hidden below md:
+          on mobile a 600px seal in a 375px viewport would crowd the
+          search + trust line instead of accenting them. */}
       <div
-        className="hidden md:block absolute -top-24 -right-32 w-[600px] h-[600px] opacity-[0.05] pointer-events-none select-none z-0"
+        className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none select-none z-0"
         aria-hidden
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/lexhaiti-logo-384.webp"
           alt=""
-          className="w-full h-full object-contain"
+          className="w-[600px] h-[600px] opacity-[0.05] object-contain"
           loading="eager"
           decoding="async"
         />
