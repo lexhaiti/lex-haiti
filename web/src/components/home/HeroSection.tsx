@@ -76,10 +76,42 @@ export default function HeroSection() {
         // Light tool-style hero. Sized to its content (no
         // ``min-h-screen``) so the Explorer section below comes into
         // view sooner. ``pt-20`` clears the fixed 80px header.
-        'relative w-full bg-slate-50 text-slate-900 pt-20',
+        // ``overflow-hidden`` keeps the bg image from leaking out
+        // when the page is narrower than the image's natural width.
+        'relative w-full bg-slate-50 text-slate-900 pt-20 overflow-hidden',
       )}
     >
-      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      {/* Lady-Justice backdrop — the original ``hero.png`` photo
+          (books + palm watermark + Lady Justice statue) anchored to
+          the right edge so the books on the left half drop out of
+          view; the Lady Justice silhouette + the palm watermark sit
+          softly behind the search column. A strong left-to-right
+          slate-50 gradient mask fades the image into the page surface
+          so the H1 / description / trust line on the left stay
+          crisply readable. Hidden on mobile (img would sit underneath
+          the search column where the text is). */}
+      <div
+        className="hidden md:block absolute inset-0 pointer-events-none select-none overflow-hidden z-0"
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero-bg.webp"
+          alt=""
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-right opacity-[0.22]"
+        />
+        {/* Left-edge fade — keeps the content column on clean
+            slate-50. ``via`` stop pinned at ~55% so the fade clears
+            the full left half of the hero. */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-50 from-15% via-slate-50/80 via-55% to-transparent" />
+        {/* Bottom fade — protects the popular pills + footer trust
+            line so they don't sit on a busy image area. */}
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-50 to-transparent" />
+      </div>
+
+      <div className="relative z-10 container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* 1) H1 + short intro paragraph. The previous monumental
             ``LexHaïti`` wordmark is gone — the brand already lives in
             the global header, and the surface now leads with the
