@@ -78,12 +78,33 @@ export default function HeroSection() {
         // fixed 80px header is reserved by ``pt-20``), so the brand +
         // tagline + search land where the eye naturally settles after
         // the page paints — instead of clinging to the top edge.
-        // Section still grows past 100vh when the content (popular
-        // row, trust line) is taller than the viewport.
-        'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center',
+        // ``overflow-hidden`` clips the watermark seal that hangs off
+        // the right edge below.
+        'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center overflow-hidden',
       )}
     >
-      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      {/* Brand watermark — top-right, half off-canvas, ~5% opacity.
+          Reads as the embossed seal on an official document rather
+          than a decorative image: the circular emblem (Lady Justice
+          + palmis + gold ring) ties the surface back to the brand
+          without competing with the search-first content. Hidden
+          below md: on mobile the 600px seal would crowd the 375px
+          viewport and trade institutional polish for visual noise. */}
+      <div
+        className="hidden md:block absolute -top-24 -right-32 w-[600px] h-[600px] opacity-[0.05] pointer-events-none select-none z-0"
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lexhaiti-logo-384.webp"
+          alt=""
+          className="w-full h-full object-contain"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+
+      <div className="relative z-10 container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* 1) H1 + short intro paragraph. The previous monumental
             ``LexHaïti`` wordmark is gone — the brand already lives in
             the global header, and the surface now leads with the

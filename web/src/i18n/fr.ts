@@ -178,7 +178,7 @@ export const fr = {
       title: 'LexHaïti',
       tagline: 'Le droit haïtien, en accès libre.',
       description:
-        'Votre bibliothèque numérique de la législation haïtienne. Cherchez parmi la Constitution, les codes, lois, et communiqués issus de sources publiques vérifiées.',
+        'Bienvenue sur LexHaiti, votre bibliothèque numérique de la législation haïtienne. Cherchez parmi la Constitution, les codes, lois, et communiqués issus de sources publiques vérifiées.',
       findLabel: 'Trouver un texte',
       placeholder: 'Ex. : Article 1382, Code Civil, CL-007-09-09',
       searchButton: 'Rechercher',
