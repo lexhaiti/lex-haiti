@@ -177,7 +177,7 @@ export const ht = {
       title: 'LexHaïti',
       tagline: 'Dwa ayisyen an, an aksè lib.',
       description:
-        'Byenveni sou LexHaïti, bibliyotèk nimerik lejislasyon ayisyèn nan. Pòtal la rasanble tèks esansyèl yo nan dwa nasyonal la : Konstitisyon, kòd, lwa, dekrè, arete, òdonans ak kominike. Yo tout soti nan sous piblik verifye.',
+        'Bibliyotèk nimerik ou pou lejislasyon ayisyèn nan. Chèche pami Konstitisyon, kòd, lwa, ak kominike ki soti nan sous piblik verifye.',
       findLabel: 'Jwenn yon tèks',
       placeholder: 'Egz. : Atik 1382, Kòd Sivil, CL-007-09-09',
       searchButton: 'Chèche',

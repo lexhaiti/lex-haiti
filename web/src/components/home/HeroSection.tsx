@@ -5,45 +5,24 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
   ArrowRight,
+  BadgeCheck,
   BookOpen,
   BookMarked,
   Briefcase,
   Gavel,
-  Landmark,
   Newspaper,
   Search,
   SlidersHorizontal,
+  Unlock,
 } from 'lucide-react'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
-// Quick-pick examples sit next to the search input (small chips) and
-// also as the prominent ``POPULAIRES`` row below the search card (big
-// cards with icons). They mix copy + routing data so they don't
-// belong in the i18n catalogue.
-
-type Chip = { label: string; q?: string; href?: string }
-
-const CHIPS: Record<'fr' | 'ht', Chip[]> = {
-  fr: [
-    { label: 'Article 1382', q: 'Article 1382' },
-    { label: 'Constitution 1987', q: 'Constitution 1987' },
-    { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
-    { label: 'Le Moniteur', href: '/moniteur' },
-    { label: 'Code Pénal', q: 'Code Pénal' },
-  ],
-  ht: [
-    { label: 'Atik 1382', q: 'Article 1382' },
-    { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
-    { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
-    { label: 'Le Moniteur', href: '/moniteur' },
-    { label: 'Kòd Penal', q: 'Code Pénal' },
-  ],
-}
-
-// Big quick-access cards under the search card. Icon is paired by
-// type — Constitution gets the book, codes the gavel, themes the
-// briefcase, Moniteur the newspaper.
+// Popular quick-access pills under the search bar. Icon is paired
+// by type — Constitution gets the book, codes the gavel, themes the
+// briefcase, Moniteur the newspaper. (The narrow chip row that used
+// to live inside the search card was removed per UX brief — pulling
+// double duty with the POPULAIRES row below was visual noise.)
 type PopularCard = {
   label: string
   href?: string
@@ -104,35 +83,51 @@ export default function HeroSection() {
         'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center',
       )}
     >
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        {/* 1) Hero header — three stacked beats on the bare slate-50
-            surface, no card chrome. Removing the slate-tinted ring
-            lets the typography itself do the work: the brand sits
-            visually on the page surface instead of inside a panel,
-            which suits the inscription-style treatment we settled on
-            for the wordmark.
-            Hierarchy:
-              h1 → carved-inscription ``LexHaïti`` (wide tracking,
-                   two-tone, the dominant element)
-              p  → tagline ``Le droit haïtien, en accès libre.``
-                   (smaller, lighter weight)
-              p  → welcome paragraph (description, capped width) */}
-        <div className="py-10 sm:py-14 text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.1em] text-slate-950">
-            Lex<span className="text-red-600">Haïti</span>
-          </h1>
-          <p className="mt-5 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight leading-tight text-slate-800">
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+        {/* 1) H1 + short intro paragraph. The previous monumental
+            ``LexHaïti`` wordmark is gone — the brand already lives in
+            the global header, and the surface now leads with the
+            actual value proposition. */}
+        <div className="text-center max-w-3xl mx-auto">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.05] text-slate-950">
             {t('home.hero.tagline')}
-          </p>
-          <p className="mt-6 text-base sm:text-lg text-slate-700 leading-relaxed max-w-3xl mx-auto">
+          </h1>
+          <p className="mt-5 text-base sm:text-lg md:text-xl leading-relaxed text-slate-700">
             {t('home.hero.description')}
           </p>
         </div>
 
-        {/* 3) Search card — white surface, generous shadow. The
-            primary action of the whole page. Pill-shaped input + dark
-            navy CTA mirror the mockup. */}
-        <div className="mt-6 rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)] ring-1 ring-slate-100 px-5 sm:px-8 py-6 sm:py-7">
+        {/* 2) Trust line — sits right under the intro paragraph and
+            ABOVE the search card. Two halves separated by a soft
+            divider; small SVG icons (BadgeCheck for provenance,
+            Unlock for posture) give each half a glyph. Reads as the
+            project's quality cue before the user even types. */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs sm:text-sm text-slate-500">
+          <span className="inline-flex items-center gap-2">
+            <BadgeCheck
+              className="w-4 h-4 text-emerald-600 flex-shrink-0"
+              aria-hidden
+            />
+            {t('home.hero.trustSources')}
+          </span>
+          <span className="hidden sm:inline text-slate-300" aria-hidden>
+            |
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Unlock
+              className="w-4 h-4 text-primary flex-shrink-0"
+              aria-hidden
+            />
+            {t('home.hero.trustAccess')}
+          </span>
+        </div>
+
+        {/* 3) Search bar — the primary action.
+            Softer + wider shadow (``shadow-[0_24px_60px_-20px_…]``)
+            so the card lifts off the slate-50 surface but doesn't
+            shout. No chip row inside any more; the POPULAIRES row
+            below takes that role. */}
+        <div className="mt-8 sm:mt-10 rounded-2xl bg-white ring-1 ring-slate-100 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.18)] px-4 sm:px-6 py-4 sm:py-5">
           <label htmlFor="hero-search" className="sr-only">
             {t('home.hero.findLabel')}
           </label>
@@ -141,7 +136,10 @@ export default function HeroSection() {
             className="flex flex-col sm:flex-row items-stretch gap-3"
           >
             <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <Search
+                className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none"
+                aria-hidden
+              />
               <input
                 id="hero-search"
                 type="search"
@@ -156,6 +154,8 @@ export default function HeroSection() {
                   'text-base text-slate-900 outline-none',
                   'focus:ring-2 focus:ring-primary/40 focus:bg-white transition',
                 )}
+                // 16px keeps iOS Safari from zooming the viewport on
+                // input focus — anything below triggers the auto-zoom.
                 style={{ fontSize: '16px' }}
               />
             </div>
@@ -168,114 +168,71 @@ export default function HeroSection() {
                 'hover:bg-primary/90 active:scale-[0.99] transition-all',
               )}
             >
-              <ArrowRight className="w-4 h-4" />
               {t('home.hero.searchButton')}
+              <ArrowRight className="w-4 h-4" aria-hidden />
             </button>
           </form>
-
-          {/* Compact chip row below the input — small visual cues
-              for common queries; clicking shoots straight to results. */}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 mr-1">
-              {t('home.hero.quickExamples')}
-            </span>
-            {CHIPS[lang].map((c) => {
-              const cls =
-                'inline-flex items-center rounded-full bg-slate-50 ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:ring-slate-300 transition-colors'
-              if ('href' in c && c.href) {
-                return (
-                  <Link key={c.label} href={c.href} className={cls}>
-                    {c.label}
-                  </Link>
-                )
-              }
-              if ('q' in c && c.q) {
-                return (
-                  <button
-                    key={c.label}
-                    type="button"
-                    onClick={() => goSearch(c.q!)}
-                    className={cls}
-                  >
-                    {c.label}
-                  </button>
-                )
-              }
-              return null
-            })}
-          </div>
         </div>
 
-        {/* 4) POPULAIRES — big icon-cards for the four canonical
-            entry points. White, soft shadow, amber icon glyph. */}
-        <div className="mt-10">
-          <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">
-            {t('home.hero.suggestionsLabel')}
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {POPULAR[lang].map((p) => {
-              const inner = (
-                <span className="inline-flex items-center gap-2.5">
-                  <p.Icon className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  <span className="text-sm font-semibold text-slate-800">
-                    {p.label}
-                  </span>
-                </span>
-              )
-              const cls = cn(
-                // Always-centred icon + label inside each pill; the
-                // previous ``sm:justify-start`` made the cards feel
-                // left-loaded on desktop, breaking visual rhythm with
-                // the centred headline card above.
-                'flex items-center justify-center',
-                'rounded-full bg-white ring-1 ring-slate-200 px-4 py-3',
-                'shadow-[0_2px_6px_-2px_rgba(15,23,42,0.08)]',
-                'hover:ring-slate-300 hover:shadow-[0_4px_12px_-4px_rgba(15,23,42,0.12)] transition-all',
-              )
-              if (p.href) {
-                return (
-                  <Link key={p.label} href={p.href} className={cls}>
-                    {inner}
-                  </Link>
-                )
-              }
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => goSearch(p.q!)}
-                  className={cls}
-                >
-                  {inner}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 5) Bottom row — advanced search on the left, institutional
-            trust line in the center. Two halves of the same message:
-            "here's how to dig deeper" + "here's why you can trust the
-            corpus". */}
-        <div className="mt-10 mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-slate-500">
+        {/* 4) Advanced-search link — placed immediately below the
+            search bar where the user's eye is already; the previous
+            spot at the very bottom of the hero buried it. */}
+        <div className="mt-4 text-center">
           <Link
             href="/recherche/avancee"
-            className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-primary transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden />
             {t('home.hero.advancedFull')}
           </Link>
-          <div className="inline-flex items-center gap-2.5 text-slate-500">
-            <Landmark className="w-4 h-4 flex-shrink-0" aria-hidden />
-            <span>{t('home.hero.trustSources')}</span>
-            <span className="text-slate-300" aria-hidden>
-              |
-            </span>
-            <span>{t('home.hero.trustAccess')}</span>
-          </div>
+        </div>
+
+        {/* 5) POPULAIRES — interactive pills for the canonical entry
+            points (Constitution, the three core codes, Le Moniteur).
+            Pill style: white, soft ring, hover lifts the shadow +
+            tints the icon, gives a polished interactive feel without
+            shouting. The bare label row above (was an ``h2`` eyebrow)
+            is gone — pills are self-explanatory at this scale. */}
+        <div className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {POPULAR[lang].map((p) => {
+            const inner = (
+              <>
+                <p.Icon
+                  className="w-4 h-4 text-amber-600 group-hover:text-amber-700 transition-colors flex-shrink-0"
+                  aria-hidden
+                />
+                <span className="text-sm font-semibold text-slate-800 group-hover:text-slate-950 transition-colors">
+                  {p.label}
+                </span>
+              </>
+            )
+            const cls = cn(
+              'group inline-flex items-center gap-2',
+              'rounded-full bg-white ring-1 ring-slate-200 px-4 py-2.5',
+              'shadow-[0_1px_3px_-1px_rgba(15,23,42,0.08)]',
+              'hover:ring-slate-300 hover:shadow-[0_6px_16px_-6px_rgba(15,23,42,0.18)] hover:-translate-y-0.5',
+              'transition-all duration-200',
+            )
+            if (p.href) {
+              return (
+                <Link key={p.label} href={p.href} className={cls}>
+                  {inner}
+                </Link>
+              )
+            }
+            return (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => goSearch(p.q!)}
+                className={cls}
+              >
+                {inner}
+              </button>
+            )
+          })}
         </div>
       </div>
-
     </section>
   )
 }
