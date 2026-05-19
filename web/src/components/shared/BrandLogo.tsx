@@ -50,23 +50,34 @@ export default function BrandLogo({
       className="group flex items-center gap-2 cursor-pointer min-h-[44px] -my-0.5"
       aria-label="LexHaiti"
     >
-      {/* Plain ``<img>`` (not next/image) so the browser renders the
-          SVG natively as a vector and stays crisp on Retina/iPhone —
-          next/image was rasterising the file on high-DPI screens,
-          leaving the engraved detail (Lady Justice, palmis, circular
-          legend) blurry. Default size 40px; the header bumps it to
-          48px from ``sm`` upwards via ``iconWrapperClassName``. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/lexhaiti-logo.svg"
-        alt="LexHaiti"
-        loading="eager"
-        decoding="async"
-        className={cn(
-          'h-10 w-10 shrink-0 object-contain transition-transform duration-300 group-hover:scale-[1.05]',
-          iconWrapperClassName,
-        )}
-      />
+      {/* Logo strategy: a 192px PNG rasterized once from the 2000×2000
+          master (``public/lexhaiti-logo.png``) covers every header /
+          footer display size at 3× DPR. We serve WebP first (~22KB,
+          all evergreen browsers + Safari 14+) with a PNG fallback
+          (~53KB, ancient Safari & Edge). Plain ``<img>`` / ``<source>``
+          so next/image's optimiser can't rasterise the asset again —
+          on iPhone Retina that round-trip blurred the engraved
+          detail. Master SVG + 2000px PNG stay around for share-card
+          / print contexts.
+
+          Sizing: 48px mobile (bumped from 40 so the gold ring +
+          ``IURIS FUNDAMENTUM`` legend read at iPhone glance distance),
+          56px on ``sm+``. Header / Footer can grow further via
+          ``iconWrapperClassName``. */}
+      <picture className="contents">
+        <source srcSet="/lexhaiti-logo-192.webp" type="image/webp" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lexhaiti-logo-192.png"
+          alt="LexHaiti"
+          loading="eager"
+          decoding="async"
+          className={cn(
+            'h-12 w-12 sm:h-14 sm:w-14 shrink-0 object-contain transition-transform duration-300 group-hover:scale-[1.05]',
+            iconWrapperClassName,
+          )}
+        />
+      </picture>
 
       <div className="flex flex-col">
         <span className={`text-xl font-bold tracking-tight ${titleClassName}`}>
