@@ -103,25 +103,26 @@ export default function HeroSection() {
       )}
     >
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        {/* 1) Headline card — the project's "cover plate". One
-            container holds the brand wordmark, the tagline, and the
-            welcome paragraph; the standalone brand line above the
-            card was dropped so the hero opens with a single visual
-            element instead of two stacked ones.
-            Hierarchy inside:
+        {/* 1) Hero header — three stacked beats on the bare slate-50
+            surface, no card chrome. Removing the slate-tinted ring
+            lets the typography itself do the work: the brand sits
+            visually on the page surface instead of inside a panel,
+            which suits the inscription-style treatment we settled on
+            for the wordmark.
+            Hierarchy:
               h1 → carved-inscription ``LexHaïti`` (wide tracking,
                    two-tone, the dominant element)
               p  → tagline ``Le droit haïtien, en accès libre.``
-                   (smaller, lighter weight — the act-of-mission)
+                   (smaller, lighter weight)
               p  → welcome paragraph (description, capped width) */}
-        <div className="rounded-2xl bg-slate-100/60 ring-1 ring-slate-200/70 px-6 sm:px-10 py-10 sm:py-14 text-center">
+        <div className="py-10 sm:py-14 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.1em] text-slate-900">
             Lex<span className="text-red-600">Haïti</span>
           </h1>
           <p className="mt-5 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight leading-tight text-slate-700">
             {t('home.hero.tagline')}
           </p>
-          <p className="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-4xl mx-auto">
+          <p className="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto">
             {t('home.hero.description')}
           </p>
         </div>
