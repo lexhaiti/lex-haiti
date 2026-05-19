@@ -60,10 +60,15 @@ def _rows_from_json(path: Path) -> Iterable[dict]:
             "source": DEFAULT_SOURCE,
             "source_page": raw.get("source_page"),
             "display_order": raw["display_order"],
-            "chapter": None,  # the 2001 index doesn't print a Chapitre header
-                              # on each page; we keep it null and surface
-                              # ``section`` (DROIT INTERNATIONAL PUBLIC, …)
-                              # as the primary grouping in editorial.
+            # ``chapter`` carries the running header at the top of
+            # each page in the source PDF (the five top-level
+            # divisions: DROIT INTERNATIONAL PUBLIC, DROIT PUBLIC
+            # HAÏTIEN, DROIT PRIVÉ, DROIT PÉNAL, LÉGISLATION À
+            # CARACTÈRES DIVERS). ``section`` carries the inline
+            # ``SECTION I : DES INSTRUMENTS À CARACTÈRE UNIVERSEL``-
+            # style sub-section divider — null until a divider is
+            # seen on the page.
+            "chapter": raw.get("chapter"),
             "section": raw.get("section"),
             "description_fr": raw["description_fr"],
             "detected_category": None,  # left for a later AI pass

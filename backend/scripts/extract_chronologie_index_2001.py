@@ -289,21 +289,115 @@ def _page_section(page: fitz.Page) -> Optional[str]:
     return _normalise_section(text)
 
 
+# Inline ``SECTION I : DES INSTRUMENTS A CARACTERE UNIVERSEL``-style
+# divider. The roman numeral is the discriminator; everything after
+# the colon is the section name.
+SECTION_HEADER_RE = re.compile(
+    r"^\s*SECTION\s+(I{1,3}|IV|V|VI{0,3}|VIII?|IX|X)\s*[:.]\s*(.+?)\s*$",
+    re.IGNORECASE,
+)
+
+# Column header lines that follow a SECTION divider — they're not
+# rows of data. The middle and right columns are ``DATES`` and
+# ``REFERENCES`` so spotting either is enough.
+COLUMN_HEADER_RE = re.compile(
+    r"\b(DATES|REFERENCES|RÉFÉRENCES)\b", re.IGNORECASE
+)
+
+
 def parse_page(
-    page: fitz.Page, page_no: int, section: Optional[str]
-) -> list[dict]:
-    if section is None and page_no < 25:
-        # Front matter (cover, TOC, foreword, methodology) — skip.
-        return []
+    page: fitz.Page,
+    page_no: int,
+    chapter: Optional[str],
+    inherited_section: Optional[str],
+) -> tuple[list[dict], Optional[str]]:
+    """Parse one page. Returns ``(rows, last_section_seen)``.
+
+    ``chapter`` is the running header at the top of the page (or
+    inherited from the previous page when this page only carries
+    the generic ``INDEX CHRONOLOGIQUE …`` header).
+
+    ``inherited_section`` is the most recent inline ``SECTION I/II
+    /III : …`` divider seen on a previous page. It applies to every
+    row on this page UNLESS a new SECTION divider appears here, in
+    which case it switches mid-page.
+
+    A SECTION divider can span two lines in the source PDF — e.g.::
+
+        SECTION I : DES INSTRUMENTS A CARACTERE
+        UNIVERSEL
+
+    We join short trailing lines (≤ 30 chars, no date pattern) to
+    the SECTION header so the captured value reads ``SECTION I : DES
+    INSTRUMENTS A CARACTERE UNIVERSEL``.
+    """
+    if chapter is None and page_no < 25:
+        return [], inherited_section
 
     words = page.get_text("words")
-    # Drop the running header.
     body_words = [w for w in words if w[1] >= RUNNING_HEADER_Y_MAX]
     lines = _group_into_lines(body_words)
 
     rows: list[dict] = []
     cur: Optional[dict] = None
-    for line in lines:
+    current_section = inherited_section
+
+    line_idx = 0
+    while line_idx < len(lines):
+        line = lines[line_idx]
+        full_text = _ocr_clean(" ".join(w[4] for w in line))
+
+        # Inline SECTION divider?
+        m = SECTION_HEADER_RE.match(full_text)
+        if m:
+            section_label = f"SECTION {m.group(1).upper()} : {m.group(2)}".strip()
+            # Continuation: peek up to 3 following lines. Join each one
+            # that looks like more of the section title (predominantly
+            # uppercase, no date, no Moniteur ref, no column-header
+            # word, not a new SECTION header). Stop at the first
+            # non-continuation line so the column-1 header
+            # (``GRANDS INSTRUMENTS INTERNA- DATES REFERENCES``) and
+            # its orphan continuation ``TIONAUX`` don't bleed in.
+            consumed = 0
+            for peek in range(1, 4):
+                nxt_idx = line_idx + peek
+                if nxt_idx >= len(lines):
+                    break
+                nxt = _ocr_clean(" ".join(w[4] for w in lines[nxt_idx]))
+                if not nxt:
+                    break
+                letters = [c for c in nxt if c.isalpha()]
+                uppercase_ratio = (
+                    sum(1 for c in letters if c.isupper()) / max(1, len(letters))
+                )
+                looks_like_title = uppercase_ratio >= 0.7
+                if (
+                    looks_like_title
+                    and not DATE_RE.search(nxt)
+                    and not COLUMN_HEADER_RE.search(nxt)
+                    and not SECTION_HEADER_RE.match(nxt)
+                ):
+                    section_label = f"{section_label} {nxt}".strip()
+                    consumed += 1
+                else:
+                    break
+            current_section = section_label
+            line_idx += consumed
+            # Flush any open row before the new section
+            if cur is not None:
+                rows.append(cur)
+                cur = None
+            line_idx += 1
+            continue
+
+        # Column-header line (``DATES   REFERENCES``)? Skip — but
+        # also skip a 1-2 line block of text immediately preceding
+        # ``DATES`` (it's the col-1 column header like ``GRANDS
+        # INSTRUMENTS INTERNATIONAUX``).
+        if COLUMN_HEADER_RE.search(full_text) and not DATE_RE.search(full_text):
+            line_idx += 1
+            continue
+
         c1, c2, c3 = _columns_for_line(line)
         c1 = _ocr_clean(c1)
         c2 = _ocr_clean(c2)
@@ -314,39 +408,44 @@ def parse_page(
                 rows.append(cur)
             cur = {
                 "source_page": page_no,
-                "section": section,
+                "chapter": chapter,
+                "section": current_section,
                 "description_fr": c1,
                 "act_date_raw": c2,
                 "moniteur_ref_raw": c3,
             }
         else:
             if cur is None:
-                # Stray fragment before the first dated row — skip.
+                line_idx += 1
                 continue
             if c1:
                 cur["description_fr"] = (cur["description_fr"] + " " + c1).strip()
             if c3:
                 cur["moniteur_ref_raw"] = (cur["moniteur_ref_raw"] + " " + c3).strip()
+        line_idx += 1
     if cur is not None:
         rows.append(cur)
-    return rows
+    return rows, current_section
 
 
 def parse_pdf(pdf_path: Path, max_pages: Optional[int] = None) -> Iterable[dict]:
     doc = fitz.open(str(pdf_path))
     total = doc.page_count if max_pages is None else min(doc.page_count, max_pages)
     display_order = 0
+    last_chapter: Optional[str] = None
     last_section: Optional[str] = None
     for page_no in range(total):
         page = doc[page_no]
-        # Pages whose running header is the generic ``INDEX
-        # CHRONOLOGIQUE …`` inherit the *last seen* section header
-        # from a preceding page. Without this, content pages that
-        # only carry the generic header drop their section context.
-        page_section = _page_section(page)
-        if page_section is not None:
-            last_section = page_section
-        for row in parse_page(page, page_no + 1, last_section):
+        # Chapter = the running-header at the top of the page. Pages
+        # whose header is the generic ``INDEX CHRONOLOGIQUE …``
+        # inherit the previous page's chapter.
+        page_chapter = _page_section(page)
+        if page_chapter is not None:
+            last_chapter = page_chapter
+        rows, last_section = parse_page(
+            page, page_no + 1, last_chapter, last_section
+        )
+        for row in rows:
             row["display_order"] = display_order
             display_order += 1
             row["description_fr"] = _ocr_clean(row["description_fr"])
@@ -358,7 +457,6 @@ def parse_pdf(pdf_path: Path, max_pages: Optional[int] = None) -> Iterable[dict]
             row["moniteur_year"] = (
                 mpd.year if mpd else (row["act_date"].year if row["act_date"] else None)
             )
-            # Serialise dates
             for k in ("act_date", "moniteur_date"):
                 v = row.get(k)
                 row[k] = v.isoformat() if v else None

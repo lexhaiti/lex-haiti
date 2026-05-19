@@ -82,7 +82,7 @@ const STATUS_PILL: Record<
   },
 }
 
-const PAGE_SIZE = 100
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 500] as const
 
 export default function ChronologiePage() {
   const { isEditor, status } = useEditorMode()
@@ -94,8 +94,10 @@ export default function ChronologiePage() {
   const [total, setTotal] = useState(0)
   const [err, setErr] = useState<string | null>(null)
   const [offset, setOffset] = useState(0)
+  const [pageSize, setPageSize] = useState<number>(50)
 
   // Filters
+  const [chapter, setChapter] = useState<string | undefined>(undefined)
   const [section, setSection] = useState<string | undefined>(undefined)
   const [statusFilter, setStatusFilter] = useState<
     LegislationInForceStatus | undefined
@@ -126,8 +128,9 @@ export default function ChronologiePage() {
         const yf = parseInt(yearFrom, 10)
         const yt = parseInt(yearTo, 10)
         const resp = await listChronologie({
-          limit: PAGE_SIZE,
+          limit: pageSize,
           offset: off,
+          chapter: chapter || undefined,
           section: section || undefined,
           in_force_status: statusFilter,
           year_from: Number.isFinite(yf) ? yf : undefined,
@@ -142,7 +145,16 @@ export default function ChronologiePage() {
         setErr((e as Error)?.message ?? String(e))
       }
     },
-    [section, statusFilter, yearFrom, yearTo, onlyImported, qDebounced],
+    [
+      chapter,
+      section,
+      statusFilter,
+      yearFrom,
+      yearTo,
+      onlyImported,
+      qDebounced,
+      pageSize,
+    ],
   )
 
   useEffect(() => {
@@ -156,14 +168,26 @@ export default function ChronologiePage() {
     fetchList(0)
   }, [
     isEditor,
+    chapter,
     section,
     statusFilter,
     yearFrom,
     yearTo,
     onlyImported,
     qDebounced,
+    pageSize,
     fetchList,
   ])
+
+  // Picking a chapter clears any incompatible section selection — a
+  // section that belongs to chapter B can't survive after the user
+  // switched to chapter A.
+  useEffect(() => {
+    if (!chapter || !section) return
+    if (!stats?.by_section) return
+    // We don't have chapter→section mapping in stats, but the
+    // simplest cleanup is to drop the section when chapter changes.
+  }, [chapter, section, stats])
 
   const handleStatusChange = useCallback(
     async (id: number, next: LegislationInForceStatus) => {
@@ -191,9 +215,18 @@ export default function ChronologiePage() {
     [fetchList, fetchStats, offset],
   )
 
+  const chapters = useMemo(() => {
+    if (!stats?.by_chapter) return []
+    return Object.entries(stats.by_chapter)
+      .filter(([name]) => name !== '(no chapter)')
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }))
+  }, [stats])
+
   const sections = useMemo(() => {
     if (!stats?.by_section) return []
     return Object.entries(stats.by_section)
+      .filter(([name]) => name !== '(no section)')
       .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count }))
   }, [stats])
@@ -307,8 +340,32 @@ export default function ChronologiePage() {
       {/* Filters */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
         <div className="flex flex-wrap gap-3 items-end">
-          {/* Section */}
-          <div className="flex-1 min-w-[200px]">
+          {/* Chapter — the 5 top-level divisions */}
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              {isFr ? 'Chapitre' : 'Chapit'}
+            </label>
+            <select
+              value={chapter ?? ''}
+              onChange={(e) => {
+                setChapter(e.target.value || undefined)
+                // Drop section when chapter changes — they're tied.
+                setSection(undefined)
+              }}
+              className="w-full h-9 px-3 rounded-md border border-slate-200 bg-white text-sm"
+            >
+              <option value="">
+                {isFr ? 'Tous les chapitres' : 'Tout chapit yo'}
+              </option>
+              {chapters.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name} ({c.count})
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Section — sub-divisions */}
+          <div className="flex-1 min-w-[260px]">
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               {isFr ? 'Section' : 'Seksyon'}
             </label>
@@ -322,7 +379,8 @@ export default function ChronologiePage() {
               </option>
               {sections.map((s) => (
                 <option key={s.name} value={s.name}>
-                  {s.name} ({s.count})
+                  {s.name.length > 60 ? s.name.slice(0, 60) + '…' : s.name} (
+                  {s.count})
                 </option>
               ))}
             </select>
@@ -434,30 +492,23 @@ export default function ChronologiePage() {
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {isFr ? 'Résultats' : 'Rezilta'}: {offset + 1}–
-              {offset + items.length} / {total.toLocaleString()}
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => fetchList(Math.max(0, offset - PAGE_SIZE))}
-                disabled={offset === 0}
-                className="px-3 py-1 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {isFr ? 'Précédent' : 'Anvan'}
-              </button>
-              <button
-                type="button"
-                onClick={() => fetchList(offset + PAGE_SIZE)}
-                disabled={offset + items.length >= total}
-                className="px-3 py-1 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {isFr ? 'Suivant' : 'Pwochen'}
-              </button>
-            </div>
-          </div>
+          <PaginationBar
+            isFr={isFr}
+            offset={offset}
+            pageSize={pageSize}
+            itemCount={items.length}
+            total={total}
+            onPrev={() => fetchList(Math.max(0, offset - pageSize))}
+            onNext={() => fetchList(offset + pageSize)}
+            onFirst={() => fetchList(0)}
+            onLast={() =>
+              fetchList(Math.max(0, Math.floor((total - 1) / pageSize) * pageSize))
+            }
+            onPageSizeChange={(v) => {
+              setPageSize(v)
+              setOffset(0)
+            }}
+          />
 
           <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <table className="w-full text-sm">
@@ -569,8 +620,140 @@ export default function ChronologiePage() {
               </tbody>
             </table>
           </div>
+
+          {/* Bottom pagination so editors don't have to scroll back up
+              after browsing through 100+ rows. */}
+          <PaginationBar
+            isFr={isFr}
+            offset={offset}
+            pageSize={pageSize}
+            itemCount={items.length}
+            total={total}
+            onPrev={() => fetchList(Math.max(0, offset - pageSize))}
+            onNext={() => fetchList(offset + pageSize)}
+            onFirst={() => fetchList(0)}
+            onLast={() =>
+              fetchList(Math.max(0, Math.floor((total - 1) / pageSize) * pageSize))
+            }
+            onPageSizeChange={(v) => {
+              setPageSize(v)
+              setOffset(0)
+            }}
+          />
         </>
       )}
+    </div>
+  )
+}
+
+function PaginationBar({
+  isFr,
+  offset,
+  pageSize,
+  itemCount,
+  total,
+  onPrev,
+  onNext,
+  onFirst,
+  onLast,
+  onPageSizeChange,
+}: {
+  isFr: boolean
+  offset: number
+  pageSize: number
+  itemCount: number
+  total: number
+  onPrev: () => void
+  onNext: () => void
+  onFirst: () => void
+  onLast: () => void
+  onPageSizeChange: (n: number) => void
+}) {
+  const atStart = offset === 0
+  const atEnd = offset + itemCount >= total
+  const pageNumber = Math.floor(offset / pageSize) + 1
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+      <div className="text-sm text-slate-600">
+        <span className="font-semibold text-slate-900 tabular-nums">
+          {(offset + 1).toLocaleString()}–
+          {(offset + itemCount).toLocaleString()}
+        </span>{' '}
+        / {total.toLocaleString()}{' '}
+        <span className="text-slate-400">
+          ({isFr ? 'page' : 'paj'}{' '}
+          <span className="tabular-nums">{pageNumber}</span>/
+          <span className="tabular-nums">{totalPages}</span>)
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <label className="text-xs text-slate-500 flex items-center gap-1.5">
+          {isFr ? 'Par page :' : 'Pa paj :'}
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="h-8 px-2 rounded-md border border-slate-200 bg-white text-sm tabular-nums"
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="inline-flex shadow-sm rounded-md border border-slate-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={onFirst}
+            disabled={atStart}
+            aria-label={isFr ? 'Première page' : 'Premye paj'}
+            className={cn(
+              'h-8 w-8 inline-flex items-center justify-center bg-white hover:bg-slate-50 border-r border-slate-200',
+              'disabled:opacity-30 disabled:cursor-not-allowed',
+            )}
+          >
+            ⏮
+          </button>
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={atStart}
+            className={cn(
+              'h-8 px-3 inline-flex items-center justify-center text-sm font-semibold bg-white hover:bg-slate-50 border-r border-slate-200',
+              'disabled:opacity-30 disabled:cursor-not-allowed',
+            )}
+          >
+            ← {isFr ? 'Précédent' : 'Anvan'}
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={atEnd}
+            className={cn(
+              'h-8 px-3 inline-flex items-center justify-center text-sm font-semibold bg-primary text-white hover:bg-primary/90',
+              'disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500',
+            )}
+          >
+            {isFr ? 'Suivant' : 'Pwochen'} →
+          </button>
+          <button
+            type="button"
+            onClick={onLast}
+            disabled={atEnd}
+            aria-label={isFr ? 'Dernière page' : 'Dènye paj'}
+            className={cn(
+              'h-8 w-8 inline-flex items-center justify-center bg-white hover:bg-slate-50 border-l border-slate-200',
+              'disabled:opacity-30 disabled:cursor-not-allowed',
+            )}
+          >
+            ⏭
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

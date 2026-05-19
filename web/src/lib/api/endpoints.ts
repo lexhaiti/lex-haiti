@@ -1030,7 +1030,9 @@ export type LegislationIndexListResponse = {
 
 export type LegislationIndexStats = {
   total: number
+  chapters: number
   sections: number
+  by_chapter: Record<string, number>
   by_section: Record<string, number>
   by_in_force_status: Record<string, number>
   with_act_date: number
@@ -1047,6 +1049,7 @@ export async function getChronologieStats() {
 export async function listChronologie(params?: {
   limit?: number
   offset?: number
+  chapter?: string
   section?: string
   in_force_status?: LegislationInForceStatus
   year_from?: number

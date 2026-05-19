@@ -95,7 +95,9 @@ class LegislationIndexStats(BaseModel):
     """High-level counters for the chronologie dashboard."""
 
     total: int
+    chapters: int
     sections: int
+    by_chapter: dict[str, int]
     by_section: dict[str, int]
     by_in_force_status: dict[str, int]
     with_act_date: int
@@ -121,6 +123,14 @@ class LegislationIndexListResponse(BaseModel):
 def chronologie_stats(db: DbSession, user: EditorialUser):  # noqa: ARG001
     """Counters for the editorial chronologie dashboard."""
     total = db.scalar(select(func.count()).select_from(LegislationIndexEntry)) or 0
+    rows = db.execute(
+        select(
+            LegislationIndexEntry.chapter,
+            func.count(),
+        ).group_by(LegislationIndexEntry.chapter)
+    ).all()
+    by_chapter = {row[0] or "(no chapter)": row[1] for row in rows}
+
     rows = db.execute(
         select(
             LegislationIndexEntry.section,
@@ -171,7 +181,9 @@ def chronologie_stats(db: DbSession, user: EditorialUser):  # noqa: ARG001
 
     return LegislationIndexStats(
         total=total,
+        chapters=len([k for k in by_chapter if k != "(no chapter)"]),
         sections=len([k for k in by_section if k != "(no section)"]),
+        by_chapter=by_chapter,
         by_section=by_section,
         by_in_force_status=by_status,
         with_act_date=with_act_date,
@@ -204,8 +216,9 @@ def _hydrate(rows: list[LegislationIndexEntry], db) -> list[LegislationIndexEntr
 def list_chronologie(
     db: DbSession,
     user: EditorialUser,  # noqa: ARG001
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    chapter: Optional[str] = None,
     section: Optional[str] = None,
     in_force_status: Optional[LegislationInForceStatus] = None,
     year_from: Optional[int] = Query(None, ge=1700, le=2100),
@@ -218,18 +231,15 @@ def list_chronologie(
     count_base = select(func.count()).select_from(LegislationIndexEntry)
 
     filters = []
+    if chapter is not None:
+        filters.append(LegislationIndexEntry.chapter == chapter)
     if section is not None:
         filters.append(LegislationIndexEntry.section == section)
     if in_force_status is not None:
         filters.append(LegislationIndexEntry.in_force_status == in_force_status)
     if year_from is not None:
         filters.append(
-            or_(
-                LegislationIndexEntry.act_date.is_(None),
-                func.extract("year", LegislationIndexEntry.act_date) >= year_from,
-            )
-            if year_from <= 1804
-            else func.extract("year", LegislationIndexEntry.act_date) >= year_from
+            func.extract("year", LegislationIndexEntry.act_date) >= year_from
         )
     if year_to is not None:
         filters.append(

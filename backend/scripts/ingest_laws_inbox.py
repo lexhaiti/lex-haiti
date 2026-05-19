@@ -61,19 +61,22 @@ HERE = Path(__file__).resolve().parent
 BACKEND_ROOT = HERE.parent
 sys.path.insert(0, str(BACKEND_ROOT))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 from api.db import SessionLocal  # noqa: E402
 from schemas.enums import (  # noqa: E402
     EditorialStatus,
     LegalCategory,
     LegalStatus,
+    MoniteurCandidateStatus,
 )
+from schemas.enums import MoniteurDocumentType  # noqa: E402
 from services.corpus.models import (  # noqa: E402
     Article,
     ArticleVersion,
     LegalSigner,
     LegalText,
+    MoniteurEntry,
     MoniteurIssue,
 )
 
@@ -149,6 +152,19 @@ def _ensure_moniteur_issue(session, moniteur: dict | None) -> Optional[int]:
     return issue.id
 
 
+def _moniteur_doctype_for(category: LegalCategory) -> MoniteurDocumentType:
+    """Map a corpus-level LegalCategory to its MoniteurDocumentType peer.
+
+    ``MoniteurDocumentType`` is a superset; for legal categories we
+    have, the value name matches 1-1 (``loi`` → ``loi``, ``decret`` →
+    ``decret``…). Falls back to ``autre`` for anything weird.
+    """
+    try:
+        return MoniteurDocumentType(category.value)
+    except ValueError:
+        return MoniteurDocumentType.autre
+
+
 def _resolve_category(value: Any) -> LegalCategory:
     if value is None:
         return LegalCategory.other_regulatory
@@ -222,6 +238,41 @@ def ingest_one(session, payload: dict) -> int:
     )
     session.add(legal_text)
     session.flush()
+
+    # MoniteurEntry — drives the per-issue sommaire on the
+    # ``/editorial/moniteur/[id]`` page. Without it the issue exists
+    # but appears empty. We create it pre-accepted with
+    # ``promoted_legal_text_id`` pointing back at the new LegalText
+    # so the editorial workflow shows this entry as "already
+    # promoted" and links into the LawDetail.
+    if issue_id is not None:
+        next_position = (
+            session.scalar(
+                select(func.coalesce(func.max(MoniteurEntry.position), -1) + 1).where(
+                    MoniteurEntry.issue_id == issue_id
+                )
+            )
+            or 0
+        )
+        raw_text_blob = (payload.get("preamble_fr") or "") + "\n\n" + "\n\n".join(
+            f"Article {a.get('number')}.- {a.get('text_fr') or ''}"
+            for a in (payload.get("articles") or [])
+        )
+        session.add(
+            MoniteurEntry(
+                issue_id=issue_id,
+                position=int(next_position),
+                detected_category=_moniteur_doctype_for(category),
+                detected_title=payload.get("official_title_fr") or title_fr,
+                display_title=title_fr,
+                detected_date=_parse_date(payload.get("act_date")),
+                raw_text=raw_text_blob.strip() or title_fr,
+                review_status=MoniteurCandidateStatus.accepted,
+                promoted_legal_text_id=legal_text.id,
+                reviewed_at=datetime.now(UTC),
+            )
+        )
+        session.flush()
 
     # Signers
     for position, sig in enumerate(payload.get("signers") or []):
