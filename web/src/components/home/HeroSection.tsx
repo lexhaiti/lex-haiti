@@ -99,7 +99,7 @@ export default function HeroSection() {
         'relative w-full bg-slate-50 text-slate-900 pt-20',
       )}
     >
-      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* 1) Brand row — duplicates the global header brand on
             purpose: this surface reads as the project's "front desk"
             and the centered wordmark + italic subtitle act as a
@@ -117,12 +117,15 @@ export default function HeroSection() {
 
         {/* 2) Hero card — the value-prop block. Tinted slate surface
             (not pure white) so it reads as a "headline panel" sitting
-            above the white search card below. */}
-        <div className="mt-8 rounded-2xl bg-slate-100/60 ring-1 ring-slate-200/70 px-6 sm:px-10 py-8 sm:py-10">
+            above the white search card below. Content centred to
+            mirror the brand row above; description has its own
+            ``max-w-4xl mx-auto`` so very-wide screens don't stretch
+            it to unreadable single-line widths. */}
+        <div className="mt-8 rounded-2xl bg-slate-100/60 ring-1 ring-slate-200/70 px-6 sm:px-10 py-8 sm:py-10 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight text-slate-900">
             {t('home.hero.tagline')}
           </h1>
-          <p className="mt-3 text-base sm:text-lg text-slate-600 leading-relaxed max-w-3xl">
+          <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed max-w-4xl mx-auto">
             {t('home.hero.description')}
           </p>
         </div>
