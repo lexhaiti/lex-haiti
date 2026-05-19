@@ -80,14 +80,14 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 1970s — Duvalier (Jean-Claude) era -----
     "701444946-moniteur-decret-7-avril-1978-creant-l-apn": (
         1978,
-        "Brouillon · Décret APN 1978",
+        "Décret APN 1978",
         "1978-04-07",
         MoniteurDocumentType.decret,
         "Décret du 7 avril 1978 modifiant l'organisation de l'Autorité Portuaire Nationale (APN)",
     ),
     "584826828-decret-du-29-mars-reglementant-la-profession-avocat-pd": (
         1979,
-        "Brouillon · Décret avocat 1979",
+        "Décret avocat 1979",
         "1979-03-29",
         MoniteurDocumentType.decret,
         "Décret du 29 mars 1979 réglementant la profession d'avocat",
@@ -95,7 +95,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 1980s — late Duvalier (J-C) -----
     "701444950-moniteur-decret-15-mars-1985-organisant-l-apn": (
         1985,
-        "Brouillon · Décret APN 1985",
+        "Décret APN 1985",
         "1985-03-15",
         MoniteurDocumentType.decret,
         "Décret du 15 mars 1985 organisant l'Autorité Portuaire Nationale (APN)",
@@ -103,7 +103,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 1987 — post-Duvalier transition -----
     "530707552-decret-du-17-aout-1987-portant-organisation-et-fonctio": (
         1987,
-        "Brouillon · Décret MAE 1987",
+        "Décret MAE 1987",
         "1987-08-17",
         MoniteurDocumentType.decret,
         "Décret du 17 août 1987 portant organisation et fonctionnement du Ministère des Affaires Étrangères",
@@ -111,14 +111,14 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 1989 — Avril government decrees-laws on education -----
     "703232731-loi-moniteur-decret-loi-organique-menfp-1989": (
         1989,
-        "Brouillon · Décret-loi MENFP 1989",
+        "Décret-loi MENFP 1989",
         "1989-06-05",
         MoniteurDocumentType.decret,
         "Décret-loi du 5 juin 1989 portant organisation du Ministère de l'Éducation Nationale et de la Formation Professionnelle (MENFP)",
     ),
     "558118993-decret-adaptant-les-structures-organlsattonnelles-du-m": (
         1989,
-        "Brouillon · Décret-loi MENJS 1989",
+        "Décret-loi MENJS 1989",
         "1989-06-05",
         MoniteurDocumentType.decret,
         "Décret-loi du 5 juin 1989 adaptant les structures organisationnelles du Ministère de l'Éducation Nationale, de la Jeunesse et des Sports aux nouvelles réalités sociopolitiques",
@@ -126,7 +126,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 1996 — Préval I -----
     "1005901609-5f5a8ad385746801097332": (
         1996,
-        "Brouillon · Loi sections communales 1996",
+        "Loi sections communales 1996",
         "1996-03-26",
         MoniteurDocumentType.loi,
         "Loi du 26 mars 1996 portant organisation de la Collectivité Territoriale de Section Communale",
@@ -134,7 +134,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2001 — Aristide II -----
     "222345469-haiti-loi-relative-au-controle-et-a-la-repression-du-t": (
         2001,
-        "Brouillon · Loi drogue 2001",
+        "Loi drogue 2001",
         "2001-10-04",
         MoniteurDocumentType.loi,
         "Loi du 4 octobre 2001 relative au contrôle et à la répression du trafic illicite de la drogue",
@@ -142,7 +142,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2002 — Aristide II — the binationaux law (variante of #36) -----
     "54785cac4": (
         2002,
-        "Brouillon · Loi privilèges binationaux 2002 (variante)",
+        "Loi privilèges binationaux 2002 (variante)",
         "2002-08-12",
         MoniteurDocumentType.loi,
         "Loi du 1er août 2002 portant privilèges accordés aux Haïtiens d'origine jouissant d'une autre nationalité (variante de la version publiée au Moniteur 65/2002)",
@@ -150,7 +150,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2006 — Boniface Alexandre transition -----
     "237115038-decret-fixant-l-organisation-et-le-fonctionnement-de-l": (
         2006,
-        "Brouillon · Décret organisation commune 2006",
+        "Décret organisation commune 2006",
         "2006-06-02",
         MoniteurDocumentType.decret,
         "Décret du 1er février 2006 fixant l'organisation et le fonctionnement de la Collectivité Municipale dite Commune ou Municipalité",
@@ -180,14 +180,14 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2014 — Martelly era -----
     "548673623-le-moniteur-21-mars-2014-arrete-fixant-le-statut-parti": (
         2014,
-        "Brouillon · Le Moniteur 21 mars 2014",
+        "Le Moniteur 21 mars 2014",
         "2014-03-21",
         MoniteurDocumentType.arrete,
         "Arrêté du 21 mars 2014 fixant le statut particulier des personnels éducatifs (et arrêtés sur les aires protégées des Trois Baies, AHTIC, APB, etc.)",
     ),
     "603565368-loi-sur-les-partis-politiques-haiti-haitijustice": (
         2014,
-        "Brouillon · Loi partis politiques 2014",
+        "Loi partis politiques 2014",
         "2014-01-16",
         MoniteurDocumentType.loi,
         "Loi du 16 janvier 2014 portant formation, fonctionnement et financement des Partis Politiques",
@@ -195,14 +195,14 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2015 — Martelly -----
     "832110484-decret-sections-communales": (
         2015,
-        "Brouillon · Décret limites territoriales 2015",
+        "Décret limites territoriales 2015",
         "2015-08-05",
         MoniteurDocumentType.decret,
         "Décret du 5 août 2015 identifiant et établissant les limites territoriales des Départements, Arrondissements, Communes et Sections Communales de la République d'Haïti",
     ),
     "287728347-haiti-l-arrete-presidentiel-193-traitant-des-exonerati": (
         2015,
-        "Brouillon · Arrêté présidentiel 193 / 2015",
+        "Arrêté présidentiel 193 / 2015",
         "2015-10-08",
         MoniteurDocumentType.arrete,
         "Arrêté Présidentiel No 193 du 8 octobre 2015 révisant l'Arrêté du 23 novembre 2005 relatif aux privilèges accordés aux anciens Chefs d'État et de Gouvernement",
@@ -210,14 +210,14 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2016 — Privert / Martelly transition -----
     "299581779-decret-creant-le-centre-financier-international-de-l-i": (
         2016,
-        "Brouillon · Décret Centre Financier Gonâve 2016",
+        "Décret Centre Financier Gonâve 2016",
         "2016-01-07",
         MoniteurDocumentType.decret,
         "Décret du 7 janvier 2016 créant le Centre Financier International de l'Île de La Gonâve",
     ),
     "decret-portant-sur-la-signature-e-lectronique": (
         2016,
-        "Brouillon · Décret signature électronique 2016",
+        "Décret signature électronique 2016",
         "2016-01-29",
         MoniteurDocumentType.decret,
         "Décret du 29 janvier 2016 portant sur la signature électronique",
@@ -225,7 +225,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2017 — Moïse I -----
     "542383239-loi-signature-et-echanges-electroniques-2017-1": (
         2017,
-        "Brouillon · Loi signature et échanges électroniques 2017",
+        "Loi signature et échanges électroniques 2017",
         "2017-04-11",
         MoniteurDocumentType.loi,
         "Loi sur la signature électronique et Loi sur les échanges électroniques (votées au Sénat les 14 et 16 février 2017)",
@@ -255,7 +255,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     ),
     "700927831-avis-de-liquidation-de-pension-civile-de-retraite": (
         2020,
-        "Brouillon · Avis pension civile 2020",
+        "Avis pension civile 2020",
         "2020-07-02",
         MoniteurDocumentType.autre,
         "Avis de Liquidation de Pension Civile de Retraite et Avis de Rectification de Pension (Jeudi 2 juillet 2020)",
@@ -271,7 +271,7 @@ CURATION: dict[str, tuple[int, str, str, MoniteurDocumentType, str]] = {
     # ----- 2023 — Ariel Henry — sanctions package -----
     "879756018-decret-du-30-avril-2023": (
         2023,
-        "Brouillon · Décret blanchiment 2023",
+        "Décret blanchiment 2023",
         "2023-04-30",
         MoniteurDocumentType.decret,
         "Décret du 30 avril 2023 sanctionnant le blanchiment de capitaux, le financement du terrorisme et le financement de la prolifération des armes de destruction massive en Haïti",
