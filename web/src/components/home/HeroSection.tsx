@@ -174,16 +174,28 @@ export default function HeroSection() {
           </form>
         </div>
 
-        {/* 4) Advanced-search link — placed immediately below the
-            search bar where the user's eye is already; the previous
-            spot at the very bottom of the hero buried it. */}
-        <div className="mt-4 text-center">
+        {/* 4) Secondary search affordances — two separate links
+            (advanced search + browse-all) separated by a vertical
+            divider, immediately below the search card where the
+            user's eye already is. The previous "advancedFull" combo
+            string read as one link; users wanted them split so each
+            destination is clickable on its own. */}
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm">
           <Link
             href="/recherche/avancee"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-primary transition-colors"
+            className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-primary transition-colors"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden />
-            {t('home.hero.advancedFull')}
+            {t('home.hero.advanced')}
+          </Link>
+          <span className="text-slate-300" aria-hidden>
+            |
+          </span>
+          <Link
+            href="/lois"
+            className="font-medium text-slate-600 hover:text-primary transition-colors"
+          >
+            {t('home.hero.browse')}
           </Link>
         </div>
 
