@@ -46,6 +46,12 @@ backend/exports/
 # next to each .txt IS committed (editorial state).
 backend/data/laws_inbox_2026/*.txt
 
+# Local laws-folder import drop. ``scripts/import_laws_folder_as_drafts.py``
+# copies large source PDFs from ``~/Downloads/laws`` here so the
+# Moniteur scan endpoint can serve them — but the bytes themselves
+# are never committed (~150 MB; one file is 73 MB).
+backend/data/scans/laws_inbox_2026/
+
 # Secrets / env
 .env
 .env.local
