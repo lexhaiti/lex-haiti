@@ -6,6 +6,7 @@ import { useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
+  BookMarked,
   Briefcase,
   Gavel,
   Landmark,
@@ -54,6 +55,7 @@ const POPULAR: Record<'fr' | 'ht', PopularCard[]> = {
   fr: [
     { label: 'Constitution 1987', q: 'Constitution 1987', Icon: BookOpen },
     { label: 'Code Civil', q: 'Code Civil', Icon: Gavel },
+    { label: 'Code Pénal', q: 'Code Pénal', Icon: BookMarked },
     {
       label: 'Droit du Travail',
       href: '/lois?theme=droit_travail',
@@ -64,6 +66,7 @@ const POPULAR: Record<'fr' | 'ht', PopularCard[]> = {
   ht: [
     { label: 'Konstitisyon 1987', q: 'Constitution 1987', Icon: BookOpen },
     { label: 'Kòd Sivil', q: 'Code Civil', Icon: Gavel },
+    { label: 'Kòd Penal', q: 'Code Pénal', Icon: BookMarked },
     { label: 'Dwa travay', href: '/lois?theme=droit_travail', Icon: Briefcase },
     { label: 'Le Moniteur', href: '/moniteur', Icon: Newspaper },
   ],
@@ -213,18 +216,22 @@ export default function HeroSection() {
           <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">
             {t('home.hero.suggestionsLabel')}
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {POPULAR[lang].map((p) => {
               const inner = (
                 <span className="inline-flex items-center gap-2.5">
-                  <p.Icon className="w-4 h-4 text-amber-600" />
+                  <p.Icon className="w-4 h-4 text-amber-600 flex-shrink-0" />
                   <span className="text-sm font-semibold text-slate-800">
                     {p.label}
                   </span>
                 </span>
               )
               const cls = cn(
-                'flex items-center justify-center sm:justify-start',
+                // Always-centred icon + label inside each pill; the
+                // previous ``sm:justify-start`` made the cards feel
+                // left-loaded on desktop, breaking visual rhythm with
+                // the centred headline card above.
+                'flex items-center justify-center',
                 'rounded-full bg-white ring-1 ring-slate-200 px-4 py-3',
                 'shadow-[0_2px_6px_-2px_rgba(15,23,42,0.08)]',
                 'hover:ring-slate-300 hover:shadow-[0_4px_12px_-4px_rgba(15,23,42,0.12)] transition-all',
