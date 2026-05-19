@@ -1,33 +1,71 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Landmark, Search, SlidersHorizontal } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  Briefcase,
+  Gavel,
+  Landmark,
+  Newspaper,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
-// Hero copy is centralised under `home.hero.*` in i18n/{fr,ht}.ts.
-// Suggestion chips stay here because they mix copy with routing data
-// (label + (q OR href)) — moving them into i18n would force the messages
-// catalogue to carry route paths, which doesn't belong there.
-const SUGGESTIONS: Record<
-  'fr' | 'ht',
-  Array<{ label: string; q?: string; href?: string }>
-> = {
+// Quick-pick examples sit next to the search input (small chips) and
+// also as the prominent ``POPULAIRES`` row below the search card (big
+// cards with icons). They mix copy + routing data so they don't
+// belong in the i18n catalogue.
+
+type Chip = { label: string; q?: string; href?: string }
+
+const CHIPS: Record<'fr' | 'ht', Chip[]> = {
   fr: [
+    { label: 'Article 1382', q: 'Article 1382' },
     { label: 'Constitution 1987', q: 'Constitution 1987' },
-    { label: 'Code Civil', q: 'Code Civil' },
     { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
     { label: 'Le Moniteur', href: '/moniteur' },
+    { label: 'Code Pénal', q: 'Code Pénal' },
   ],
   ht: [
+    { label: 'Atik 1382', q: 'Article 1382' },
     { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
-    { label: 'Kòd Sivil', q: 'Code Civil' },
     { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
     { label: 'Le Moniteur', href: '/moniteur' },
+    { label: 'Kòd Penal', q: 'Code Pénal' },
+  ],
+}
+
+// Big quick-access cards under the search card. Icon is paired by
+// type — Constitution gets the book, codes the gavel, themes the
+// briefcase, Moniteur the newspaper.
+type PopularCard = {
+  label: string
+  href?: string
+  q?: string
+  Icon: React.ComponentType<{ className?: string }>
+}
+
+const POPULAR: Record<'fr' | 'ht', PopularCard[]> = {
+  fr: [
+    { label: 'Constitution 1987', q: 'Constitution 1987', Icon: BookOpen },
+    { label: 'Code Civil', q: 'Code Civil', Icon: Gavel },
+    {
+      label: 'Droit du Travail',
+      href: '/lois?theme=droit_travail',
+      Icon: Briefcase,
+    },
+    { label: 'Le Moniteur', href: '/moniteur', Icon: Newspaper },
+  ],
+  ht: [
+    { label: 'Konstitisyon 1987', q: 'Constitution 1987', Icon: BookOpen },
+    { label: 'Kòd Sivil', q: 'Code Civil', Icon: Gavel },
+    { label: 'Dwa travay', href: '/lois?theme=droit_travail', Icon: Briefcase },
+    { label: 'Le Moniteur', href: '/moniteur', Icon: Newspaper },
   ],
 }
 
@@ -53,215 +91,189 @@ export default function HeroSection() {
   return (
     <section
       className={cn(
-        // Clean hero: full-bleed photographic background (hero.png).
-        // Text floats directly on the gradient — no translucent panel chrome.
-        'relative w-full bg-primary text-white overflow-hidden',
-        // Mobile uses ~700px (compact, no big empty space above/below).
-        // Tablet (incl. iPad Pro 12.9" portrait at 1024px, which hits
-        // Tailwind's `lg`) uses 600px. Real desktop only kicks in at xl
-        // (1280px+) where we fill the full viewport.
-        'min-h-[700px] md:min-h-[600px] xl:min-h-screen pt-20 flex items-center',
+        // Light tool-style hero — the previous immersive navy + palm
+        // image worked as a "welcome to LexHaïti" billboard but didn't
+        // serve the actual primary task (find a text). This rebuild
+        // mirrors Légifrance / Westlaw conventions: clean light
+        // surface, search-first, ranked secondary affordances.
+        'relative w-full bg-slate-50 text-slate-900 pt-20',
       )}
     >
-      {/* Background fills only the visible hero band (below the 80px header
-          reserve from pt-20), so the full palm + image composition lives
-          inside the visible viewport instead of partly hiding behind the
-          fixed header. */}
-      <div className="absolute top-20 inset-x-0 bottom-0 z-0 select-none pointer-events-none">
-        {/* ``next/image`` with ``fill`` so it inherits the parent's
-            absolute box. Next.js then serves WebP/AVIF on demand
-            (huge win vs the 1.88 MB raw PNG it replaced), generates
-            a width-targeted srcset, and adds the priority preload
-            hint so this image becomes the LCP candidate. ``sizes``
-            tells the loader which width to fetch per viewport so we
-            don't ship the 1920px source to a phone. */}
-        <Image
-          src="/hero.png"
-          alt=""
-          aria-hidden="true"
-          fill
-          priority
-          sizes="100vw"
-          className={cn(
-            'object-cover object-center',
-            // Mobile: slight scale-up so the image crops a bit top + bottom
-            // (cinematic letterbox feel) while the palm stays centered.
-            'scale-[1.08] origin-center',
-            // Tablet (incl. iPad Pro 12.9" portrait): scale the image up so
-            // the palm silhouette reads bigger, and shift it down a touch so
-            // the full palm sits lower / more centered in the visible band.
-            'md:scale-[1.4] md:translate-y-[10%]',
-            // Desktop (xl+): back to natural size.
-            'xl:scale-100 xl:translate-y-0',
-          )}
-        />
-        {/* Mobile + all iPads (incl. Pro 12.9" portrait at 1024px): uniform
-            heavy navy wash so the palmis silhouette reads as a subtle
-            backdrop. */}
-        <div className="absolute inset-0 bg-primary/75 xl:hidden" />
-        {/* Tablet/iPad: right-side gradient mask that fully blacks out Lady
-            Justice (she sits in the right ~35% of the image). Combined with
-            the wash above, the right edge becomes pure navy and only the
-            centered palm silhouette stays visible. */}
-        <div className="absolute inset-y-0 right-0 w-2/5 bg-gradient-to-l from-primary via-primary/85 to-transparent xl:hidden" />
-        {/* Real desktop (xl+ ≈ 1280px): directional left-to-right gradient —
-            strong on left (where typography lives), fades right (where the
-            statue + books should read clearly). */}
-        <div className="absolute inset-0 hidden xl:block bg-gradient-to-r from-primary via-primary/80 to-transparent from-0% via-45% to-75%" />
-        {/* Bottom darkening — protects the search input area on all sizes. */}
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-primary/85 to-transparent" />
-      </div>
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+        {/* 1) Brand row — duplicates the global header brand on
+            purpose: this surface reads as the project's "front desk"
+            and the tagline + ``Sous piblik verifye`` cue benefit from
+            the wordmark anchoring them. The trust pill is intentionally
+            blue (institutional) not green (achievement). */}
+        <div className="flex flex-wrap items-end justify-between gap-3 pb-6 border-b border-slate-200">
+          <div>
+            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+              Lex<span className="text-red-600">Haïti</span>
+            </div>
+            <p className="mt-1 text-sm sm:text-base text-slate-500">
+              {t('home.hero.brandSubtitle')}
+            </p>
+          </div>
+          {/* The mockup carried a top-right trust pill; we leave it
+              out per the user's call — the same signal lives in the
+              bottom institutional row. */}
+        </div>
 
-      <div className="relative z-10 container py-12 w-full">
-        <div className="w-full xl:w-[78%]">
-          {/* Minimalist hero. The Latin maxim eyebrow was dropped —
-              it's already engraved into the logo's gold ring (visible
-              top-left in the header), so showing it again as text
-              would have been a double-print. The brand name is split
-              into ``Lex`` + ``Haïti`` with the second half coloured to
-              match the header logo's two-tone treatment; on the dark
-              navy hero we use ``red-500`` (vs the header's ``red-600``
-              on white) so the contrast pops without going muddy. */}
-          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-5xl sm:text-6xl md:text-7xl xl:text-[4.5rem] font-extrabold tracking-tight leading-[1.02] text-white">
-            Lex<span className="text-red-500">Haïti</span>
-          </h1>
-
-          {/* Mission tagline — sits right under the brand name; the
-              accès libre word does double duty (gratis + libre as in
-              freedom) and carries the value prop in five words. */}
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both mt-4 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white/85 leading-tight">
+        {/* 2) Hero card — the value-prop block. Tinted slate surface
+            (not pure white) so it reads as a "headline panel" sitting
+            above the white search card below. */}
+        <div className="mt-8 rounded-2xl bg-slate-100/60 ring-1 ring-slate-200/70 px-6 sm:px-10 py-8 sm:py-10">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight text-slate-900">
             {t('home.hero.tagline')}
-          </p>
-
-          {/* Amber accent — picks up the warm bronze of the palmis
-              relief. Subtle, but it ties the typography back to the
-              brand emblem's gold ring. */}
-          <motion.div
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="mt-8 h-[3px] w-28 bg-amber-400 origin-left"
-          />
-
-          {/* Short welcome paragraph — kept for visitors who want the
-              one-paragraph context (what the corpus contains + sources
-              vérifiées trust marker). Sits between the accent line and
-              the search box so it doesn't push the primary action
-              down too far. */}
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both mt-6 text-base sm:text-lg text-white/85 leading-relaxed max-w-3xl">
+          </h1>
+          <p className="mt-3 text-base sm:text-lg text-slate-600 leading-relaxed max-w-3xl">
             {t('home.hero.description')}
           </p>
+        </div>
 
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-8">
-            {/* sr-only label: the input is visually self-explanatory
-                (search icon + placeholder) so we don't show the label,
-                but screen readers still announce ``Trouver un texte``. */}
-            <label htmlFor="hero-search" className="sr-only">
-              {t('home.hero.findLabel')}
-            </label>
-
-            <form
-              onSubmit={onSubmit}
+        {/* 3) Search card — white surface, generous shadow. The
+            primary action of the whole page. Pill-shaped input + dark
+            navy CTA mirror the mockup. */}
+        <div className="mt-6 rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)] ring-1 ring-slate-100 px-5 sm:px-8 py-6 sm:py-7">
+          <label htmlFor="hero-search" className="sr-only">
+            {t('home.hero.findLabel')}
+          </label>
+          <form
+            onSubmit={onSubmit}
+            className="flex flex-col sm:flex-row items-stretch gap-3"
+          >
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <input
+                id="hero-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('home.hero.placeholder')}
+                aria-label={t('home.hero.findLabel')}
+                className={cn(
+                  'w-full h-14 pl-14 pr-4 rounded-full',
+                  'bg-slate-50 ring-1 ring-slate-200',
+                  'placeholder:text-slate-400 placeholder:italic placeholder:text-sm',
+                  'text-base text-slate-900 outline-none',
+                  'focus:ring-2 focus:ring-primary/40 focus:bg-white transition',
+                )}
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+            <button
+              type="submit"
               className={cn(
-                'flex items-stretch gap-0 rounded-xl overflow-hidden',
-                'bg-white shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)]',
-                'ring-1 ring-white/15',
-                'focus-within:ring-2 focus-within:ring-amber-300/60',
-                'transition-shadow',
+                'inline-flex items-center justify-center gap-2',
+                'h-14 px-7 rounded-full',
+                'bg-primary text-white font-semibold',
+                'hover:bg-primary/90 active:scale-[0.99] transition-all',
               )}
             >
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                <input
-                  id="hero-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('home.hero.placeholder')}
-                  aria-label={t('home.hero.findLabel')}
-                  className="w-full h-16 pl-14 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
-                  style={{ fontSize: '16px' }}
-                />
-              </div>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 px-6 sm:px-8 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
-              >
-                <Search className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('home.hero.searchButton')}</span>
-              </button>
-            </form>
+              <ArrowRight className="w-4 h-4" />
+              {t('home.hero.searchButton')}
+            </button>
+          </form>
 
-            {/* Quick-pick chips — most-likely entry points for visitors
-                who land without a query in mind. Mix of search shortcuts
-                and direct navigation, each routed to whichever surface
-                makes sense. Sits above the advanced/browse links so it's
-                the first discoverable affordance after the search bar. */}
-            <div
-              className="animate-in fade-in duration-500 fill-mode-both mt-4 flex flex-wrap items-center gap-2"
-              style={{ animationDelay: '400ms' }}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mr-1">
-                {t('home.hero.suggestionsLabel')}
-              </span>
-              {SUGGESTIONS[lang].map((s) => {
-                const cls =
-                  'inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-white/35 transition-colors backdrop-blur-sm'
-                if ('href' in s && s.href) {
-                  return (
-                    <Link key={s.label} href={s.href} className={cls}>
-                      {s.label}
-                    </Link>
-                  )
-                }
-                if ('q' in s && s.q) {
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => goSearch(s.q!)}
-                      className={cls}
-                    >
-                      {s.label}
-                    </button>
-                  )
-                }
-                return null
-              })}
-            </div>
+          {/* Compact chip row below the input — small visual cues
+              for common queries; clicking shoots straight to results. */}
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-500 mr-1">
+              {t('home.hero.quickExamples')}
+            </span>
+            {CHIPS[lang].map((c) => {
+              const cls =
+                'inline-flex items-center rounded-full bg-slate-50 ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:ring-slate-300 transition-colors'
+              if ('href' in c && c.href) {
+                return (
+                  <Link key={c.label} href={c.href} className={cls}>
+                    {c.label}
+                  </Link>
+                )
+              }
+              if ('q' in c && c.q) {
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => goSearch(c.q!)}
+                    className={cls}
+                  >
+                    {c.label}
+                  </button>
+                )
+              }
+              return null
+            })}
+          </div>
+        </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <Link
-                href="/recherche/avancee"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/90 hover:text-amber-300 transition-colors"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                {t('home.hero.advanced')}
-              </Link>
-              <span className="text-white/30" aria-hidden="true">|</span>
-              <Link
-                href="/lois"
-                className="text-sm font-medium text-white/75 hover:text-amber-300 transition-colors"
-              >
-                {t('home.hero.browse')}
-              </Link>
-            </div>
+        {/* 4) POPULAIRES — big icon-cards for the four canonical
+            entry points. White, soft shadow, amber icon glyph. */}
+        <div className="mt-10">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-4">
+            {t('home.hero.suggestionsLabel')}
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {POPULAR[lang].map((p) => {
+              const inner = (
+                <span className="inline-flex items-center gap-2.5">
+                  <p.Icon className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-slate-800">
+                    {p.label}
+                  </span>
+                </span>
+              )
+              const cls = cn(
+                'flex items-center justify-center sm:justify-start',
+                'rounded-full bg-white ring-1 ring-slate-200 px-4 py-3',
+                'shadow-[0_2px_6px_-2px_rgba(15,23,42,0.08)]',
+                'hover:ring-slate-300 hover:shadow-[0_4px_12px_-4px_rgba(15,23,42,0.12)] transition-all',
+              )
+              if (p.href) {
+                return (
+                  <Link key={p.label} href={p.href} className={cls}>
+                    {inner}
+                  </Link>
+                )
+              }
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => goSearch(p.q!)}
+                  className={cls}
+                >
+                  {inner}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-            {/* Trust line — small institutional reassurance at the foot
-                of the hero. Two halves separated by a faint divider:
-                left = source authenticity (where the texts come from),
-                right = access posture (who they're for). The Landmark
-                icon picks up the same civic-institution vibe the
-                emblem already projects without overstating it. */}
-            <div className="animate-in fade-in duration-500 delay-500 fill-mode-both mt-8 flex items-center gap-3 text-xs sm:text-sm text-white/55">
-              <Landmark className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-              <span>{t('home.hero.trustSources')}</span>
-              <span className="text-white/25" aria-hidden="true">|</span>
-              <span>{t('home.hero.trustAccess')}</span>
-            </div>
+        {/* 5) Bottom row — advanced search on the left, institutional
+            trust line in the center. Two halves of the same message:
+            "here's how to dig deeper" + "here's why you can trust the
+            corpus". */}
+        <div className="mt-10 mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm text-slate-500">
+          <Link
+            href="/recherche/avancee"
+            className="inline-flex items-center gap-1.5 font-semibold text-slate-700 hover:text-primary transition-colors"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {t('home.hero.advancedFull')}
+          </Link>
+          <div className="inline-flex items-center gap-2.5 text-slate-500">
+            <Landmark className="w-4 h-4 flex-shrink-0" aria-hidden />
+            <span>{t('home.hero.trustSources')}</span>
+            <span className="text-slate-300" aria-hidden>
+              |
+            </span>
+            <span>{t('home.hero.trustAccess')}</span>
           </div>
         </div>
       </div>
+
     </section>
   )
 }
