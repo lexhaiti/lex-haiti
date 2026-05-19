@@ -83,22 +83,33 @@ export default function HeroSection() {
         'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen flex flex-col justify-center overflow-hidden',
       )}
     >
-      {/* Brand watermark — centred behind the hero content at ~5%
-          opacity. The circular emblem (Lady Justice + palmis + gold
-          ring) sits as an embossed seal directly under the H1 +
-          search stack, the way an official document carries its
-          institutional seal centred on the page. Hidden below md:
-          on mobile a 600px seal in a 375px viewport would crowd the
-          search + trust line instead of accenting them. */}
+      {/* Brand watermark — centred embossed seal behind the hero
+          stack, like the institutional stamp on an official document.
+          Size scales with the viewport so it stays in proportion on
+          phones (~320px) all the way up to large desktop (~760px),
+          while opacity holds at 5% across the range — light enough
+          that the search card still lifts cleanly off the bg. */}
       <div
-        className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none select-none z-0"
+        className="flex absolute inset-0 items-center justify-center pointer-events-none select-none z-0"
         aria-hidden
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/lexhaiti-logo-384.webp"
           alt=""
-          className="w-[600px] h-[600px] opacity-[0.05] object-contain"
+          className={cn(
+            'object-contain opacity-[0.05]',
+            // Mobile / sm: small enough to not crowd the search card
+            'w-[320px] h-[320px]',
+            // Tablet / md: bigger so the seal reads as a deliberate
+            // backdrop, not a tiny accent
+            'sm:w-[480px] sm:h-[480px]',
+            'md:w-[640px] md:h-[640px]',
+            // Desktop / lg+: monumental backdrop, matches the wider
+            // hero content area
+            'lg:w-[720px] lg:h-[720px]',
+            'xl:w-[760px] xl:h-[760px]',
+          )}
           loading="eager"
           decoding="async"
         />
