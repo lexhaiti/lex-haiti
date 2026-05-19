@@ -71,6 +71,7 @@ const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, stri
   constitution:   { fr: ['Constitution', 'Constitutions'],     ht: ['Konstitisyon', 'Konstitisyon yo'] },
   code:           { fr: ['Code', 'Codes'],                     ht: ['Kòd', 'Kòd yo'] },
   loi:            { fr: ['Loi', 'Lois'],                       ht: ['Lwa', 'Lwa yo'] },
+  loi_constitutionnelle: { fr: ['Loi constitutionnelle', 'Lois constitutionnelles'], ht: ['Lwa konstitisyonèl', 'Lwa konstitisyonèl yo'] },
   decret:         { fr: ['Décret', 'Décrets'],                 ht: ['Dekrè', 'Dekrè yo'] },
   arrete:         { fr: ['Arrêté', 'Arrêtés'],                 ht: ['Arete', 'Arete yo'] },
   circulaire:     { fr: ['Circulaire', 'Circulaires'],         ht: ['Sikilè', 'Sikilè yo'] },
@@ -81,6 +82,8 @@ const CATEGORY_LABELS: Record<DocType, { fr: [string, string]; ht: [string, stri
   promulgation:   { fr: ['Promulgation', 'Promulgations'],     ht: ['Pwomilgasyon', 'Pwomilgasyon yo'] },
   // "Errata" is invariable in both languages.
   errata:         { fr: ['Errata', 'Errata'],                  ht: ['Errata', 'Errata'] },
+  // Deliberation of a constituted body — CPT, Assemblée, Sénat.
+  resolution:     { fr: ['Résolution', 'Résolutions'],         ht: ['Rezolisyon', 'Rezolisyon yo'] },
   // Editorial annotation attached to a sommaire row (translator note,
   // transcription gap, deviation from the printed source).
   note:           { fr: ['Note', 'Notes'],                     ht: ['Nòt', 'Nòt yo'] },

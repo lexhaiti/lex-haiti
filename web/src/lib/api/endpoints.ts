@@ -466,6 +466,7 @@ export type MoniteurEntryRead = {
     | 'constitution'
     | 'code'
     | 'loi'
+    | 'loi_constitutionnelle'
     | 'decret'
     | 'arrete'
     | 'circulaire'
@@ -475,6 +476,7 @@ export type MoniteurEntryRead = {
     | 'correspondance'
     | 'promulgation'
     | 'errata'
+    | 'resolution'
     | 'note'
     | 'autre'
     | null
