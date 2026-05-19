@@ -184,6 +184,8 @@ export const ht = {
       advanced: 'Rechèch avanse',
       browse: 'Tout tèks yo',
       suggestionsLabel: 'Popilè',
+      trustSources: 'Sous piblik verifye',
+      trustAccess: 'Aksè lib pou tout moun',
     },
     search: {
       placeholder: 'Chèche yon lwa, yon atik...',

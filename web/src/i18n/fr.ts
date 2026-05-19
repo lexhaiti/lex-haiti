@@ -185,6 +185,8 @@ export const fr = {
       advanced: 'Recherche avancée',
       browse: 'Tous les textes',
       suggestionsLabel: 'Populaires',
+      trustSources: 'Sources publiques vérifiées',
+      trustAccess: 'Accès libre à tous',
     },
     search: {
       placeholder: 'Rechercher une loi, un article...',

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { Landmark, Search, SlidersHorizontal } from 'lucide-react'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
@@ -245,6 +245,19 @@ export default function HeroSection() {
               >
                 {t('home.hero.browse')}
               </Link>
+            </div>
+
+            {/* Trust line — small institutional reassurance at the foot
+                of the hero. Two halves separated by a faint divider:
+                left = source authenticity (where the texts come from),
+                right = access posture (who they're for). The Landmark
+                icon picks up the same civic-institution vibe the
+                emblem already projects without overstating it. */}
+            <div className="animate-in fade-in duration-500 delay-500 fill-mode-both mt-8 flex items-center gap-3 text-xs sm:text-sm text-white/55">
+              <Landmark className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+              <span>{t('home.hero.trustSources')}</span>
+              <span className="text-white/25" aria-hidden="true">|</span>
+              <span>{t('home.hero.trustAccess')}</span>
             </div>
           </div>
         </div>
