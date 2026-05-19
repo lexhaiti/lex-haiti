@@ -73,49 +73,13 @@ export default function HeroSection() {
   return (
     <section
       className={cn(
-        // Light tool-style hero. Sized to its content (no ``min-h-screen``)
-        // so the Explorer section below comes into view sooner — the
-        // previous full-viewport reserve created a hollow stretch
-        // below the search card that read as wasted space. ``pt-20``
-        // still clears the fixed 80px header. ``overflow-hidden`` is
-        // kept because the centred watermark seal sometimes overruns
-        // the section's natural width on wide viewports.
-        'relative w-full bg-slate-50 text-slate-900 pt-20 overflow-hidden',
+        // Light tool-style hero. Sized to its content (no
+        // ``min-h-screen``) so the Explorer section below comes into
+        // view sooner. ``pt-20`` clears the fixed 80px header.
+        'relative w-full bg-slate-50 text-slate-900 pt-20',
       )}
     >
-      {/* Brand watermark — centred embossed seal behind the hero
-          stack, like the institutional stamp on an official document.
-          Size scales with the viewport so it stays in proportion on
-          phones (~320px) all the way up to large desktop (~760px),
-          while opacity holds at 5% across the range — light enough
-          that the search card still lifts cleanly off the bg. */}
-      <div
-        className="flex absolute inset-0 items-center justify-center pointer-events-none select-none z-0"
-        aria-hidden
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/lexhaiti-logo-384.webp"
-          alt=""
-          className={cn(
-            'object-contain opacity-[0.05]',
-            // Mobile / sm: small enough to not crowd the search card
-            'w-[320px] h-[320px]',
-            // Tablet / md: bigger so the seal reads as a deliberate
-            // backdrop, not a tiny accent
-            'sm:w-[480px] sm:h-[480px]',
-            'md:w-[640px] md:h-[640px]',
-            // Desktop / lg+: monumental backdrop, matches the wider
-            // hero content area
-            'lg:w-[720px] lg:h-[720px]',
-            'xl:w-[760px] xl:h-[760px]',
-          )}
-          loading="eager"
-          decoding="async"
-        />
-      </div>
-
-      <div className="relative z-10 container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* 1) H1 + short intro paragraph. The previous monumental
             ``LexHaïti`` wordmark is gone — the brand already lives in
             the global header, and the surface now leads with the
