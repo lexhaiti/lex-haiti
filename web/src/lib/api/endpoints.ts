@@ -982,6 +982,99 @@ export async function getTranslationWorklist(params?: {
   })
 }
 
+// ============================================================
+// Chronologie de la législation (editorial-only)
+// Backed by ``legislation_index_entries`` — historical references
+// extracted from the 2001 Ministère de la Justice ``Index
+// Chronologique de la Législation Haïtienne (1804-2000)``.
+// ============================================================
+
+export type LegislationInForceStatus =
+  | 'unknown'
+  | 'in_force'
+  | 'abrogated'
+  | 'superseded'
+  | 'modified'
+
+export type LegislationIndexEntryRead = {
+  id: number
+  source: string
+  source_page: number | null
+  display_order: number
+  chapter: string | null
+  section: string | null
+  description_fr: string
+  detected_category: string | null
+  act_date: string | null
+  act_date_raw: string | null
+  moniteur_number: string | null
+  moniteur_year: number | null
+  moniteur_date: string | null
+  moniteur_date_raw: string | null
+  in_force_status: LegislationInForceStatus
+  in_force_notes: string | null
+  in_force_verified_at: string | null
+  notes: string | null
+  legal_text_id: number | null
+  moniteur_issue_id: number | null
+  legal_text_slug: string | null
+  legal_text_title_fr: string | null
+}
+
+export type LegislationIndexListResponse = {
+  items: LegislationIndexEntryRead[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type LegislationIndexStats = {
+  total: number
+  sections: number
+  by_section: Record<string, number>
+  by_in_force_status: Record<string, number>
+  with_act_date: number
+  with_moniteur_ref: number
+  imported: number
+  year_min: number | null
+  year_max: number | null
+}
+
+export async function getChronologieStats() {
+  return apiGet<LegislationIndexStats>('/editorial/chronologie/stats')
+}
+
+export async function listChronologie(params?: {
+  limit?: number
+  offset?: number
+  section?: string
+  in_force_status?: LegislationInForceStatus
+  year_from?: number
+  year_to?: number
+  only_imported?: boolean
+  q?: string
+}) {
+  return apiGet<LegislationIndexListResponse>('/editorial/chronologie', {
+    params,
+  })
+}
+
+export async function updateChronologieEntry(
+  id: number,
+  payload: {
+    in_force_status?: LegislationInForceStatus
+    in_force_notes?: string | null
+    notes?: string | null
+    legal_text_id?: number | null
+    moniteur_issue_id?: number | null
+  },
+) {
+  return apiPatch<LegislationIndexEntryRead>(
+    `/editorial/chronologie/${id}`,
+    payload,
+  )
+}
+
 export type TranslationMatchResponse = {
   article_id: number
   article_number: string

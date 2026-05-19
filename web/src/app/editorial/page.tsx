@@ -252,6 +252,16 @@ export default function EditorialDashboardPage() {
             isFr ? 'Liste des textes à traduire' : 'Lis tèks pou tradui'
           }
         />
+        <DashboardCard
+          href="/editorial/chronologie"
+          icon={CalendarRange}
+          title={isFr ? 'Chronologie' : 'Kwonoloji'}
+          subtitle={
+            isFr
+              ? '1 728 références (1804-2000) à vérifier'
+              : '1,728 referans (1804-2000) pou verifye'
+          }
+        />
       </section>
 
       {/* Translation stats */}

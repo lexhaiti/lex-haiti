@@ -7,6 +7,7 @@ from api.routes import (
     citations,
     decisions,
     editorial,
+    editorial_chronologie,
     editorial_translations,
     legal_texts,
     moniteur,
@@ -25,6 +26,9 @@ api_router.include_router(editorial.router)
 # worklist. Same /editorial prefix and tag so the URL surface is
 # unchanged from the client's perspective.
 api_router.include_router(editorial_translations.router)
+# Chronologie de la législation — editorial-only list + per-entry
+# mutations against ``legislation_index_entries`` (see migration 0030).
+api_router.include_router(editorial_chronologie.router)
 api_router.include_router(moniteur.router)
 api_router.include_router(promulgations.router)
 api_router.include_router(search.router)
