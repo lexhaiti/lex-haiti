@@ -126,6 +126,16 @@ const CATEGORY_META: Record<
     bar: 'bg-blue-500',
     icon: 'text-blue-600',
   },
+  // Added in migration 0029 — a ``loi`` that amends the Constitution.
+  // Keeps the blue palette (loi family) but a deeper indigo accent so
+  // the constitutional flavour reads at a glance.
+  loi_constitutionnelle: {
+    label: 'Loi constitutionnelle',
+    plural: 'Lois constitutionnelles',
+    badge: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+    bar: 'bg-indigo-600',
+    icon: 'text-indigo-700',
+  },
   decret: {
     label: 'Décret',
     plural: 'Décrets',
@@ -200,6 +210,16 @@ const CATEGORY_META: Record<
     bar: 'bg-sky-500',
     icon: 'text-sky-600',
   },
+  // Added in migration 0026. Deliberation of a constituted body
+  // (CPT, Assemblée nationale, Sénat) — distinct from a regulatory
+  // act. Violet so it stands apart from the regulatory family.
+  resolution: {
+    label: 'Résolution',
+    plural: 'Résolutions',
+    badge: 'bg-violet-50 text-violet-800 border-violet-200',
+    bar: 'bg-violet-500',
+    icon: 'text-violet-600',
+  },
   autre: {
     label: 'Autre',
     plural: 'Autres',
@@ -233,7 +253,7 @@ function SommaireCard({
   const isPromulgation = candidate.detected_category === 'promulgation'
   const hasRawText = !!candidate.raw_text && !isPromoted
   const meta = candidate.detected_category
-    ? CATEGORY_META[candidate.detected_category]
+    ? CATEGORY_META[candidate.detected_category] ?? CATEGORY_META.autre
     : null
   // Localised category label (e.g. "Promulgation" / "Pwomilgasyon",
   // "Constitution" / "Konstitisyon") — sits on top of the same colour
@@ -457,7 +477,7 @@ function CompanionRow({
   const lang = (language === 'ht' ? 'ht' : 'fr') as 'fr' | 'ht'
   const hasRawText = !!candidate.raw_text
   const meta = candidate.detected_category
-    ? CATEGORY_META[candidate.detected_category]
+    ? CATEGORY_META[candidate.detected_category] ?? CATEGORY_META.autre
     : null
   // Fallback to the raw category code if our label table doesn't carry
   // it — better than a blank chip. ``autre`` and any future enum value
@@ -914,7 +934,10 @@ export default function MoniteurDetailClient() {
               Composition
             </span>
             {sortedCategoryEntries.map(([cat, n]) => {
-              const meta = CATEGORY_META[cat]
+              // Fall back to ``autre`` so a future enum addition can't
+              // crash this client component before the corresponding
+              // palette is wired up.
+              const meta = CATEGORY_META[cat] ?? CATEGORY_META.autre
               const word = categoryLabel(cat, lang, { plural: n !== 1 })
               return (
                 <span
