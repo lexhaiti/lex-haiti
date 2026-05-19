@@ -81,7 +81,7 @@ export default function BrandLogo({
 
       <div className="flex flex-col">
         <span className={`text-xl font-bold tracking-tight ${titleClassName}`}>
-          Lex<span className="text-red-600">Haiti</span>
+          Lex<span className="text-red-600">Haïti</span>
         </span>
 
         {showTagline && (

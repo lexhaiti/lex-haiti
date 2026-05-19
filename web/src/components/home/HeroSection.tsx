@@ -1,33 +1,53 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Search, SlidersHorizontal } from 'lucide-react'
+import {
+  ArrowRight,
+  BadgeCheck,
+  BookOpen,
+  BookMarked,
+  Briefcase,
+  Gavel,
+  Newspaper,
+  Search,
+  SlidersHorizontal,
+  Unlock,
+} from 'lucide-react'
 import { useT } from '@/i18n/useT'
 import { cn } from '@/lib/utils'
 
-// Hero copy is centralised under `home.hero.*` in i18n/{fr,ht}.ts.
-// Suggestion chips stay here because they mix copy with routing data
-// (label + (q OR href)) — moving them into i18n would force the messages
-// catalogue to carry route paths, which doesn't belong there.
-const SUGGESTIONS: Record<
-  'fr' | 'ht',
-  Array<{ label: string; q?: string; href?: string }>
-> = {
+// Popular quick-access pills under the search bar. Icon is paired
+// by type — Constitution gets the book, codes the gavel, themes the
+// briefcase, Moniteur the newspaper. (The narrow chip row that used
+// to live inside the search card was removed per UX brief — pulling
+// double duty with the POPULAIRES row below was visual noise.)
+type PopularCard = {
+  label: string
+  href?: string
+  q?: string
+  Icon: React.ComponentType<{ className?: string }>
+}
+
+const POPULAR: Record<'fr' | 'ht', PopularCard[]> = {
   fr: [
-    { label: 'Constitution 1987', q: 'Constitution 1987' },
-    { label: 'Code Civil', q: 'Code Civil' },
-    { label: 'Droit du Travail', href: '/lois?theme=droit_travail' },
-    { label: 'Le Moniteur', href: '/moniteur' },
+    { label: 'Constitution 1987', q: 'Constitution 1987', Icon: BookOpen },
+    { label: 'Code Civil', q: 'Code Civil', Icon: Gavel },
+    { label: 'Code Pénal', q: 'Code Pénal', Icon: BookMarked },
+    {
+      label: 'Droit du Travail',
+      href: '/lois?theme=droit_travail',
+      Icon: Briefcase,
+    },
+    { label: 'Le Moniteur', href: '/moniteur', Icon: Newspaper },
   ],
   ht: [
-    { label: 'Konstitisyon 1987', q: 'Constitution 1987' },
-    { label: 'Kòd Sivil', q: 'Code Civil' },
-    { label: 'Dwa travay', href: '/lois?theme=droit_travail' },
-    { label: 'Le Moniteur', href: '/moniteur' },
+    { label: 'Konstitisyon 1987', q: 'Constitution 1987', Icon: BookOpen },
+    { label: 'Kòd Sivil', q: 'Code Civil', Icon: Gavel },
+    { label: 'Kòd Penal', q: 'Code Pénal', Icon: BookMarked },
+    { label: 'Dwa travay', href: '/lois?theme=droit_travail', Icon: Briefcase },
+    { label: 'Le Moniteur', href: '/moniteur', Icon: Newspaper },
   ],
 }
 
@@ -53,204 +73,209 @@ export default function HeroSection() {
   return (
     <section
       className={cn(
-        // Clean hero: full-bleed photographic background (hero.png).
-        // Text floats directly on the gradient — no translucent panel chrome.
-        'relative w-full bg-primary text-white overflow-hidden',
-        // Mobile uses ~700px (compact, no big empty space above/below).
-        // Tablet (incl. iPad Pro 12.9" portrait at 1024px, which hits
-        // Tailwind's `lg`) uses 600px. Real desktop only kicks in at xl
-        // (1280px+) where we fill the full viewport.
-        'min-h-[700px] md:min-h-[600px] xl:min-h-screen pt-20 flex items-center',
+        // Light tool-style hero. ``min-h-screen`` makes the surface
+        // claim the full viewport so the Lady-Justice backdrop has
+        // room to breathe; ``pt-20`` clears the fixed 80px header.
+        // ``overflow-hidden`` keeps the bg image from leaking out
+        // when the page is narrower than the image's natural width.
+        'relative w-full bg-slate-50 text-slate-900 pt-20 min-h-screen overflow-hidden',
       )}
     >
-      {/* Background fills only the visible hero band (below the 80px header
-          reserve from pt-20), so the full palm + image composition lives
-          inside the visible viewport instead of partly hiding behind the
-          fixed header. */}
-      <div className="absolute top-20 inset-x-0 bottom-0 z-0 select-none pointer-events-none">
-        {/* ``next/image`` with ``fill`` so it inherits the parent's
-            absolute box. Next.js then serves WebP/AVIF on demand
-            (huge win vs the 1.88 MB raw PNG it replaced), generates
-            a width-targeted srcset, and adds the priority preload
-            hint so this image becomes the LCP candidate. ``sizes``
-            tells the loader which width to fetch per viewport so we
-            don't ship the 1920px source to a phone. */}
-        <Image
-          src="/hero.png"
+      {/* Lady-Justice backdrop — the Haitian coat of arms (palm
+          + flags + drums + ``L'union fait la force`` ribbon), the
+          Lady-Justice statue and a leather-bound ``Constitution
+          d'Haïti`` volume on a dark navy stage. Anchored right so
+          the coat of arms + statue sit behind the search column; a
+          strong left-to-right slate-50 gradient mask fades the image
+          into the page surface so the H1 / description / trust line
+          on the left stay crisply readable. Hidden on mobile (img
+          would sit under the text column). */}
+      <div
+        className="hidden md:block absolute inset-0 pointer-events-none select-none overflow-hidden z-0"
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lady-justice-bg.webp"
           alt=""
-          aria-hidden="true"
-          fill
-          priority
-          sizes="100vw"
-          className={cn(
-            'object-cover object-center',
-            // Mobile: slight scale-up so the image crops a bit top + bottom
-            // (cinematic letterbox feel) while the palm stays centered.
-            'scale-[1.08] origin-center',
-            // Tablet (incl. iPad Pro 12.9" portrait): scale the image up so
-            // the palm silhouette reads bigger, and shift it down a touch so
-            // the full palm sits lower / more centered in the visible band.
-            'md:scale-[1.4] md:translate-y-[10%]',
-            // Desktop (xl+): back to natural size.
-            'xl:scale-100 xl:translate-y-0',
-          )}
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-right opacity-[0.30]"
         />
-        {/* Mobile + all iPads (incl. Pro 12.9" portrait at 1024px): uniform
-            heavy navy wash so the palmis silhouette reads as a subtle
-            backdrop. */}
-        <div className="absolute inset-0 bg-primary/75 xl:hidden" />
-        {/* Tablet/iPad: right-side gradient mask that fully blacks out Lady
-            Justice (she sits in the right ~35% of the image). Combined with
-            the wash above, the right edge becomes pure navy and only the
-            centered palm silhouette stays visible. */}
-        <div className="absolute inset-y-0 right-0 w-2/5 bg-gradient-to-l from-primary via-primary/85 to-transparent xl:hidden" />
-        {/* Real desktop (xl+ ≈ 1280px): directional left-to-right gradient —
-            strong on left (where typography lives), fades right (where the
-            statue + books should read clearly). */}
-        <div className="absolute inset-0 hidden xl:block bg-gradient-to-r from-primary via-primary/80 to-transparent from-0% via-45% to-75%" />
-        {/* Bottom darkening — protects the search input area on all sizes. */}
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-primary/85 to-transparent" />
+        {/* Left → centre fade keeps the H1 / description / trust
+            line on a clean slate-50 wash. ``via`` stop pushed to
+            ~65 % and bumped to /90 opacity so the coat-of-arms
+            metalwork on the right half doesn't bleed through into
+            the headline area (AA contrast was fine before but the
+            texture made the navy look soft). The image stays fully
+            visible past ~75 % of the width — search card + pills
+            sit on top of it. */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-50 from-20% via-slate-50/90 via-65% to-transparent" />
+        {/* Bottom fade — protects the popular pills + footer trust
+            line so they don't sit on a busy image area. */}
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-50 to-transparent" />
       </div>
 
-      <div className="relative z-10 container py-12 w-full">
-        <div className="w-full xl:w-[78%]">
-          {/* Latin maxim eyebrow — same maxim used on /a-propos's quote
-              card, here as a small italic line above the H1 to anchor
-              the project's mission ("publicity of law is the foundation
-              of liberty") on the front door. Kept restrained so the H1
-              stays visually dominant. */}
-          <p className="animate-in fade-in duration-500 text-xs sm:text-sm italic text-amber-300/80 mb-3">
-            <span className="not-italic font-bold uppercase tracking-[0.18em] text-amber-300/60 mr-2">
-              ⁂
-            </span>
-            Publicitas iuris fundamentum libertatis.
-          </p>
-
-          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-4xl sm:text-5xl md:text-6xl xl:text-[3.75rem] font-extrabold tracking-tight leading-[1.05] text-white">
-            {/* The brand name is now the H1 — the descriptive
-                "Portail juridique de la République d'Haïti" wording
-                we used before was institutional-sounding and risked
-                implying an official mandate LexHaïti doesn't yet hold.
-                Brand name + a short mission tagline below carries the
-                same weight without the legal-status ambiguity. */}
-            {t('home.hero.title')}
-          </h1>
-
-          {/* Mission tagline: "Le droit haïtien, en accès libre." —
-              short, memorable, and ties the brand to its promise
-              without claiming a status (``service public``,
-              ``portail officiel``) we can't legally back. */}
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both mt-3 text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-white/85 leading-tight">
+      <div className="relative z-10 container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14 min-h-[calc(100vh-5rem)] flex flex-col justify-center">
+        {/* 1) H1 + short intro paragraph. The previous monumental
+            ``LexHaïti`` wordmark is gone — the brand already lives in
+            the global header, and the surface now leads with the
+            actual value proposition. */}
+        <div className="text-center max-w-3xl mx-auto">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.05] text-primary">
             {t('home.hero.tagline')}
-          </p>
-
-          {/* Amber accent — picks up the warm bronze of the palmis relief. */}
-          <motion.div
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="mt-6 h-[3px] w-28 bg-amber-400 origin-left"
-          />
-
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-6 text-base sm:text-lg text-white/85 leading-relaxed">
+          </h1>
+          <p className="mt-5 text-base sm:text-lg md:text-xl leading-relaxed text-slate-700">
             {t('home.hero.description')}
           </p>
+        </div>
 
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-8">
-            <label
-              htmlFor="hero-search"
-              className="block text-sm font-semibold text-white/90 mb-2"
-            >
-              {t('home.hero.findLabel')}
-            </label>
+        {/* 2) Trust line — sits right under the intro paragraph and
+            ABOVE the search card. Two halves separated by a soft
+            divider; small SVG icons (BadgeCheck for provenance,
+            Unlock for posture) give each half a glyph. Reads as the
+            project's quality cue before the user even types. */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs sm:text-sm text-slate-500">
+          <span className="inline-flex items-center gap-2">
+            <BadgeCheck
+              className="w-4 h-4 text-emerald-600 flex-shrink-0"
+              aria-hidden
+            />
+            {t('home.hero.trustSources')}
+          </span>
+          <span className="hidden sm:inline text-slate-300" aria-hidden>
+            |
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Unlock
+              className="w-4 h-4 text-primary flex-shrink-0"
+              aria-hidden
+            />
+            {t('home.hero.trustAccess')}
+          </span>
+        </div>
 
-            <form
-              onSubmit={onSubmit}
+        {/* 3) Search bar — the primary action.
+            Softer + wider shadow (``shadow-[0_24px_60px_-20px_…]``)
+            so the card lifts off the slate-50 surface but doesn't
+            shout. No chip row inside any more; the POPULAIRES row
+            below takes that role. */}
+        <div className="mt-8 sm:mt-10 rounded-2xl bg-white ring-1 ring-slate-100 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.18)] px-4 sm:px-6 py-4 sm:py-5">
+          <label htmlFor="hero-search" className="sr-only">
+            {t('home.hero.findLabel')}
+          </label>
+          <form
+            onSubmit={onSubmit}
+            className="flex flex-col sm:flex-row items-stretch gap-3"
+          >
+            <div className="relative flex-1 min-w-0">
+              <Search
+                className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none"
+                aria-hidden
+              />
+              <input
+                id="hero-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('home.hero.placeholder')}
+                aria-label={t('home.hero.findLabel')}
+                className={cn(
+                  'w-full h-14 pl-14 pr-4 rounded-full',
+                  'bg-slate-50 ring-1 ring-slate-200',
+                  'placeholder:text-slate-400 placeholder:italic placeholder:text-sm',
+                  'text-base text-slate-900 outline-none',
+                  'focus:ring-2 focus:ring-primary/40 focus:bg-white transition',
+                )}
+                // 16px keeps iOS Safari from zooming the viewport on
+                // input focus — anything below triggers the auto-zoom.
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+            <button
+              type="submit"
               className={cn(
-                'flex items-stretch gap-0 rounded-lg overflow-hidden',
-                'bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]',
-                'ring-1 ring-white/15',
-                'focus-within:ring-2 focus-within:ring-amber-300/60',
-                'transition-shadow',
+                'inline-flex items-center justify-center gap-2',
+                'h-14 px-7 rounded-full',
+                'bg-primary text-white font-semibold',
+                'hover:bg-primary/90 active:scale-[0.99] transition-all',
               )}
             >
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <input
-                  id="hero-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('home.hero.placeholder')}
-                  aria-label={t('home.hero.findLabel')}
-                  className="w-full h-14 pl-11 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
-                  style={{ fontSize: '16px' }}
+              {t('home.hero.searchButton')}
+              <ArrowRight className="w-4 h-4" aria-hidden />
+            </button>
+          </form>
+        </div>
+
+        {/* 4) Secondary search affordances — two separate links
+            (advanced search + browse-all) separated by a vertical
+            divider, immediately below the search card where the
+            user's eye already is. The previous "advancedFull" combo
+            string read as one link; users wanted them split so each
+            destination is clickable on its own. */}
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+          <Link
+            href="/recherche/avancee"
+            className="inline-flex items-center gap-1.5 font-semibold text-slate-600 hover:text-primary transition-colors"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden />
+            {t('home.hero.advanced')}
+          </Link>
+          <span className="text-slate-300" aria-hidden>
+            |
+          </span>
+          <Link
+            href="/lois"
+            className="font-medium text-slate-600 hover:text-primary transition-colors"
+          >
+            {t('home.hero.browse')}
+          </Link>
+        </div>
+
+        {/* 5) POPULAIRES — interactive pills for the canonical entry
+            points (Constitution, the three core codes, Le Moniteur).
+            Pill style: white, soft ring, hover lifts the shadow +
+            tints the icon, gives a polished interactive feel without
+            shouting. The bare label row above (was an ``h2`` eyebrow)
+            is gone — pills are self-explanatory at this scale. */}
+        <div className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {POPULAR[lang].map((p) => {
+            const inner = (
+              <>
+                <p.Icon
+                  className="w-4 h-4 text-amber-600 group-hover:text-amber-700 transition-colors flex-shrink-0"
+                  aria-hidden
                 />
-              </div>
+                <span className="text-sm font-semibold text-slate-800 group-hover:text-slate-950 transition-colors">
+                  {p.label}
+                </span>
+              </>
+            )
+            const cls = cn(
+              'group inline-flex items-center gap-2',
+              'rounded-full bg-white ring-1 ring-slate-200 px-4 py-2.5',
+              'shadow-[0_1px_3px_-1px_rgba(15,23,42,0.08)]',
+              'hover:ring-slate-300 hover:shadow-[0_6px_16px_-6px_rgba(15,23,42,0.18)] hover:-translate-y-0.5',
+              'transition-all duration-200',
+            )
+            if (p.href) {
+              return (
+                <Link key={p.label} href={p.href} className={cls}>
+                  {inner}
+                </Link>
+              )
+            }
+            return (
               <button
-                type="submit"
-                className="inline-flex items-center gap-2 px-5 sm:px-7 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
+                key={p.label}
+                type="button"
+                onClick={() => goSearch(p.q!)}
+                className={cls}
               >
-                <Search className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('home.hero.searchButton')}</span>
+                {inner}
               </button>
-            </form>
-
-            {/* Quick-pick chips — most-likely entry points for visitors
-                who land without a query in mind. Mix of search shortcuts
-                and direct navigation, each routed to whichever surface
-                makes sense. Sits above the advanced/browse links so it's
-                the first discoverable affordance after the search bar. */}
-            <div
-              className="animate-in fade-in duration-500 fill-mode-both mt-4 flex flex-wrap items-center gap-2"
-              style={{ animationDelay: '400ms' }}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/55 mr-1">
-                {t('home.hero.suggestionsLabel')}
-              </span>
-              {SUGGESTIONS[lang].map((s) => {
-                const cls =
-                  'inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-white/35 transition-colors backdrop-blur-sm'
-                if ('href' in s && s.href) {
-                  return (
-                    <Link key={s.label} href={s.href} className={cls}>
-                      {s.label}
-                    </Link>
-                  )
-                }
-                if ('q' in s && s.q) {
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => goSearch(s.q!)}
-                      className={cls}
-                    >
-                      {s.label}
-                    </button>
-                  )
-                }
-                return null
-              })}
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-              <Link
-                href="/recherche/avancee"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/90 hover:text-amber-300 transition-colors"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                {t('home.hero.advanced')}
-              </Link>
-              <span className="text-white/30" aria-hidden="true">|</span>
-              <Link
-                href="/lois"
-                className="text-sm font-medium text-white/75 hover:text-amber-300 transition-colors"
-              >
-                {t('home.hero.browse')}
-              </Link>
-            </div>
-          </div>
+            )
+          })}
         </div>
       </div>
     </section>
