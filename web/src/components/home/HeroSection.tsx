@@ -103,19 +103,20 @@ export default function HeroSection() {
       )}
     >
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        {/* 1) Brand row — duplicates the global header brand on
-            purpose: this surface reads as the project's "front desk"
-            and the centered wordmark + italic subtitle act as a
-            tonal anchor, like the inscription on a public building.
-            No divider below — the slate-tinted headline card next
-            does the visual separation on its own. */}
+        {/* 1) Brand row — minimal "inscription" form.
+            The wordmark is the only line here; the subtitle that used
+            to live below ("Bibliothèque numérique de la législation
+            haïtienne") was already restated in the welcome paragraph
+            inside the headline card below, so we dropped the duplicate.
+            The remaining ``LexHaïti`` gets a touch more letter-spacing
+            (``tracking-[0.1em]``) so it reads less as a logo and more
+            as the carved-stone inscription above the entrance of a
+            public building — fits the institutional tone we're going
+            for. */}
         <div className="text-center">
-          <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
+          <div className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[0.1em]">
             Lex<span className="text-red-600">Haïti</span>
           </div>
-          <p className="mt-2 text-sm sm:text-base md:text-lg italic text-slate-500">
-            {t('home.hero.brandSubtitle')}
-          </p>
         </div>
 
         {/* 2) Hero card — the value-prop block. Tinted slate surface
