@@ -99,24 +99,20 @@ export default function HeroSection() {
         'relative w-full bg-slate-50 text-slate-900 pt-20',
       )}
     >
-      <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* 1) Brand row — duplicates the global header brand on
             purpose: this surface reads as the project's "front desk"
-            and the tagline + ``Sous piblik verifye`` cue benefit from
-            the wordmark anchoring them. The trust pill is intentionally
-            blue (institutional) not green (achievement). */}
-        <div className="flex flex-wrap items-end justify-between gap-3 pb-6 border-b border-slate-200">
-          <div>
-            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              Lex<span className="text-red-600">Haïti</span>
-            </div>
-            <p className="mt-1 text-sm sm:text-base text-slate-500">
-              {t('home.hero.brandSubtitle')}
-            </p>
+            and the centered wordmark + italic subtitle act as a
+            tonal anchor, like the inscription on a public building.
+            No divider below — the slate-tinted headline card next
+            does the visual separation on its own. */}
+        <div className="text-center">
+          <div className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
+            Lex<span className="text-red-600">Haïti</span>
           </div>
-          {/* The mockup carried a top-right trust pill; we leave it
-              out per the user's call — the same signal lives in the
-              bottom institutional row. */}
+          <p className="mt-2 text-sm sm:text-base md:text-lg italic text-slate-500">
+            {t('home.hero.brandSubtitle')}
+          </p>
         </div>
 
         {/* 2) Hero card — the value-prop block. Tinted slate surface
