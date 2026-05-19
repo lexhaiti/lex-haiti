@@ -176,7 +176,7 @@ export const ht = {
     hero: {
       title: 'Pòtal jiridik Repiblik Ayiti',
       description:
-        'Byenveni sou LexHaïti, pòtal piblik referans ki rasanble resous an liy sou dwa ayisyen an — Konstitisyon, kòd, lwa, dekrè ak arete. Tèks yo disponib an fransè ak an kreyòl ayisyen, de lang ofisyèl Repiblik la, ki sòti nan sous piblik verifye.',
+        'Byenveni sou LexHaïti, bibliyotèk nimerik lejislasyon ayisyèn nan. Pòtal la rasanble tèks esansyèl yo nan dwa nasyonal la : Konstitisyon, kòd, lwa, dekrè, arete, òdonans ak kominike. Yo tout soti nan sous piblik verifye.',
       findLabel: 'Jwenn yon tèks',
       placeholder: 'Egz. : Atik 1382, Kòd Sivil, CL-007-09-09',
       searchButton: 'Chèche',

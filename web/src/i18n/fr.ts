@@ -177,7 +177,7 @@ export const fr = {
     hero: {
       title: "Portail juridique de la République d'Haïti",
       description:
-        "Bienvenue sur LexHaïti, le portail public de référence regroupant les ressources en ligne du droit haïtien — Constitutions, codes, lois, décrets et arrêtés. Les textes sont consultables en français et en kreyòl ayisyen, deux langues officielles de la République, à partir de sources publiques vérifiées.",
+        "Bienvenue sur LexHaïti, la bibliothèque numérique de la législation haïtienne. Le portail regroupe les textes essentiels du droit national : Constitution, codes, lois, décrets, arrêtés, ordonnances et communiqués. Tous proviennent de sources publiques vérifiées.",
       findLabel: 'Trouver un texte',
       placeholder: 'Ex. : Article 1382, Code Civil, CL-007-09-09',
       searchButton: 'Rechercher',
