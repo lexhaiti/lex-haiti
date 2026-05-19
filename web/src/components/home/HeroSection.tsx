@@ -114,16 +114,16 @@ export default function HeroSection() {
 
       <div className="relative z-10 container py-12 w-full">
         <div className="w-full xl:w-[78%]">
-          {/* Minimalist hero (option A). The Latin maxim eyebrow was
-              dropped — it's already engraved into the logo's gold ring
-              (visible top-left in the header), so showing it again as
-              text was a double-print. The long welcome paragraph that
-              used to sit between the title and the search box moved
-              to the ``/a-propos`` page where the project's framing
-              belongs; the front door now answers the one question
-              every visitor actually has — "où je cherche?". */}
+          {/* Minimalist hero. The Latin maxim eyebrow was dropped —
+              it's already engraved into the logo's gold ring (visible
+              top-left in the header), so showing it again as text
+              would have been a double-print. The brand name is split
+              into ``Lex`` + ``Haïti`` with the second half coloured to
+              match the header logo's two-tone treatment; on the dark
+              navy hero we use ``red-500`` (vs the header's ``red-600``
+              on white) so the contrast pops without going muddy. */}
           <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-5xl sm:text-6xl md:text-7xl xl:text-[4.5rem] font-extrabold tracking-tight leading-[1.02] text-white">
-            {t('home.hero.title')}
+            Lex<span className="text-red-500">Haïti</span>
           </h1>
 
           {/* Mission tagline — sits right under the brand name; the
@@ -143,7 +143,16 @@ export default function HeroSection() {
             className="mt-8 h-[3px] w-28 bg-amber-400 origin-left"
           />
 
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-10">
+          {/* Short welcome paragraph — kept for visitors who want the
+              one-paragraph context (what the corpus contains + sources
+              vérifiées trust marker). Sits between the accent line and
+              the search box so it doesn't push the primary action
+              down too far. */}
+          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150 fill-mode-both mt-6 text-base sm:text-lg text-white/85 leading-relaxed max-w-3xl">
+            {t('home.hero.description')}
+          </p>
+
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-8">
             {/* sr-only label: the input is visually self-explanatory
                 (search icon + placeholder) so we don't show the label,
                 but screen readers still announce ``Trouver un texte``. */}
