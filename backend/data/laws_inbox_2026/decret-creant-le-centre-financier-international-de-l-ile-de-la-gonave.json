@@ -1,0 +1,24 @@
+{
+  "source_filename": "299581779-Decret-creant-le-Centre-financier-international-de-l-ile-de-La-Gonave.pdf",
+  "extracted_chars": 85362,
+  "extracted_pages": 34,
+  "status": "pending_normalisation",
+  "doc_type": null,
+  "official_title_fr": null,
+  "official_title_ht": null,
+  "act_date": null,
+  "publication_date": null,
+  "moniteur": {
+    "number": null,
+    "year": null,
+    "date": null
+  },
+  "preamble_fr": null,
+  "visas": [],
+  "considerants": [],
+  "enacting_formula_fr": null,
+  "signers": [],
+  "articles": [],
+  "themes": [],
+  "notes": "Fill in the fields above by reading the .txt next to this JSON. Flip status to 'ready_for_ingest' when done."
+}

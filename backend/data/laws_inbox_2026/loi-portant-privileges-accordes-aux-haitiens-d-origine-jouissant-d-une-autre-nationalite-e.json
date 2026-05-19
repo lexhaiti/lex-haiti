@@ -1,0 +1,160 @@
+{
+  "source_filename": "57252819-Loi-portant-privileges-accordes-aux-Haitiens-d-origine-jouissant-d-une-autre-nationalite-et-a-leurs-descendants.pdf",
+  "extracted_chars": 6604,
+  "extracted_pages": 5,
+  "status": "ingested",
+  "doc_type": "loi",
+  "official_title_fr": "Loi portant privilèges accordés aux Haïtiens d'origine jouissant d'une autre nationalité et à leurs descendants",
+  "official_title_ht": null,
+  "title_fr": "Loi du 1er août 2002 portant privilèges accordés aux Haïtiens d'origine jouissant d'une autre nationalité et à leurs descendants",
+  "act_date": "2002-08-01",
+  "publication_date": "2002-08-12",
+  "moniteur": {
+    "number": "65",
+    "year": 2002,
+    "date": "2002-08-12"
+  },
+  "issuing_authority": "CORPS LÉGISLATIF",
+  "preamble_fr": "CORPS LÉGISLATIF",
+  "visas": [
+    "la Constitution de 1987",
+    "l'article 96 du Code de procédure civile",
+    "la loi du 16 juin 1975, modifiée par la loi du 20 septembre 1979, accordant le droit de propriété immobilière aux étrangers et fixant les conditions nouvelles de l'exercice de ce droit",
+    "le décret du 13 janvier 1978, modifié par le décret du 12 octobre 1987, traitant du droit de licence",
+    "l'article 30 du décret du 26 décembre 1978 portant l'Organisation du Service de l'Immigration et de l'Émigration",
+    "la loi du 19 septembre 1982 établissant le statut général de la Fonction Publique Haïtienne",
+    "le Code du travail, décret du 24 février 1984",
+    "le décret du 16 avril 1989 créant le Commissariat des Haïtiens d'outre-mer",
+    "le décret du 29 novembre 1994 portant création et organisation des Forces de Police d'Haïti",
+    "la loi du 25 janvier 1995 portant création du Ministère responsable des Haïtiens Vivant à l'Étranger",
+    "le décret du 26 janvier 1995 portant création de l'Académie de l'École de Police Nationale",
+    "le décret du 30 mars 1995 créant l'Office National de Migration"
+  ],
+  "considerants": [
+    "l'apport considérable des Haïtiens d'outre-mer à l'économie nationale par l'aide régulière qu'ils fournissent à leurs parents vivant en Haïti, par leur participation et leur implication dans la réalisation d'œuvres à caractère humanitaire et social dans les régions les plus défavorisées du pays",
+    "leur importante contribution à l'enrichissement du patrimoine culturel national tant par l'exercice de leurs talents que par leurs créations littéraires et artistiques rehaussant et valorisant ainsi le prestige et le rayonnement du pays à travers le monde",
+    "que c'est sous la pression de circonstances historiques particulières qu'un grand nombre d'Haïtiens vivant actuellement à l'Étranger ont dû, au cours des décennies 60-70 et 80, fuir le pays et adopter, malgré leur attachement au pays et à la nation, une nationalité étrangère, et qu'ils se trouvent, à leur retour, assujettis sans considération aucune, à l'obtention du permis de séjour exigé de tout étranger",
+    "qu'en raison de leur qualité d'Haïtien d'origine, ils peuvent être, par privilège spécial, dispensés de l'accomplissement de certaines formalités et ne plus être assujettis à certaines astreintes, telle l'obligation qui leur est faite par l'Article 30 du décret du 26 décembre 1978 sur l'Immigration et l'Émigration"
+  ],
+  "official_formula": "Sur proposition du Ministre des Haïtiens vivant à l'Étranger, après délibération en Conseil de Ministres, Le Pouvoir Exécutif a proposé Et le Corps Législatif a voté la loi suivante",
+  "enacting_formula_fr": "AU NOM DE LA RÉPUBLIQUE\n\nPar les présentes, LE PRÉSIDENT DE LA RÉPUBLIQUE ORDONNE QUE LA LOI CI-DESSUS DU CORPS LÉGISLATIF SOIT REVÊTUE DU SCEAU DE LA RÉPUBLIQUE, IMPRIMÉE, PUBLIÉE ET EXÉCUTÉE.",
+  "signers": [
+    {
+      "name": "Dr. Rudy Hériveaux",
+      "function_fr": "Président de la Chambre des Députés"
+    },
+    {
+      "name": "Berry Joseph",
+      "function_fr": "Premier Secrétaire de la Chambre des Députés"
+    },
+    {
+      "name": "André Jeune Joseph",
+      "function_fr": "Deuxième Secrétaire de la Chambre des Députés"
+    },
+    {
+      "name": "Dr. Jean Marie Fourel Célestin",
+      "function_fr": "Président du Sénat de la République"
+    },
+    {
+      "name": "Dr. Louis Gérald Gilles",
+      "function_fr": "Premier Secrétaire du Sénat"
+    },
+    {
+      "name": "Youseline Augustin Bell",
+      "function_fr": "Deuxième Secrétaire du Sénat"
+    },
+    {
+      "name": "Jean-Bertrand Aristide",
+      "function_fr": "Président de la République"
+    },
+    {
+      "name": "Yvon Neptune",
+      "function_fr": "Premier Ministre"
+    },
+    {
+      "name": "Jocelerme Privert",
+      "function_fr": "Ministre de l'Intérieur et des Collectivités Territoriales"
+    },
+    {
+      "name": "Faubert Gustave",
+      "function_fr": "Ministre de l'Économie et des Finances"
+    },
+    {
+      "name": "Marc Louis Bazin",
+      "function_fr": "Ministre Sans portefeuille chargé des négociations avec l'Opposition"
+    },
+    {
+      "name": "Lilas Desquiron",
+      "function_fr": "Ministre de la Culture et de la Communication"
+    },
+    {
+      "name": "Ginette Rivière Lubin",
+      "function_fr": "Ministre à la Condition Féminine et aux Droits des Femmes"
+    },
+    {
+      "name": "Paul Duret",
+      "function_fr": "Ministre de la Planification et de la Coopération Externe"
+    },
+    {
+      "name": "Leslie Goutier",
+      "function_fr": "Ministre du Commerce et de l'Industrie"
+    },
+    {
+      "name": "Martine Deverson",
+      "function_fr": "Ministre du Tourisme"
+    },
+    {
+      "name": "Eudes St. Preux Craan",
+      "function_fr": "Ministre du Travail et des Affaires Sociales"
+    },
+    {
+      "name": "Henry Claude Voltaire",
+      "function_fr": "Ministre de la Santé Publique et de la Population"
+    },
+    {
+      "name": "Jean-Baptiste Brown",
+      "function_fr": "Ministre de la Justice et de la Sécurité Publique"
+    },
+    {
+      "name": "Joseph Phillipe Antonio",
+      "function_fr": "Ministre des Affaires Étrangères et des Cultes"
+    },
+    {
+      "name": "Harry Clinton",
+      "function_fr": "Ministre des Travaux Publics, Transports et Communications"
+    },
+    {
+      "name": "Myrto Célestin Saurel",
+      "function_fr": "Ministre de l'Éducation Nationale, de la Jeunesse et des Sports"
+    },
+    {
+      "name": "Leslie Voltaire",
+      "function_fr": "Ministre des Haïtiens Vivant à l'Étranger"
+    },
+    {
+      "name": "Webster Pierre",
+      "function_fr": "Ministre de l'Environnement"
+    },
+    {
+      "name": "Sebastien Hilaire",
+      "function_fr": "Ministre de l'Agriculture, des Ressources Naturelles et du Développement Rural"
+    }
+  ],
+  "articles": [
+    {
+      "number": "1",
+      "text_fr": "Tout Haïtien d'origine jouissant d'une autre nationalité et ses descendants sont :\n\na) dispensés de visa Haïtien pour entrer ou sortir d'Haïti ;\nb) dispensés de l'accomplissement des formalités du permis de séjour et du paiement des taxes y afférentes ;\nc) dispensés de l'accomplissement des formalités du permis de travail, du permis d'emploi et du paiement des taxes y afférentes ;\nd) dispensés de l'accomplissement des formalités liées à la licence des étrangers et du paiement des taxes y afférentes ;\ne) éligibles tant à la fonction publique qu'au marché de l'emploi, sauf dans les cas expressément interdits par la Constitution ;\nf) dispensés de l'autorisation du Ministère de la Justice pour acquérir toutes propriétés immobilières ;\ng) autorisés à acquérir en zone urbaine toute propriété immobilière avec une superficie ne dépassant pas 3 ha 87, soit l'équivalent de trois (3) carreaux de terre ;\nh) habilités à jouir pleinement des mêmes droits sur la succession que tous les Haïtiens ;\ni) autorisés, en cas de vente aux enchères par la voie parée, à se proclamer adjudicataires de l'immeuble affecté au paiement de leur créance, et des déclarations de commande peuvent être faites en leur faveur."
+    },
+    {
+      "number": "2",
+      "text_fr": "La présente Loi abroge toutes Lois ou dispositions de Lois, tous Décrets-Lois ou dispositions de Décrets-Lois qui lui sont contraires et sera publiée et exécutée à la diligence des Ministres des Haïtiens vivant à l'Étranger, des Affaires Étrangères, de la Justice, des Finances et de l'Intérieur, chacun en ce qui le concerne.\n\nDonnée à la Chambre des Députés, le mercredi 26 juin 2002, An 199ème de l'Indépendance.\nDonnée au Sénat de la République, le mardi 2 juillet 2002, An 199ème de l'Indépendance.\nDonné au Palais National, à Port-au-Prince, le 1er août 2002, An 199ème de l'Indépendance."
+    }
+  ],
+  "themes": [
+    "droit_administratif",
+    "droit_famille"
+  ],
+  "notes": "Normalized 2026-05-19 by Claude. Adopted by Chambre 2002-06-26, by Sénat 2002-07-02, promulgated by Aristide 2002-08-01, published Moniteur No 65 of 2002-08-12.",
+  "legal_text_id": 176,
+  "ingested_at": "2026-05-19T17:39:39.984272"
+}

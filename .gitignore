@@ -41,6 +41,11 @@ backend/exports/
 # Logs
 *.log
 
+# Extracted text from the laws-folder inbox — regeneratable from the
+# source PDFs via ``scripts/extract_laws_folder_text.py``. The .json
+# next to each .txt IS committed (editorial state).
+backend/data/laws_inbox_2026/*.txt
+
 # Secrets / env
 .env
 .env.local
