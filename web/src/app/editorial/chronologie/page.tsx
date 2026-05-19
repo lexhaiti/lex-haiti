@@ -16,7 +16,7 @@
  * it surfaces this data) shows ``unknown`` verbatim so visitors
  * don't infer "in force" from silence.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
@@ -239,47 +239,101 @@ export default function ChronologiePage() {
     )
   }
 
-  if (!isEditor) {
-    return (
-      <div className="container py-12">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 max-w-3xl">
-          <p className="text-sm text-slate-700">
-            {isFr
-              ? 'Cette page est réservée aux éditeurs connectés.'
-              : 'Paj sa a pou editè ki konekte sèlman.'}
-          </p>
+  // Page-level header banner. Rendered before the editor gate so a
+  // signed-out visitor still sees what the page is about (and can
+  // click ``Se connecter`` from the gate below).
+  const PageHeader = (
+    <section className="relative w-full bg-gradient-to-br from-primary via-primary to-slate-900 text-white pt-24 pb-10 overflow-hidden">
+      {/* Decorative date-ring on the right */}
+      <div
+        aria-hidden
+        className="absolute right-6 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center pointer-events-none select-none"
+      >
+        <div className="w-48 h-48 rounded-full border-2 border-white/10 flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full border border-white/15 flex items-center justify-center text-white/30 font-serif text-5xl">
+            1804
+          </div>
         </div>
       </div>
-    )
-  }
 
-  return (
-    <div className="container py-10 lg:py-12 space-y-6">
-      <Breadcrumb
-        variant="light"
-        items={[
-          { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
-          { label: isFr ? 'Éditorial' : 'Editoryal', href: '/editorial' },
-          { label: isFr ? 'Chronologie' : 'Chronoloji' },
-        ]}
-      />
-
-      <header>
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+      <div className="relative container">
+        <Breadcrumb
+          variant="dark"
+          items={[
+            { label: isFr ? 'Accueil' : 'Akèy', href: '/' },
+            { label: isFr ? 'Éditorial' : 'Editoryal', href: '/editorial' },
+            { label: isFr ? 'Chronologie' : 'Chronoloji' },
+          ]}
+        />
+        <div className="mt-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-300/90">
           <CalendarRange className="w-3.5 h-3.5" />
-          {isFr ? 'Index chronologique' : 'Endèks kwonolojik'}
-        </p>
-        <h1 className="text-2xl lg:text-3xl font-black text-slate-900 leading-tight">
+          {isFr ? 'Index chronologique éditorial' : 'Endèks kwonolojik editoryal'}
+        </div>
+        <h1 className="mt-2 text-3xl lg:text-4xl font-black leading-tight max-w-3xl">
           {isFr
             ? 'Chronologie de la législation haïtienne'
             : 'Kwonoloji lejislasyon ayisyen an'}
         </h1>
-        <p className="mt-2 text-sm text-slate-600 max-w-3xl">
+        <p className="mt-3 text-sm md:text-base text-slate-200/90 max-w-3xl leading-relaxed">
           {isFr
-            ? "Références extraites de l'Index Chronologique de la Législation Haïtienne (1804-2000) publié par le Ministère de la Justice en 2001. Chaque entrée est une citation historique — elle existe avant que le texte sous-jacent ne soit ingéré."
-            : "Referans yo soti nan Endèks Kwonolojik Lejislasyon Ayisyen an (1804-2000), Ministè Lajistis, 2001. Chak antre se yon referans istorik — li egziste anvan menm tèks la enpòte."}
+            ? "1 728 références extraites de l'Index Chronologique de la Législation Haïtienne (1804-2000), publié par le Ministère de la Justice en septembre 2001. Chaque entrée est une citation historique — elle existe avant que le texte sous-jacent ne soit ingéré."
+            : "1,728 referans yo soti nan Endèks Kwonolojik Lejislasyon Ayisyen an (1804-2000), Ministè Lajistis, septanm 2001. Chak antre se yon referans istorik — li egziste anvan menm tèks la enpòte."}
         </p>
-      </header>
+        {stats && (
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-300/90">
+            <span>
+              <span className="font-bold text-white tabular-nums">
+                {stats.total.toLocaleString()}
+              </span>{' '}
+              {isFr ? 'entrées' : 'antre'}
+            </span>
+            <span>·</span>
+            <span>
+              <span className="font-bold text-white tabular-nums">
+                {stats.chapters}
+              </span>{' '}
+              {isFr ? 'chapitres' : 'chapit'}
+            </span>
+            <span>·</span>
+            <span>
+              <span className="font-bold text-white tabular-nums">
+                {stats.sections}
+              </span>{' '}
+              {isFr ? 'sections' : 'seksyon'}
+            </span>
+            <span>·</span>
+            <span>
+              <span className="font-bold text-white tabular-nums">
+                {stats.year_min}–{stats.year_max}
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+
+  if (!isEditor) {
+    return (
+      <Fragment>
+        {PageHeader}
+        <div className="container py-12">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 max-w-3xl">
+            <p className="text-sm text-slate-700">
+              {isFr
+                ? 'Cette page est réservée aux éditeurs connectés.'
+                : 'Paj sa a pou editè ki konekte sèlman.'}
+            </p>
+          </div>
+        </div>
+      </Fragment>
+    )
+  }
+
+  return (
+    <Fragment>
+      {PageHeader}
+      <div className="container py-8 lg:py-10 space-y-6">
 
       {/* In-force status caveat — central to the editorial brief. */}
       <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 flex items-start gap-3">
@@ -642,7 +696,8 @@ export default function ChronologiePage() {
           />
         </>
       )}
-    </div>
+      </div>
+    </Fragment>
   )
 }
 
@@ -788,3 +843,4 @@ function StatTile({
     </div>
   )
 }
+
