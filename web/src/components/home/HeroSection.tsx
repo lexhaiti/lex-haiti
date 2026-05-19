@@ -114,68 +114,55 @@ export default function HeroSection() {
 
       <div className="relative z-10 container py-12 w-full">
         <div className="w-full xl:w-[78%]">
-          {/* Latin maxim eyebrow — same maxim used on /a-propos's quote
-              card, here as a small italic line above the H1 to anchor
-              the project's mission ("publicity of law is the foundation
-              of liberty") on the front door. Kept restrained so the H1
-              stays visually dominant. */}
-          <p className="animate-in fade-in duration-500 text-xs sm:text-sm italic text-amber-300/80 mb-3">
-            <span className="not-italic font-bold uppercase tracking-[0.18em] text-amber-300/60 mr-2">
-              ⁂
-            </span>
-            Publicitas iuris fundamentum libertatis.
-          </p>
-
-          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-4xl sm:text-5xl md:text-6xl xl:text-[3.75rem] font-extrabold tracking-tight leading-[1.05] text-white">
-            {/* The brand name is now the H1 — the descriptive
-                "Portail juridique de la République d'Haïti" wording
-                we used before was institutional-sounding and risked
-                implying an official mandate LexHaïti doesn't yet hold.
-                Brand name + a short mission tagline below carries the
-                same weight without the legal-status ambiguity. */}
+          {/* Minimalist hero (option A). The Latin maxim eyebrow was
+              dropped — it's already engraved into the logo's gold ring
+              (visible top-left in the header), so showing it again as
+              text was a double-print. The long welcome paragraph that
+              used to sit between the title and the search box moved
+              to the ``/a-propos`` page where the project's framing
+              belongs; the front door now answers the one question
+              every visitor actually has — "où je cherche?". */}
+          <h1 className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both text-5xl sm:text-6xl md:text-7xl xl:text-[4.5rem] font-extrabold tracking-tight leading-[1.02] text-white">
             {t('home.hero.title')}
           </h1>
 
-          {/* Mission tagline: "Le droit haïtien, en accès libre." —
-              short, memorable, and ties the brand to its promise
-              without claiming a status (``service public``,
-              ``portail officiel``) we can't legally back. */}
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both mt-3 text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-white/85 leading-tight">
+          {/* Mission tagline — sits right under the brand name; the
+              accès libre word does double duty (gratis + libre as in
+              freedom) and carries the value prop in five words. */}
+          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both mt-4 text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white/85 leading-tight">
             {t('home.hero.tagline')}
           </p>
 
-          {/* Amber accent — picks up the warm bronze of the palmis relief. */}
+          {/* Amber accent — picks up the warm bronze of the palmis
+              relief. Subtle, but it ties the typography back to the
+              brand emblem's gold ring. */}
           <motion.div
             initial={{ opacity: 0, scaleX: 0 }}
             animate={{ opacity: 1, scaleX: 1 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="mt-6 h-[3px] w-28 bg-amber-400 origin-left"
+            className="mt-8 h-[3px] w-28 bg-amber-400 origin-left"
           />
 
-          <p className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-6 text-base sm:text-lg text-white/85 leading-relaxed">
-            {t('home.hero.description')}
-          </p>
-
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mt-8">
-            <label
-              htmlFor="hero-search"
-              className="block text-sm font-semibold text-white/90 mb-2"
-            >
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mt-10">
+            {/* sr-only label: the input is visually self-explanatory
+                (search icon + placeholder) so we don't show the label,
+                but screen readers still announce ``Trouver un texte``. */}
+            <label htmlFor="hero-search" className="sr-only">
               {t('home.hero.findLabel')}
             </label>
 
             <form
               onSubmit={onSubmit}
               className={cn(
-                'flex items-stretch gap-0 rounded-lg overflow-hidden',
-                'bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]',
+                'flex items-stretch gap-0 rounded-xl overflow-hidden',
+                'bg-white shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)]',
                 'ring-1 ring-white/15',
                 'focus-within:ring-2 focus-within:ring-amber-300/60',
                 'transition-shadow',
               )}
             >
               <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                 <input
                   id="hero-search"
                   type="search"
@@ -183,13 +170,13 @@ export default function HeroSection() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('home.hero.placeholder')}
                   aria-label={t('home.hero.findLabel')}
-                  className="w-full h-14 pl-11 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
+                  className="w-full h-16 pl-14 pr-4 bg-transparent text-slate-900 placeholder:text-slate-400 placeholder:italic placeholder:text-sm text-base outline-none"
                   style={{ fontSize: '16px' }}
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 px-5 sm:px-7 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
+                className="inline-flex items-center gap-2 px-6 sm:px-8 bg-primary text-white text-sm font-semibold hover:bg-primary/90 active:scale-[0.99] transition-all"
               >
                 <Search className="w-4 h-4" />
                 <span className="hidden sm:inline">{t('home.hero.searchButton')}</span>
