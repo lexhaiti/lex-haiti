@@ -188,30 +188,101 @@ OCR_FIXES: list[tuple[re.Pattern[str], str]] = [
 
 # Boilerplate lines that repeat on every page of Le Moniteur.
 # Substring match (case-insensitive) — when the needle appears
-# anywhere on the line, the whole line is dropped.
+# anywhere on the line, the whole line is dropped. OCR variants
+# (``JOURNAL`` → ``JQURNAL``, ``REPUBLIQUE`` → ``REPUBLlQUE``,
+# ``PORT-AU-PRINCE`` → ``PORT-AD-PRINCE``) are listed separately so
+# we catch the legacy scans too.
 MASTHEAD_NEEDLES = [
-    "JOURNAL OFFICIEL DE LA REPUBLIQUE D'HAITI",
-    "JOURNAL OFFICIEL DE LA RÉPUBLIQUE D'HAÏTI",
+    # Journal masthead — shortened so OCR variants of the trailing
+    # ``D'HAITI`` (``U'HAIT!``, ``D'HAÏ'I``…) don't break the match.
+    "JOURNAL OFFICIEL",
+    "JQURNAL OFFICIEL",                    # OCR variant
+    "JOUl(NAI",                            # OCR variant
+    "JOURNAL OffICIEL",                    # OCR variant
+    # Frequency line
     "Paraissant du Lundi au Vendredi",
+    "araissant du Lundi",
+    "araissant",                            # short — catches ``Pm'aissnat``, ``Pwtusstulf``, ``araissant Directeur``
+    "Paraissant Directeur",
+    "Paraissant DIRECTEUR",
+    "du Lundi au Vendredi",
+    "Lundi et le Jeudi",
+    "Lundi et te Jeudi",                   # OCR variant
+    "Lundi et Le Jeudi",
+    "lundi et le jeudi",
+    # Director role + names
     "Directeur Général",
     "Directrice Générale",
-    "Ronald Saint Jean",
+    "DIRECTEUR GENERAL",
+    "DIRECTEUR GÉNÉRAL",
+    "DIRECTRICE GÉNÉRALE",
+    "DIRE(TI'EUR",                          # OCR variant
+    "DIRECTEUR GENERAI",                    # OCR variant
+    "Direcfeur",                            # OCR variant
+    "Direorem",                             # OCR variant
+    # Devise
     "LIBERTÉ ÉGALITÉ FRATERNITÉ",
     "LIBERTE EGALITE FRATERNITE",
+    "LIBERTÉ | ÉGALITÉ",
+    "LIBERTÉ __ ÉGALITÉ",
+    # Republic header
     "RÉPUBLIQUE D'HAÏTI",
     "REPUBLIQUE D'HAITI",
+    "REPUBLlQUE D'HAITI",                   # OCR variant
+    "REPUBLIQUI",                           # OCR variant
+    # Special edition
     "Numéro Spécial",
     "NUMÉRO SPÉCIAL",
     "NUMERO SPECIAL",
+    "Numéro Extraordinaire",
+    "NUMERO EXTRAORDINAIRE",
+    "N uméro Extraordinaire",
+    # City line
     "PORT-AU-PRINCE",
     "PORT-AU.PRINCE",
+    "PORT-AD-PRINCE",                       # OCR variant
+    "PORT -AU .PRINCE",                     # OCR variant
+    # Page-footer ("LE MONITEUR" chevron-marker)
     "<< LE MONITEUR >>",
     "« LE MONITEUR »",
+    # Press footer (every issue carries this)
+    "Presses Nationales d'Haiti",
+    "Presses Nationales d'Haïti",
+    "Hammerton Killick",
+    "ISSN 1683",
+    "Dépôt Légal",
+    "Dép6t Légal",                          # OCR variant
+    "Depot Légal",
+    "Bibliothèque Nationale d'Haïti",
+    "Bibliothèque Nationale d'Haiti",
+    "Bibliothèque Nationaled",              # OCR variant
+    "pressesnationales",
+    "pndh-moniteur@",
+    "lemoniteur@",
+    "presses_nationales",
+    "PRESSES",
+    "Site Web",
+    "www.pressesnational",
+    # Phone / Tirage
+    "Tél.:",
+    "Tél:",
+    "Tel.:",
+    "Tel:",
+    "Tirage:",
+    "Tirage :",
+    "exemplaires",
+    "EXEMPLAIRES",
+    # Misc OCR scraps
+    "AN XX",                                # ``AN XXIème. DE LA REVOLUTION``
+    "AN XXI",
+    "DE LA REVOLUTION",
 ]
 
 # Whole-line equality — lines that are ONLY one of these tokens are
-# dropped (typically each one of LIBERTÉ / ÉGALITÉ / FRATERNITÉ is
-# rasterised onto its own line by the masthead).
+# dropped (typically each of LIBERTÉ / ÉGALITÉ / FRATERNITÉ is on
+# its own line, ``Directeur`` heads the director-name line, etc.).
+# Whole-line matching means real-body uses of ``directeur`` aren't
+# clobbered — only the bare masthead label gets dropped.
 MASTHEAD_EXACT = {
     "LIBERTÉ",
     "EGALITE",
@@ -219,36 +290,116 @@ MASTHEAD_EXACT = {
     "FRATERNITÉ",
     "FRATERNITE",
     "Paraissant",
+    "Paraissant .",
+    "x Paraissant",
+    "Directeur",
+    "Directrice",
+    "DIRECTEUR",
+    "DIRECTRICE",
     "du Lundi au Vendredi",
+    "Lundi 11 Mai 2020",        # repeats inside the bail-prof issue
+    "Lundi au Vendredi",
+    "Le Lundi au Vendredi",
     "SOMMAIRE",
+    "Sommaire",
+    "SOMMAIRE _",
     "DECRET",
     "DÉCRET",
+    "DECRETS",
+    "DÉCRETS",
     "LOI",
+    "LOIS",
     "ARRETE",
     "ARRÊTÉ",
+    "ARRETES",
+    "ARRÊTÉS",
+    "CORPS LÉGISLATIF",
+    "ACCORD",
+    "AVIS",
+    # Empirical OCR-garbage strings observed in the laws-folder
+    # scans — heavily-damaged masthead rasters that get OCR'd into
+    # near-words my regex guards can't catch.
+    "Pwtusstulf",
+    "Pm'aissnat",
+    "PAVED Inf sale",
+    "DÊCllE1",
+    "DÉCIŒr",
+    "I~cret",
+    "De'cret",
+    "Le Lurid e l k Jtrudi",
+    "x Paraissant JOURNAL OFFICIEL DE LA REPUBLIQUE U'HAIT! Directeur",
+    "PAVED",
+    "Inf sale",
+    "IJlrtAJt~r 00-lb'IJ",
+    "IJlrtAJt~r",
 }
 
-# ``175e Année - Spécial N° 4`` style line — apostrophe + ``e`` /
-# ``è`` / ``'`` all valid in OCR.
+# Known director / director-name lines that recur as masthead. The
+# match is whole-line + uppercase-tolerant.
+DIRECTOR_NAMES = {
+    "ronald saint jean",
+    "jiehmann d. mellon",
+    "simon desvarieux",
+    "henry robert marc-charles",
+    "edgar jean",
+    "emile jean-baptiste",
+    "willems edouard",
+    "fritzner beauzile",
+    "hitler rodnez",
+}
+
+# ``175e Année - Spécial N° 4`` style line. The OCR scans flatten
+# the ordinal suffix in many ways (``e``, ``è``, ``ème``, ``è me``,
+# ``'``, ``°``, ``¢``, ``<Jè``, ``rY`` — really anything in [0-9]?
+# + a small letter cluster + ``ann[eé]e``). The pattern is wide
+# enough to catch them all while remaining anchored on ``année``.
 YEAR_LINE_RE = re.compile(
-    r"^\d{2,3}\s*[eè'`’]?\s+ann[eé]e\b", re.IGNORECASE
+    r"^\s*\d{1,4}\s*[a-zA-Z<>°¢'`’\"\-]{0,6}\s*ann[eé0-9]\w?\b",
+    re.IGNORECASE,
+)
+
+# E-mail / URL / phone — pure-footer signal in our corpus.
+EMAIL_LINE_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+")
+URL_LINE_RE = re.compile(r"\bwww\.[a-zA-Z0-9.-]+")
+PHONE_LINE_RE = re.compile(r"\(\d{2,4}\)\s*\d{2,4}[-\s]?\d{2,4}")
+
+# An issue-number cover line like ``16<Jè Année No. 54``, ``161 ème
+# Année - Spécial No. 2``, ``150eme Année No. 80`` — same idea as
+# YEAR_LINE_RE but with the ``No.`` continuation.
+ISSUE_NO_LINE_RE = re.compile(
+    r"^\s*\d{1,4}.{0,6}\s*ann[eé]e\b.+\bno\.?\s*\d+",
+    re.IGNORECASE,
 )
 
 
 _WORD_RE = re.compile(r"[A-Za-zÀ-ÿ]{4,}")
-_PUNCT_NOISE = set(",.~|\\/`'*°<>«»")
+_PUNCT_NOISE = set(",.~|\\/`'*°<>«»()[]{}")
+# ``I`` is treated as a vowel here even though uppercase ``I`` is
+# frequently the OCR rendering of lowercase ``l``; that mis-classes
+# some consonant clusters but the consonant-cluster guard below
+# catches the worst offenders.
+_VOWELS = set("aeiouyàâäéèêëîïôöùûüœæAEIOUYÀÂÄÉÈÊËÎÏÔÖÙÛÜŒÆ")
+# Real French rarely has 5+ consonants in a row. OCR garbage like
+# ``lltll'IIINNlllll`` or ``BLNHKFR`` lights this up; we drop the
+# line. The lowercase-only check keeps real proper nouns / Kreyòl
+# (``Mpwen``, ``Strophe``) from being clobbered.
+_CONSONANT_RUN_RE = re.compile(r"[bcdfghjklmnpqrstvwxz]{5,}", re.IGNORECASE)
 
 
 def _is_low_signal(stripped: str) -> bool:
-    """Drop lines that are clearly OCR noise. Three guards:
+    """Drop lines that are clearly OCR noise. Four guards:
 
       1. Very short (≤ 2 chars) — orphan punctuation.
       2. Less than 30 % alphabetic — ``~``, ``-~``, ``ee 7``, …
-      3. No four-or-more-letter pure-alpha word AND a heavy
-         punctuation ratio — catches garbled masthead lines like
-         ``, ~. ~t4or1tl`` and ``,lij,,trlql N° 4 • /,1.111dl J``
-         where the OCR'd characters look word-like but assemble
-         no readable tokens.
+      3. No four-or-more-letter pure-alpha word — catches all-
+         punctuation lines and garbled mastheads.
+      4. Vowel ratio < 15 % among the alpha chars — catches the
+         consonant-cluster OCR garbage like ``lltll'IIINNlllll``,
+         ``Pwtusstulf``, ``JOUl(NAI 1011111(-'1111``,
+         ``DIRECT(TI'EUR``. Real French text always carries vowels
+         at ≥ 30 % of its alpha chars.
+      5. Heavy punctuation ratio (≥ 4 noise punct AND ≥ alpha/3) —
+         catches ``, ~. ~t4or1tl`` and ``,lij,,trlql N° 4``.
     """
     if len(stripped) <= 2:
         return True
@@ -256,6 +407,13 @@ def _is_low_signal(stripped: str) -> bool:
     if alpha / len(stripped) < 0.30:
         return True
     if not _WORD_RE.search(stripped):
+        return True
+    if alpha >= 5:
+        vowels = sum(1 for c in stripped if c in _VOWELS)
+        if vowels / alpha < 0.17:
+            return True
+    # 5+ consonants in a row → likely OCR garbage.
+    if _CONSONANT_RUN_RE.search(stripped):
         return True
     punct = sum(1 for c in stripped if c in _PUNCT_NOISE)
     if punct >= 4 and punct >= alpha // 3:
@@ -266,14 +424,21 @@ def _is_low_signal(stripped: str) -> bool:
 def _strip_masthead(text: str) -> str:
     lines = text.splitlines()
     keep: list[str] = []
+    last_non_blank: str = ""
     for line in lines:
         stripped = line.strip()
         if not stripped:
             keep.append(line)
             continue
+        # Collapse internal multi-spaces so the EXACT match catches
+        # text-layer extractions that pad word gaps (``Le Lurid e l k
+        #  Jtrudi`` ← two spaces between ``k`` and ``Jtrudi``).
+        stripped = re.sub(r"\s+", " ", stripped)
         if stripped in MASTHEAD_EXACT:
             continue
         lo = stripped.lower()
+        if lo in DIRECTOR_NAMES:
+            continue
         if any(needle.lower() in lo for needle in MASTHEAD_NEEDLES):
             continue
         # Bare page-number lines (just digits, ≤ 3 chars)
@@ -281,9 +446,21 @@ def _strip_masthead(text: str) -> str:
             continue
         if YEAR_LINE_RE.match(stripped):
             continue
+        if ISSUE_NO_LINE_RE.match(stripped):
+            continue
+        # E-mail / URL / phone — footer-only in our corpus.
+        if EMAIL_LINE_RE.search(stripped) or URL_LINE_RE.search(stripped):
+            continue
+        if PHONE_LINE_RE.search(stripped):
+            continue
         if _is_low_signal(stripped):
             continue
+        # Dedup: drop a line that is byte-identical to the previous
+        # non-blank line (the cover page repeats document titles).
+        if stripped == last_non_blank:
+            continue
         keep.append(line)
+        last_non_blank = stripped
     return "\n".join(keep)
 
 
