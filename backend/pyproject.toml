@@ -66,6 +66,10 @@ ingestion = [
     # low-confidence pages will be added when budget allows.
     "pytesseract>=0.3.13",
     "pdf2image>=1.17",
+    # Positional text extraction. ``pypdf`` flattens multi-column layouts;
+    # the chronologie index needs per-word x/y to disentangle the 3
+    # columns (description / act date / moniteur ref).
+    "pymupdf>=1.24",
 ]
 
 [build-system]
